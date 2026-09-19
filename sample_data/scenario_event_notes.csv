@@ -1,0 +1,26 @@
+phase,date,event_code,severity_0_100,scenario_note
+historical,2023-10-01,FREIGHT_DISRUPTION,38,Synthetic freight disruption raises logistics cost and supply uncertainty.
+historical,2023-12-01,HOLIDAY_MIX,34,Packaging and label demand strengthens while office/commercial printing loses working days.
+historical,2024-02-01,CUSTOMER_TENDER_LOSS,44,A synthetic large tender loss reduces office/forms order pipeline for several months.
+historical,2024-04-01,ENERGY_SPIKE,51,Regional energy-cost shock raises conversion costs and selling prices.
+historical,2024-06-01,PULP_MAINTENANCE,55,Supplier maintenance tightens pulp availability and raises pulp/logistics costs.
+historical,2024-09-01,MAJOR_CUSTOMER_CAMPAIGN,46,Large customer campaign lifts commercial print and label order pipeline.
+historical,2024-11-01,PACKAGING_PEAK,40,Retail and e-commerce activity drives an unusually strong packaging month.
+historical,2025-01-01,INDUSTRIAL_SLOWDOWN,47,Industrial activity and B2B order intake soften broadly.
+historical,2025-03-01,FX_VOLATILITY,42,EUR volatility increases imported input cost and pricing uncertainty.
+historical,2025-05-01,COMPETITOR_DISCOUNT,39,A synthetic competitor price campaign pressures price-sensitive categories.
+historical,2025-07-01,HEATWAVE_RISK,58,Heatwave/wildfire exposure increases energy and environmental risk.
+historical,2025-09-01,BACK_TO_BUSINESS_UPLIFT,36,Autumn campaigns and business reopening lift commercial and office demand.
+historical,2025-11-01,MAJOR_CONTRACT_WIN,52,A large packaging/label contract creates confirmed demand and backlog.
+historical,2026-01-01,LOGISTICS_NORMALIZATION,22,Freight and logistics conditions normalize after prior volatility.
+historical,2026-04-01,ENERGY_SPIKE,38,Regional energy-cost shock raises conversion costs and selling prices.
+historical,2026-05-01,PROMO_UPLIFT,28,Commercial campaign activity and promotions lift selected print categories.
+historical,2026-06-01,PULP_MAINTENANCE,52,Supplier maintenance tightens pulp availability and raises pulp/logistics costs.
+historical,2026-07-01,HEATWAVE_RISK,63,Heatwave/wildfire exposure increases energy and environmental risk.
+historical,2026-08-01,SUMMER_SLOWDOWN,42,Holiday shutdowns reduce working days and commercial print demand.
+scenario,2026-09-01,SEASONAL_UPLIFT,28,"Back-to-school, catalogue and autumn campaign demand lifts orders."
+scenario,2026-10-01,PULP_SUPPLY_SHOCK,78,Synthetic pulp mill disruption plus forestry constraints cause a sharp raw-material shock.
+scenario,2026-11-01,FX_ENERGY_SQUEEZE,69,EUR weakens while energy costs rise; price-sensitive customer demand softens.
+scenario,2026-12-01,HOLIDAY_MIX,46,Packaging and label demand strengthens while office/commercial printing loses working days.
+scenario,2027-01-01,PORT_CONGESTION,73,Synthetic port congestion raises logistics costs and delays customer commitments.
+scenario,2027-02-01,RECOVERY,24,Supply conditions normalize; customer-order pipeline and activity recover.

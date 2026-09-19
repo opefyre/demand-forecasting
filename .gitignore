@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+runs/*
+!runs/.gitkeep
+node_modules/
+data/
+Sales Forecast-2026.xlsx
+.DS_Store

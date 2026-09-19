@@ -1,0 +1,23 @@
+phase,date,event_code,severity_0_100,scenario_note
+historical,2022-03-01,NOWRUZ_SHUTDOWN,48,Synthetic Nowruz production calendar and customer closure effect.
+historical,2022-07-01,POWER_CURTAILMENT,62,Synthetic summer electricity curtailment at the Qazvin site.
+historical,2022-10-01,FX_PRESSURE,51,Synthetic IRR exchange-rate pressure affects imported pulp and chemicals.
+historical,2023-03-01,NOWRUZ_SHUTDOWN,50,Synthetic Nowruz production calendar and customer closure effect.
+historical,2023-07-01,POWER_CURTAILMENT,70,Synthetic summer electricity curtailment at the Qazvin site.
+historical,2023-11-01,IMPORT_DELAY,58,Synthetic customs and supplier delay extends imported-material lead times.
+historical,2024-03-01,NOWRUZ_SHUTDOWN,53,Synthetic Nowruz production calendar and customer closure effect.
+historical,2024-06-01,PULP_COST_SHOCK,65,Synthetic global pulp-price increase raises input cost and customer prices.
+historical,2024-08-01,POWER_CURTAILMENT,76,Synthetic summer electricity curtailment at the Qazvin site.
+historical,2025-03-01,NOWRUZ_SHUTDOWN,55,Synthetic Nowruz production calendar and customer closure effect.
+historical,2025-05-01,EXPORT_ORDER,47,Synthetic confirmed export order increases selected packaging demand.
+historical,2025-07-01,POWER_CURTAILMENT,72,Synthetic summer electricity curtailment at the Qazvin site.
+historical,2025-12-01,FX_PRESSURE,68,Synthetic IRR exchange-rate pressure affects imported pulp and chemicals.
+historical,2026-03-01,NOWRUZ_SHUTDOWN,56,Synthetic Nowruz production calendar and customer closure effect.
+historical,2026-07-01,POWER_CURTAILMENT,79,Synthetic summer electricity curtailment at the Qazvin site.
+scenario,2026-09-01,BACK_TO_BUSINESS,32,Synthetic post-summer demand recovery in industrial and commercial channels.
+scenario,2026-10-01,FX_PRESSURE,66,Synthetic IRR exchange-rate pressure affects imported pulp and chemicals.
+scenario,2026-11-01,IMPORT_DELAY,61,Synthetic customs and supplier delay extends imported-material lead times.
+scenario,2027-01-01,GAS_CURTAILMENT,57,Synthetic winter gas constraint reduces available production capacity.
+scenario,2027-03-01,NOWRUZ_SHUTDOWN,58,Synthetic Nowruz production calendar and customer closure effect.
+scenario,2027-05-01,EXPORT_ORDER,45,Synthetic confirmed export order increases selected packaging demand.
+scenario,2027-07-01,POWER_CURTAILMENT,73,Synthetic summer electricity curtailment at the Qazvin site.

@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="DemandLab manufacturing planning workspace" />
+  <meta name="theme-color" content="#09090b" />
+  <title>DemandLab</title>
+  <link rel="stylesheet" href="/icons/regular/style.css" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand" aria-label="DemandLab">
+        <span class="brand-mark">DL</span>
+        <span class="brand-copy"><strong>DemandLab</strong><small>Planning</small></span>
+      </div>
+      <nav class="main-nav" aria-label="Primary navigation">
+        <div class="nav-label">Workspace</div>
+        <button class="nav-item active" data-route="today" aria-label="Today" title="Today"><i class="ph ph-house nav-icon"></i><span>Today</span><b id="navDecisionCount">0</b></button>
+        <button class="nav-item" data-route="plans" aria-label="Plans" title="Plans"><i class="ph ph-stack nav-icon"></i><span>Plans</span></button>
+        <button class="nav-item" data-route="forecast" aria-label="Forecast" title="Forecast"><i class="ph ph-chart-line-up nav-icon"></i><span>Forecast</span></button>
+        <button class="nav-item" data-route="methods" aria-label="Method comparison" title="Method comparison"><i class="ph ph-chart-bar nav-icon"></i><span>Method comparison</span></button>
+        <button class="nav-item" data-route="supply" aria-label="Supply and materials" title="Supply and materials"><i class="ph ph-factory nav-icon"></i><span>Supply &amp; materials</span></button>
+        <button class="nav-item" data-route="scenarios" aria-label="Scenarios" title="Scenarios"><i class="ph ph-path nav-icon"></i><span>Scenarios</span></button>
+        <button class="nav-item" data-route="assistant" aria-label="Planning assistant" title="Planning assistant"><i class="ph ph-robot nav-icon"></i><span>Planning assistant</span></button>
+        <div class="nav-label nav-label-spaced">System</div>
+        <button class="nav-item" data-route="data" aria-label="Data and integrations" title="Data and integrations"><i class="ph ph-database nav-icon"></i><span>Data &amp; integrations</span><i id="navDataState" class="nav-state-dot"></i></button>
+        <button class="nav-item" data-route="performance" aria-label="Performance" title="Performance"><i class="ph ph-pulse nav-icon"></i><span>Performance</span></button>
+      </nav>
+      <button class="nav-item admin-link" data-route="admin" aria-label="Administration" title="Administration"><i class="ph ph-sliders-horizontal nav-icon"></i><span>Administration</span></button>
+      <div class="sidebar-foot"><span class="user-avatar">PL</span><span><strong>Planning team</strong><small>Qazvin site</small></span></div>
+    </aside>
+
+    <div class="main-shell">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobileMenu" aria-label="Open navigation"><i class="ph ph-list"></i></button>
+        <div class="context-block">
+          <span class="context-kicker">Planning context</span>
+          <div class="context-line"><strong id="siteName">Qazvin Manufacturing Site</strong><span class="context-divider"></span><span id="planContext">No active plan</span></div>
+        </div>
+        <div class="topbar-actions">
+          <span class="freshness-pill" id="freshnessPill"><i></i><span>No data</span></span>
+          <button class="button secondary" id="exportBtn" disabled><i class="ph ph-export"></i>Export</button>
+          <button class="button primary" id="newForecastBtn"><i class="ph ph-plus"></i>New forecast</button>
+        </div>
+      </header>
+
+      <main class="page-host">
+        <section class="page active" data-page="today">
+          <div class="page-header">
+            <div><span class="eyebrow" id="todayDate">Operations workspace</span><h1>Today</h1><p>Decisions that need attention at the Qazvin site.</p></div>
+            <button class="button primary" data-route="forecast">Review decisions</button>
+          </div>
+          <div class="metric-row" id="todayMetrics">
+            <article class="metric-card"><span>Plan status</span><strong id="todayPlanStatus">Not started</strong><small id="todayPlanNote">Create a forecast to begin</small></article>
+            <article class="metric-card"><span>Forecast evidence</span><strong id="todayEvidence">—</strong><small id="todayEvidenceNote">No validation result</small></article>
+            <article class="metric-card"><span>Items at risk</span><strong id="todayRiskCount">0</strong><small>require review</small></article>
+            <article class="metric-card"><span>Data readiness</span><strong id="todayDataQuality">—</strong><small id="todayDataNote">No source loaded</small></article>
+          </div>
+          <div class="grid-main-aside">
+            <section class="panel">
+              <div class="panel-head"><div><h2>Decision queue</h2><p>Only exceptions that could change the plan.</p></div><span class="count-badge" id="decisionCount">0 open</span></div>
+              <div class="table-wrap"><table><thead><tr><th>Priority</th><th>Item</th><th>Why it needs attention</th><th>Owner</th><th></th></tr></thead><tbody id="decisionTable"><tr class="empty-row"><td colspan="5">Load data to create the decision queue.</td></tr></tbody></table></div>
+            </section>
+            <aside class="stack">
+              <section class="panel compact-panel">
+                <div class="panel-head"><div><h2>Planning cycle</h2><p>Current operational stage.</p></div></div>
+                <ol class="cycle-list" id="cycleList">
+                  <li class="active"><i>1</i><span><strong>Prepare data</strong><small>Connect or import sources</small></span></li>
+                  <li><i>2</i><span><strong>Create forecast</strong><small>Compare and select method</small></span></li>
+                  <li><i>3</i><span><strong>Review exceptions</strong><small>Record reasons and changes</small></span></li>
+                  <li><i>4</i><span><strong>Approve &amp; publish</strong><small>Freeze the operational plan</small></span></li>
+                </ol>
+              </section>
+              <section class="panel compact-panel">
+                <div class="panel-head"><div><h2>Source health</h2><p>Freshness and factor coverage.</p></div></div>
+                <div class="source-health" id="sourceHealth"><div><span>Historical demand</span><b class="neutral">Not connected</b></div><div><span>Future factors</span><b class="neutral">Not connected</b></div><div><span>Iran context</span><b>Configured</b></div></div>
+              </section>
+            </aside>
+          </div>
+        </section>
+
+        <section class="page" data-page="plans">
+          <div class="page-header"><div><span class="eyebrow">Planning system of record</span><h1>Plans</h1><p>Create, review, approve and publish traceable plan versions.</p></div></div>
+          <div class="grid-main-aside">
+            <section class="panel">
+              <div class="panel-head"><div><h2>Plan versions</h2><p>Every plan keeps its data snapshot, method and approval history.</p></div><button class="button secondary small" id="refreshPlansBtn">Refresh</button></div>
+              <div class="table-wrap"><table><thead><tr><th>Plan</th><th>Status</th><th>Horizon</th><th>Evidence</th><th>Owner</th><th>Updated</th></tr></thead><tbody id="plansTable"><tr class="empty-row"><td colspan="6">No plan versions yet.</td></tr></tbody></table></div>
+            </section>
+            <aside class="stack">
+              <section class="panel compact-panel">
+                <div class="panel-head"><div><h2>Create from current forecast</h2><p>Save the run as a governed plan.</p></div></div>
+                <label class="field"><span>Plan name</span><input id="planName" value="Qazvin monthly operating plan" /></label>
+                <label class="field"><span>Owner</span><input id="planOwner" value="Planning team" /></label>
+                <button class="button primary full" id="createPlanBtn" disabled>Create draft plan</button>
+              </section>
+              <section class="panel compact-panel" id="selectedPlanPanel">
+                <div class="panel-head"><div><h2>Selected plan</h2><p id="selectedPlanName">Select a plan to review.</p></div></div>
+                <div class="plan-actions">
+                  <button class="button secondary full" data-plan-status="review" disabled>Send for review</button>
+                  <button class="button secondary full" data-plan-status="approved" disabled>Approve</button>
+                  <button class="button primary full" data-plan-status="published" disabled>Publish plan</button>
+                </div>
+                <p class="inline-note" id="planActionNote">Approval is blocked automatically when forecast evidence is limited.</p>
+                <div class="plan-comparison" id="planComparison"></div>
+                <div class="plan-history" id="planHistory"><p class="empty-copy">Approval history appears here.</p></div>
+                <label class="field plan-comment-field"><span>Review note</span><textarea id="planComment" rows="2" placeholder="Decision, assumption or follow-up"></textarea></label>
+                <button class="button secondary full plan-comment-button" id="addPlanCommentBtn" disabled>Add note</button>
+              </section>
+            </aside>
+          </div>
+        </section>
+
+        <section class="page" data-page="forecast">
+          <div class="page-header forecast-head">
+            <div><span class="eyebrow">Forecast workbench</span><h1>Demand forecast</h1><p id="forecastSubtitle">Load data to review a demand stream.</p></div>
+            <div class="header-controls"><label class="select-field"><span>View</span><select id="forecastItemSelect"><option value="__all__">All demand</option></select></label><button class="button secondary" id="saveViewBtn" disabled>Save view</button><button class="button secondary" id="addOverrideBtn" disabled>Add override</button></div>
+          </div>
+          <section class="notice evidence-notice hidden" id="evidenceNotice"><span class="notice-icon"><i class="ph ph-warning"></i></span><div><strong id="evidenceTitle">Limited evidence</strong><p id="evidenceCopy"></p></div><button class="text-link" data-route="methods">View validation</button></section>
+          <div class="metric-row forecast-metrics">
+            <article class="metric-card emphasis"><span>Next horizon</span><strong id="forecastTotal">—</strong><small id="forecastTotalUnit">tonnes</small></article>
+            <article class="metric-card"><span>Change vs prior period</span><strong id="forecastChange">—</strong><small>demand movement</small></article>
+            <article class="metric-card"><span>Planning range</span><strong id="forecastRange">—</strong><small>80% calibrated interval</small></article>
+            <article class="metric-card"><span>Selected method</span><strong class="metric-method" id="forecastMethod">—</strong><small id="forecastMethodNote">No run</small></article>
+          </div>
+          <section class="panel chart-panel">
+            <div class="panel-head chart-head"><div><h2>Demand outlook</h2><p>Actual demand flows directly into the first forecast period.</p></div><div class="legend"><span><i class="actual"></i>Actual</span><span><i class="statistical"></i>Statistical</span><span><i class="baseline"></i>Plan</span><span><i class="approved"></i>Approved</span><span><i class="interval"></i>80% range</span></div></div>
+            <div class="chart-stage"><svg id="forecastChart" viewBox="0 0 1200 430" preserveAspectRatio="none" role="img" aria-label="Historical demand and forecast"></svg><div class="chart-tooltip hidden" id="chartTooltip"></div></div>
+          </section>
+          <div class="grid-main-aside forecast-lower">
+            <section class="panel">
+              <div class="panel-head"><div><h2>Period values</h2><p>Exact baseline and planning range.</p></div></div>
+              <div class="table-wrap forecast-table-wrap"><table><thead><tr><th>Period</th><th class="num">Statistical</th><th class="num">Plan</th><th class="num">Approved</th><th class="num">Low</th><th class="num">High</th></tr></thead><tbody id="forecastValues"><tr class="empty-row"><td colspan="6">No forecast values.</td></tr></tbody></table></div>
+            </section>
+            <aside class="stack">
+              <section class="panel compact-panel"><div class="panel-head"><div><h2>What is moving demand</h2><p>Association, not proof of causation.</p></div></div><div class="driver-list" id="driverList"><p class="empty-copy">No approved factors yet.</p></div></section>
+              <section class="panel compact-panel override-panel hidden" id="overridePanel"><div class="panel-head"><div><h2>Planner override</h2><p>Baseline remains unchanged and auditable.</p></div></div><label class="field"><span>Period</span><select id="overridePeriod"></select></label><label class="field"><span>New value</span><input id="overrideValue" type="number" min="0" /></label><label class="field"><span>Reason</span><textarea id="overrideReason" rows="3" placeholder="What changed in the business?"></textarea></label><button class="button primary full" id="saveOverrideBtn">Save override</button></section>
+            </aside>
+          </div>
+        </section>
+
+        <section class="page" data-page="methods">
+          <div class="page-header"><div><span class="eyebrow">Transparent model selection</span><h1>Method comparison</h1><p>Every method is tested on the same historical windows and requested horizon.</p></div></div>
+          <div class="method-summary panel"><div><span>Selected approach</span><strong id="methodSelected">—</strong></div><div><span>Validation design</span><strong id="methodValidation">—</strong></div><div><span>Evidence</span><strong id="methodEvidence">—</strong></div><div><span>Simple baseline</span><strong id="methodBaseline">—</strong></div></div>
+          <div class="grid-main-aside">
+            <section class="panel">
+              <div class="panel-head"><div><h2>Candidate performance</h2><p>Lower error and near-zero bias are better.</p></div><label class="select-field inline"><span>Apply method</span><select id="methodApply"><option value="recommended">Recommended</option><option value="seasonal">Seasonal pattern</option><option value="trend">Trend</option><option value="intermittent">Intermittent demand</option><option value="driver">Driver-aware</option></select></label></div>
+              <div class="table-wrap"><table><thead><tr><th>Method</th><th class="num">WAPE</th><th class="num">Bias</th><th class="num">sMAPE</th><th class="num">Stability</th><th class="num">Weight</th><th></th></tr></thead><tbody id="methodTable"><tr class="empty-row"><td colspan="7">Run a forecast to compare methods.</td></tr></tbody></table></div>
+            </section>
+            <aside class="stack">
+              <section class="panel compact-panel"><div class="panel-head"><div><h2>How the winner is chosen</h2><p>Plain-language selection rules.</p></div></div><ul class="plain-list"><li>Same dates and horizon for every candidate</li><li>Compared with seasonal naive</li><li>Series-specific winners for mixed demand</li><li>Weak evidence cannot be auto-published</li><li>Ensembles must earn their place</li></ul></section>
+              <section class="panel compact-panel"><div class="panel-head"><div><h2>Open-source engine</h2><p>Established libraries, reproducible results.</p></div></div><div class="tech-list"><span><b>statsmodels</b> ETS, ARIMA, Theta</span><span><b>scikit-learn</b> Ridge and tree models</span><span><b>pandas / NumPy</b> data preparation</span><span><b>holidays / persiantools</b> Iran calendar</span></div></section>
+            </aside>
+          </div>
+          <section class="panel horizon-panel"><div class="panel-head"><div><h2>Error by forecast month</h2><p>Shows where accuracy weakens across the planning horizon.</p></div><span class="count-badge" id="methodCoverage">80% interval target</span></div><div class="table-wrap"><table><thead><tr><th>Month ahead</th><th class="num">WAPE</th><th class="num">Bias</th><th class="num">MAE</th><th class="num">Validation points</th></tr></thead><tbody id="horizonMethodTable"><tr class="empty-row"><td colspan="5">Run a forecast to review horizon error.</td></tr></tbody></table></div></section>
+        </section>
+
+        <section class="page" data-page="supply">
+          <div class="page-header"><div><span class="eyebrow">Operational consequences</span><h1>Supply &amp; materials</h1><p>Translate forecast demand into stock, capacity and replenishment risk.</p></div></div>
+          <div class="metric-row"><article class="metric-card"><span>Finished-goods risks</span><strong id="supplyShortages">—</strong><small>items below safety stock</small></article><article class="metric-card"><span>Material shortages</span><strong id="materialShortages">—</strong><small>time-phased MRP exceptions</small></article><article class="metric-card"><span>Line bottlenecks</span><strong id="supplyCapacity">—</strong><small>periods above available tonnes</small></article><article class="metric-card"><span>Quality hold</span><strong id="qualityHold">—</strong><small>unavailable material quantity</small></article></div>
+          <section class="panel"><div class="panel-head"><div><h2>Operational actions</h2><p>Forecast, inventory, service target and capacity combined at item level.</p></div><label class="select-field inline"><span>Show</span><select id="supplyFilter"><option value="all">All items</option><option value="risk">Only risks</option></select></label></div><div class="table-wrap"><table><thead><tr><th>Item</th><th class="num">Next month</th><th class="num">Closing stock</th><th class="num">Days cover</th><th class="num">Safety stock</th><th class="num">Service target</th><th class="num">Capacity use</th><th class="num">Lead time</th><th>Action</th></tr></thead><tbody id="supplyTable"><tr class="empty-row"><td colspan="9">Operational fields appear when data is loaded.</td></tr></tbody></table></div></section>
+          <div class="operations-grid">
+            <section class="panel"><div class="panel-head"><div><h2>Material requirements</h2><p>BOM explosion, usable inventory, open purchase orders, safety stock and MOQ.</p></div><span class="count-badge" id="mrpSource">Operations master required</span></div><div class="table-wrap tall-table"><table><thead><tr><th>Material</th><th>Period</th><th class="num">Gross need</th><th class="num">Receipts</th><th class="num">Balance</th><th class="num">Shortage</th><th class="num">Order</th><th>Release by</th><th>Status</th></tr></thead><tbody id="materialTable"><tr class="empty-row"><td colspan="9">Upload an operations master to calculate material requirements.</td></tr></tbody></table></div></section>
+            <section class="panel"><div class="panel-head"><div><h2>Line capacity</h2><p>Monthly load against production calendars, downtime and available tonnes.</p></div></div><div class="table-wrap tall-table"><table><thead><tr><th>Line</th><th>Period</th><th class="num">Demand</th><th class="num">Available</th><th class="num">Use</th><th class="num">Downtime</th><th class="num">Gap</th><th>Status</th></tr></thead><tbody id="capacityTable"><tr class="empty-row"><td colspan="8">Upload an operations master to calculate capacity.</td></tr></tbody></table></div></section>
+          </div>
+        </section>
+
+        <section class="page" data-page="scenarios">
+          <div class="page-header"><div><span class="eyebrow">Explicit assumptions</span><h1>Scenarios</h1><p>Compare business assumptions without overwriting the baseline.</p></div><button class="button primary" id="applyScenarioBtn" disabled>Run scenario</button></div>
+          <div class="scenario-layout">
+            <section class="panel scenario-builder">
+              <div class="panel-head"><div><h2>Scenario assumptions</h2><p>Use named, reviewable inputs—never hidden factor extension.</p></div></div>
+              <div class="form-grid three"><label class="field"><span>Scenario name</span><input id="scenarioName" value="Base operating scenario" /></label><label class="field"><span>Demand adjustment</span><div class="input-unit"><input id="scenarioAdjustment" type="number" min="-90" max="300" value="0" /><b>%</b></div></label><label class="field"><span>Future-factor treatment</span><select id="scenarioPolicy"><option value="require">Require complete values</option><option value="carry">Carry last observed</option><option value="median">Use historical median</option></select></label></div>
+              <div class="assumption-grid" id="scenarioCards"><article><span>Exchange rate</span><strong>Uploaded series</strong><small>Iran · monthly</small></article><article><span>Energy availability</span><strong>Uploaded series</strong><small>Qazvin site · monthly</small></article><article><span>Import lead time</span><strong>Uploaded series</strong><small>Iran / supplier lanes</small></article><article><span>Working calendar</span><strong>Iran calendar</strong><small>Site calendar</small></article></div>
+            </section>
+            <section class="panel"><div class="panel-head"><div><h2>Scenario comparison</h2><p>Demand, inventory, service, capacity and financial exposure against the baseline.</p></div></div><div class="table-wrap"><table><thead><tr><th>Scenario</th><th class="num">Demand</th><th class="num">Change</th><th class="num">Closing stock</th><th class="num">Stock risks</th><th class="num">Capacity risks</th><th class="num">Cost exposure</th><th>Status</th></tr></thead><tbody id="scenarioTable"><tr class="empty-row"><td colspan="8">Run a forecast to establish the baseline.</td></tr></tbody></table></div></section>
+          </div>
+        </section>
+
+        <section class="page" data-page="data">
+          <div class="page-header"><div><span class="eyebrow">Source control</span><h1>Data &amp; integrations</h1><p>Import, map and validate data before it reaches the forecast.</p></div><button class="button secondary" id="loadDemoBtn">Load Iran sample</button></div>
+          <div class="data-step-grid">
+            <section class="panel data-panel">
+              <div class="step-number">1</div><div class="panel-head"><div><h2>Connect files</h2><p>CSV or Excel, processed locally.</p></div></div>
+              <label class="upload-card" id="historyCard"><input id="historyFile" type="file" accept=".csv,.xlsx,.xls" /><span class="upload-icon"><i class="ph ph-clock-counter-clockwise"></i></span><span><strong id="historyFileName">Historical demand</strong><small id="historyFileMeta">Required · up to 50 MB</small></span><b>Choose file</b></label>
+              <label class="upload-card" id="futureCard"><input id="futureFile" type="file" accept=".csv,.xlsx,.xls" /><span class="upload-icon"><i class="ph ph-calendar-dots"></i></span><span><strong id="futureFileName">Future factors</strong><small id="futureFileMeta">Optional unless driver-aware</small></span><b>Choose file</b></label>
+              <label class="upload-card" id="operationsCard"><input id="operationsFile" type="file" accept=".xlsx,.xlsm" /><span class="upload-icon"><i class="ph ph-factory"></i></span><span><strong id="operationsFileName">Operations master</strong><small id="operationsFileMeta">BOM, materials, POs and capacity</small></span><b>Choose file</b></label>
+              <div class="integration-strip"><span><i></i>Spreadsheet</span><span><i></i>Folder</span><span><i></i>Database</span><span><i></i>API / ERP</span></div>
+            </section>
+            <section class="panel data-panel">
+              <div class="step-number">2</div><div class="panel-head"><div><h2>Map the data</h2><p>Tell DemandLab what each field means.</p></div></div>
+              <div class="form-grid two mapping-grid"><label class="field"><span>Date</span><select id="dateCol"></select></label><label class="field"><span>Demand / consumption</span><select id="targetCol"></select></label><label class="field"><span>Item or series</span><select id="itemCol"></select></label><label class="field"><span>SKU</span><select id="skuCol"></select></label><label class="field"><span>Category</span><select id="categoryCol"></select></label><label class="field"><span>Customer / market</span><select id="customerCol"></select></label><label class="field"><span>Future date</span><select id="futureDateCol"></select></label><label class="field"><span>Future item</span><select id="futureItemCol"></select></label></div>
+              <div class="readiness" id="mappingReadiness"><i></i><span>Upload historical data to begin mapping.</span></div>
+            </section>
+            <section class="panel data-panel wide">
+              <div class="step-number">3</div><div class="panel-head"><div><h2>Choose signals and method</h2><p>Only select factors known or explicitly assumed for the forecast horizon.</p></div></div>
+              <div class="signal-layout"><div><h3>Available signals</h3><div class="signal-picker" id="signalPicker"><p class="empty-copy">Signals appear after file mapping.</p></div></div><div class="run-settings"><h3>Run settings</h3><label class="field"><span>Frequency</span><select id="frequency"><option value="monthly">Monthly</option><option value="weekly">Weekly</option><option value="daily">Daily</option></select></label><label class="field"><span>Horizon</span><div class="input-unit"><input id="horizon" type="number" min="1" max="24" value="12" /><b>periods</b></div></label><label class="field"><span>Forecast approach</span><select id="methodSelection"><option value="recommended">Recommended</option><option value="seasonal">Seasonal pattern</option><option value="trend">Trend</option><option value="intermittent">Intermittent demand</option><option value="driver">Driver-aware</option></select></label><label class="field"><span>Validation depth</span><select id="profile"><option value="deep">Thorough</option><option value="fast">Faster</option></select></label><label class="field"><span>Missing future factors</span><select id="futurePolicy"><option value="require">Require complete values</option><option value="carry">Carry last observed</option><option value="median">Use historical median</option></select></label><button class="button primary full run-button" id="runForecastBtn" disabled>Run forecast</button></div></div>
+            </section>
+            <section class="panel data-panel wide integrations-panel">
+              <div class="step-number">4</div><div class="panel-head"><div><h2>Automated connections</h2><p>Schedule read-only file, database, HTTP API or ERP API checks. Credentials stay in environment variables.</p></div><button class="button secondary small" id="newConnectorBtn"><i class="ph ph-plus"></i>Add connection</button></div>
+              <div class="connector-layout">
+                <div class="table-wrap"><table><thead><tr><th>Connection</th><th>Type</th><th>Schedule</th><th>Last check</th><th>Status</th><th></th></tr></thead><tbody id="connectorTable"><tr class="empty-row"><td colspan="6">No automated connections configured.</td></tr></tbody></table></div>
+                <form class="connector-form hidden" id="connectorForm">
+                  <h3>Connection settings</h3>
+                  <div class="form-grid two"><label class="field"><span>Name</span><input id="connectorName" required placeholder="Planning export folder" /></label><label class="field"><span>Type</span><select id="connectorType"><option value="folder">Folder</option><option value="database">Database</option><option value="http_api">HTTP API</option><option value="erp_api">ERP API</option></select></label><label class="field connector-location"><span>Folder path or URL</span><input id="connectorLocation" placeholder="/shared/planning or https://…" /></label><label class="field"><span>Secret environment variable</span><input id="connectorSecret" placeholder="ERP_API_TOKEN" /></label><label class="field"><span>Refresh</span><select id="connectorSchedule"><option value="0">Manual</option><option value="60">Hourly</option><option value="1440">Daily</option><option value="10080">Weekly</option></select></label><label class="field check-field"><input id="connectorEnabled" type="checkbox" /><span>Enable scheduled checks</span></label></div>
+                  <div class="form-actions"><button type="button" class="button secondary" id="cancelConnectorBtn">Cancel</button><button class="button primary" type="submit">Save connection</button></div>
+                </form>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="page" data-page="performance">
+          <div class="page-header"><div><span class="eyebrow">Model governance</span><h1>Performance</h1><p>Accuracy, bias, coverage and planner value over time.</p></div></div>
+          <div class="metric-row"><article class="metric-card"><span>WAPE</span><strong id="perfWape">—</strong><small>weighted absolute error</small></article><article class="metric-card"><span>Bias</span><strong id="perfBias">—</strong><small>near zero is best</small></article><article class="metric-card"><span>Interval coverage</span><strong id="perfCoverage">—</strong><small>80% target</small></article><article class="metric-card"><span>Validation points</span><strong id="perfPoints">—</strong><small>held-out observations</small></article></div>
+          <section class="panel"><div class="panel-head"><div><h2>Series quality</h2><p>Prioritise weak, biased and intermittent streams.</p></div></div><div class="table-wrap"><table><thead><tr><th>Item</th><th>Demand type</th><th class="num">WAPE</th><th class="num">Bias</th><th class="num">Seasonality</th><th>Best method</th><th>Status</th></tr></thead><tbody id="performanceTable"><tr class="empty-row"><td colspan="7">No validation results yet.</td></tr></tbody></table></div></section>
+          <div class="performance-grid">
+            <section class="panel"><div class="panel-head"><div><h2>Champion &amp; challenger</h2><p>Run-over-run accuracy, drift and automatic retraining policy.</p></div><span class="count-badge" id="retrainBadge">Waiting for runs</span></div><div class="model-duel" id="modelDuel"><p class="empty-copy">Run a forecast to establish a champion.</p></div><div class="table-wrap"><table><thead><tr><th>Run</th><th>Data through</th><th>Champion</th><th class="num">WAPE</th><th class="num">Bias</th><th>Evidence</th></tr></thead><tbody id="monitoringTable"><tr class="empty-row"><td colspan="6">No run history.</td></tr></tbody></table></div></section>
+            <section class="panel"><div class="panel-head"><div><h2>Forecast value add</h2><p>Compare approved planner values with the untouched statistical baseline after actuals arrive.</p></div></div><div class="fva-upload"><label class="upload-card compact"><input id="actualsFile" type="file" accept=".csv,.xlsx" /><span class="upload-icon"><i class="ph ph-check-circle"></i></span><span><strong id="actualsFileName">Closed-period actuals</strong><small>item_id, timestamp, actual</small></span><b>Choose file</b></label><button class="button primary" id="calculateFvaBtn" disabled>Calculate FVA</button></div><div class="fva-result" id="fvaResult"><p class="empty-copy">Upload actuals after the period closes.</p></div></section>
+          </div>
+          <section class="panel intelligence-panel"><div class="panel-head"><div><h2>Lifecycle &amp; product relationships</h2><p>New-product analogs, substitutions, cannibalisation watches and promotions from governed master data.</p></div></div><div class="table-wrap"><table><thead><tr><th>Product</th><th>Lifecycle / relationship</th><th>Related product</th><th>Expected effect</th><th>Evidence</th></tr></thead><tbody id="intelligenceTable"><tr class="empty-row"><td colspan="5">Upload an operations master to add product relationships.</td></tr></tbody></table></div></section>
+        </section>
+
+        <section class="page" data-page="assistant">
+          <div class="page-header"><div><span class="eyebrow">Source-grounded support</span><h1>Planning assistant</h1><p>Ask about the current forecast, materials, capacity, methods or exceptions.</p></div><span class="read-only-badge"><i class="ph ph-lock-key"></i>Read-only</span></div>
+          <div class="assistant-layout">
+            <section class="panel assistant-main"><div class="assistant-intro"><span class="assistant-orb"><i class="ph ph-robot"></i></span><div><h2>What needs attention?</h2><p>Answers only use the current run, operations calculations, monitoring history and governed plan register.</p></div></div><div class="assistant-suggestions"><button data-assistant-question="Which materials are at risk and when should we order?">Material risks</button><button data-assistant-question="Where are the capacity bottlenecks?">Capacity bottlenecks</button><button data-assistant-question="How reliable is the current model and should we retrain?">Model reliability</button><button data-assistant-question="Which factors are moving demand?">Demand factors</button></div><div class="assistant-answer" id="assistantAnswer"><p>Choose a question or type one below.</p></div><form class="assistant-composer" id="assistantForm"><label for="assistantQuestion" class="sr-only">Planning question</label><textarea id="assistantQuestion" rows="2" placeholder="Ask a clear planning question…"></textarea><button class="button primary" type="submit"><i class="ph ph-arrow-up"></i><span>Ask</span></button></form></section>
+            <aside class="stack"><section class="panel compact-panel"><div class="panel-head"><div><h2>Guardrails</h2><p>Advice stays separate from action.</p></div></div><ul class="plain-list"><li>Cannot change forecasts or overrides</li><li>Cannot approve or publish a plan</li><li>Names the data section behind each answer</li><li>States when evidence is missing</li></ul></section><section class="panel compact-panel"><div class="panel-head"><div><h2>Available evidence</h2><p id="assistantEvidence">No current run.</p></div></div><div class="source-health" id="assistantSources"></div></section></aside>
+          </div>
+        </section>
+
+        <section class="page" data-page="admin">
+          <div class="page-header"><div><span class="eyebrow">Controlled configuration</span><h1>Administration</h1><p>Site, localisation, approval and model policy.</p></div></div>
+          <div class="admin-grid">
+            <section class="panel"><div class="panel-head"><div><h2>Site profile</h2><p>External signals use this geographic scope.</p></div></div><dl class="definition-list"><div><dt>Site</dt><dd>Qazvin Manufacturing Site</dd></div><div><dt>Country / province</dt><dd>Iran / Qazvin</dd></div><div><dt>Coordinates</dt><dd>36.2797, 50.0049</dd></div><div><dt>Time zone</dt><dd>Asia/Tehran</dd></div><div><dt>Calendars</dt><dd>Jalali + Gregorian</dd></div><div><dt>Currency</dt><dd>IRR with toman display</dd></div></dl></section>
+            <section class="panel"><div class="panel-head"><div><h2>Forecast policy</h2><p>Guardrails applied to every plan.</p></div></div><ul class="policy-list"><li><span>Rolling validation</span><b>3 windows when available</b></li><li><span>Evidence gate</span><b>Blocks weak approval</b></li><li><span>Future factors</span><b>No silent extension</b></li><li><span>Planner changes</span><b>Reason required</b></li><li><span>Uncertainty</span><b>80% calibrated range</b></li></ul></section>
+            <section class="panel"><div class="panel-head"><div><h2>External-signal layers</h2><p>Sources must be traceable and useful.</p></div></div><div class="source-catalog"><article><span>Plant</span><strong>ERP, orders, inventory, OEE</strong><small>Highest authority</small></article><article><span>Iran</span><strong>CBI, national statistics, energy</strong><small>Country scope</small></article><article><span>Regional</span><strong>Weather, freight, trade corridors</strong><small>Province / Middle East</small></article><article><span>Global</span><strong>Commodities, macro, supplier countries</strong><small>Global scope</small></article></div></section>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <div class="loader hidden" id="loader" role="status" aria-live="polite"><div class="loader-card"><span class="loader-mark"><i class="ph ph-chart-line-up"></i></span><strong id="loaderTitle">Building the forecast</strong><p id="loaderCopy">Testing methods on historical windows.</p><div class="loader-track"><i id="loaderProgress"></i></div></div></div>
+  <div class="toast-host" id="toastHost" aria-live="polite"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

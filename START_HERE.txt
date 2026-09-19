@@ -1,0 +1,14 @@
+DemandLab v5
+============
+
+1. Open Terminal in this folder.
+2. Run: ./scripts/setup_mac.sh
+3. Run: ./scripts/start_mac.sh
+4. In the app: Import → Load paper & printing demo → Run forecast.
+
+Bundled demo inputs:
+- 36 months historical demand
+- 6 months future assumptions
+- 14 customer–SKU demand streams
+
+All demo data is synthetic.
