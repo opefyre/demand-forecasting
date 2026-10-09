@@ -18,6 +18,10 @@ test('normal sales columns need no prebuilt customer/product identifier',()=>{
   assert.equal(suggestedSalesGrouping(['date','sku','quantity']).series_mode,'column');
   assert.equal(suggestedSalesGrouping(['Client','Product']).customer_col,'');
 });
+test('captured connection inputs cannot bypass review as unchanged saved data',()=>{
+  const initial={name:'Sales',classification:'user_provided',sources:{history:'source'},settings:{horizon:3},business_candidate_id:'capture'};
+  assert.equal(sameSavedInputs(initial,{name:initial.name,classification:initial.classification,sources:initial.sources,settings:initial.settings},{}),false);
+});
 
 test('replacement never switches a reviewed grouping contract',()=>{
   const settings={...suggestedSalesGrouping(['customer','sku']),date_col:'date',target_col:'quantity'};

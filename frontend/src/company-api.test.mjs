@@ -22,6 +22,8 @@ test('company screens use explicit public routes without shared-data fallback',(
     '/api/forecast-updates/abc/steps':'/api/v1/forecast-updates/abc/steps',
     '/api/forecast-updates/abc/export?mode=combined_demand&kind=xlsx':'/api/v1/forecast-updates/abc/export?mode=combined_demand&kind=xlsx',
     '/api/recurring-forecasts/abc/check':'/api/v1/recurring-forecasts/abc/check',
+    '/api/v1/connections/inputs':'/api/v1/connections/inputs',
+    '/api/v1/connections/imports/abc/accept':'/api/v1/connections/imports/abc/accept',
   };
   for(const [legacy,current] of Object.entries(paths))assert.equal(companyPath(legacy),current);
   assert.throws(()=>companyPath('/api/production/abc'));

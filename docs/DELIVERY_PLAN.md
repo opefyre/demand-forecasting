@@ -13,9 +13,13 @@ The existing local demo remains usable; do not enable company mode yet.
 Core assistant/personal context, settings/views, actual results, external-source
 management and primary frontend workflows now use company stores. See
 [context migration](COMPANY_CONTEXT_DELIVERY.md) for evidence and bounded scope.
-Next: company-scoped advanced assistant factor/scenario actions, monthly updates
-and recurring schedules. Then SFTP/Odoo/Google Sheets/HTTP, notifications and
-deployment/provider acceptance. No production or inventory-execution scope.
+Advanced assistant scenarios, monthly updates and recurring drafts are delivered:
+see [company workflows](COMPANY_WORKFLOWS_DELIVERY.md).
+Read-only HTTPS/SFTP history/future-input connections now capture immutable inputs
+and hand off to reviewed mapping: see [company connections](COMPANY_CONNECTIONS_DELIVERY.md).
+Next: connected customer/orders, Odoo/Google Sheets, safe recurring input pulls
+and remaining resource lifecycle; then notifications and deployment/provider
+acceptance. No production or inventory-execution scope.
 
 ## Earlier delivery history
 

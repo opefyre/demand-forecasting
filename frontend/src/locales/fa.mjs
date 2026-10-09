@@ -3,10 +3,12 @@ import {faWorkflows} from './fa-workflows.mjs';
 import {faInterface} from './fa-interface.mjs';
 import {faCompletion} from './fa-completion.mjs';
 import {faPlatform} from './fa-platform.mjs';
+import {faConnections} from './fa-connections.mjs';
 export const fa={
   "Administrator access could not be verified. Check access and try again.": "دسترسی مدیر تأیید نشد. دسترسی را بررسی کنید و دوباره تلاش کنید.",
   "Uses the forecast calendar and site time zone: {{timezone}}.": "از تقویم پیش‌بینی و منطقه زمانی سایت استفاده می‌کند: {{timezone}}.",
   ...faPlatform,
+  ...faConnections,
   'Exchange-rate quotes':'نرخ‌های ارز',
   'Monthly price index':'شاخص قیمت ماهانه',
   'Monthly market data':'داده‌های ماهانهٔ بازار',

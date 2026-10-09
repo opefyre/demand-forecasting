@@ -95,6 +95,7 @@ import {CompanyFactors} from './company-factors.jsx';
 import {RequestRecovery} from './request-recovery.jsx';
 import { AccessGate } from "./access";
 import { FolderInputs } from "./folder-inputs";
+import { BusinessConnections } from "./business-connections.jsx";
 import { FormField, FIELD_CONTROL } from "./form-field.mjs";
 import {
   replacementMapping,
@@ -994,6 +995,11 @@ function DataPage({
       setError(e.message);
     }
   };
+  const reviewConnection = async (id) => {
+    const candidate = await api('/api/v1/connections/imports/'+id);
+    if(candidate.accepted_dataset_id)return loadSaved(await api('/api/datasets/'+candidate.accepted_dataset_id));
+    await loadSaved({...candidate,id:candidate.id,business_candidate_id:candidate.id,review:null});
+  };
   if (importing)
     return (
       <ImportFlow
@@ -1027,7 +1033,7 @@ function DataPage({
       />
       </>}>
       <ErrorBox error={error} />
-      {view === "customers"?<Customers api={api} ui={inventoryUi} canEdit={canEdit} embedded navigate={()=>setView('files')}/>:view === "orders"?<OrderBooks datasets={datasets} api={api} ui={inventoryUi} canEdit={canEdit}/>:view === "connections" && companyMode()?<LiveSources api={api} ui={inventoryUi} canAdmin={canAdmin}/>:view === "connections" ? (
+      {view === "customers"?<Customers api={api} ui={inventoryUi} canEdit={canEdit} embedded navigate={()=>setView('files')}/>:view === "orders"?<OrderBooks datasets={datasets} api={api} ui={inventoryUi} canEdit={canEdit}/>:view === "connections" && companyMode()?<BusinessConnections api={api} ui={inventoryUi} canAdmin={canAdmin} canEdit={canEdit} datasets={datasets} onReview={reviewConnection}/>:view === "connections" ? (
         <FolderInputs
           api={api}
           ui={inventoryUi}
@@ -1081,7 +1087,7 @@ function ExternalFactors({canAdmin,canEdit,run,refresh,runDataset}) {
 function ImportFlow({ initial, onCancel, onSaved, onRun, draftStorageKey, chooseMethodsLater=false, returnLabel='Data library' }) {
   const draftKey = draftStorageKey || importDraftKey(initial?.id);
   const [step, setStep] = useSmoothState(
-      initial?.repeat_upload ? 0 : initial?.import_candidate_id ? 2 : initial ? 3 : 0,
+      initial?.repeat_upload ? 0 : initial?.business_candidate_id ? 1 : initial?.import_candidate_id ? 2 : initial ? 3 : 0,
     ),
     [sources, setSources] = useState(initial?.sourceObjects || {}),
     [settings, setSettings] = useState({ ...BASE, ...initial?.settings }),
@@ -1093,7 +1099,7 @@ function ImportFlow({ initial, onCancel, onSaved, onRun, draftStorageKey, choose
     [pending, setPending] = useState(""),
     [review, setReview] = useState(initial?.review || null),
     [accepted, setAccepted] = useState(
-      !!initial && !initial.import_candidate_id,
+      !!initial && !initial.import_candidate_id && !initial.business_candidate_id,
     ),
     [advanced, setAdvanced] = useState(false),
     [optional, setOptional] = useState(
@@ -1332,7 +1338,7 @@ function ImportFlow({ initial, onCancel, onSaved, onRun, draftStorageKey, choose
     settings,
     classification,
     accept_warnings: accepted,
-    parent_dataset_id: initial?.import_candidate_id
+    parent_dataset_id: initial?.import_candidate_id || initial?.business_candidate_id
       ? initial.parent_dataset_id
       : initial?.id || null,
     import_candidate_id: initial?.import_candidate_id || null,
@@ -1393,7 +1399,8 @@ function ImportFlow({ initial, onCancel, onSaved, onRun, draftStorageKey, choose
       );
       const d = unchanged
         ? initial
-        : await api("/api/datasets", { ...data, request_id: attempt.id });
+        : await api(initial?.business_candidate_id?'/api/v1/connections/imports/'+initial.business_candidate_id+'/accept':"/api/datasets",
+            initial?.business_candidate_id?{name:data.name,sources:data.sources,settings:data.settings,classification:'user_provided',accept_warnings:data.accept_warnings,parent_dataset_id:data.parent_dataset_id,request_id:attempt.id}:{ ...data, request_id: attempt.id });
       inputsSaved = true;
       if (run && onRun) await onRun(d.id);
       localState.removeItem(draftKey);
@@ -1484,7 +1491,7 @@ function ImportFlow({ initial, onCancel, onSaved, onRun, draftStorageKey, choose
           {titles.map((t, i) => (
             <li key={t} aria-current={step === i ? "step" : undefined}>
               <button
-                disabled={i > step || !!pending}
+                disabled={i > step || !!pending || (!!initial?.business_candidate_id && i===0)}
                 onClick={() => {
                   setStep(i);
                   setError("");
@@ -2018,6 +2025,7 @@ function ImportFlow({ initial, onCancel, onSaved, onRun, draftStorageKey, choose
           <Button
             disabled={step === 0 || !!pending}
             onClick={() => {
+              if(initial?.business_candidate_id&&step===1)return onCancel();
               setStep(step - 1);
               setError("");
             }}

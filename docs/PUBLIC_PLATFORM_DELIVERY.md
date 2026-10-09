@@ -25,16 +25,21 @@ packages; retain licences and attribution. No SAML or messaging commands in v1.
   - [x] Initial 21 v1 operations and source-derived full route inventory.
   - [x] Core screen operations and matching frontend migration: 105 v1 operations.
   - [x] Advanced scenarios, monthly updates and recurring drafts: 131 v1 operations.
+  - [x] Read-only input connection lifecycle/captures/review: 140 v1 operations.
   - [ ] Remaining resource lifecycle, advanced automation and ingestion routes.
 - [x] Scoped personal and company API keys; revocation, rotation and expiry.
 - [ ] Useful CRUD for customers/products, inputs/orders, forecast lifecycle,
       views/conversations, settings, connections and schedules.
 - [ ] SFTP pull, Odoo 18/19, Google Sheets and generic HTTP ingestion.
+  - [x] HTTPS complete exports and pinned-host-key SFTP, company-separated history/future captures.
+  - [x] Reviewed mapping, immutable receipts/revisions and repeat-safe fetch/accept.
+  - [ ] Connected customer/order review, Odoo, Sheets and permission-checked recurring input pulls.
 - [ ] Slack, Teams Workflows, Telegram and eligible WhatsApp notifications.
 - [ ] Unified English/Persian management UI using the existing design framework.
   - [x] People, API access and sign-in components; no new page-specific styles.
   - [x] Company-scoped recurring forecast management, shared components and translations.
   - [ ] Business connections and notification management.
+    - [x] Business input connections share the existing collection/dialog framework and Persian catalogue.
 - [ ] Cross-company, role, key, ingestion, migration and end-to-end acceptance.
 - [ ] Publish tested commits to the existing GitHub repository.
 
@@ -110,9 +115,20 @@ Company-scoped scenarios, monthly updates and recurring drafts are implemented.
 Full backend: 735 checks, 734 passed, one optional integration skipped. Frontend:
 249 passed. Production build and identity-service checks passed. No paid AI call.
 
-1. Public CRUD completion and ingestion: maintained SFTP/Google libraries,
-   version-aware Odoo, safe HTTP; preview/validation, mapping and repeat-safe sync.
+1. Finish ingestion and resource lifecycle: customer/order connections, Google
+   Sheets, version-aware Odoo, reviewed scheduled input pulls; complete remaining
+   source/dataset/forecast presentation lifecycle without modifying evidence.
 2. Notifications: Slack/Teams/Telegram/eligible WhatsApp with
    admin-only connection setup, delivery history and explicit outbound consent.
 3. Deployment acceptance: Google/mail credentials, real provider setup,
    backup/restore, role-based browser walkthrough and published API documentation.
+
+Input-connections milestone: [delivery, setup and limits](COMPANY_CONNECTIONS_DELIVERY.md).
+HTTPS/SFTP fetch/review/save and connection CRUD are implemented; real client
+accounts and unattended ingestion are not verified or enabled. Existing local
+evaluation stays unchanged. Company-mode activation remains a separate gate.
+
+Verification: backend 760 checks (759 passed, one optional identity integration
+skipped), all 250 interface checks passed, production build passed. Browser
+acceptance covered fetch/review/save, Persian mobile setup and a second-company
+planner. Synthetic encrypted SFTP tests also reject changed host keys/files.

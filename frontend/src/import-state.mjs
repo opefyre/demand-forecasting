@@ -58,6 +58,7 @@ export function sameSavedInputs(initial, draft, defaults) {
   return Boolean(
     initial &&
     !initial.import_candidate_id &&
+    !initial.business_candidate_id &&
     draft.name === initial.name &&
     draft.classification === initial.classification &&
     JSON.stringify(draft.sources) === JSON.stringify(initial.sources) &&

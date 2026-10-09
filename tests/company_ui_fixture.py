@@ -24,6 +24,25 @@ def run():
         snapshot=fixture.orders(dataset)
         fixture.calculate(dataset,snapshot)
     fixture.company='tehran_a';fixture.permissions=ALL.copy();fixture.role='planner'
+    # Business input pulls use a synthetic in-memory remote, never a real account.
+    from app.business_connections import BusinessConnections,ConnectionInput
+    class ExportFixture:
+        def __init__(self,payload):self.payload=payload
+        def fetch(self,config,credential):
+            if config['url']!='https://erp.example/sales/export':
+                raise ValueError('Only the synthetic fixture export is available.')
+            return self.payload
+    for company in ['tehran_a','tehran_b']:
+        workspace=fixture.workspaces.for_principal({'company_id':company})
+        dataset=workspace.datasets.list()[0]
+        payload=workspace.datasets.source(dataset['sources']['history'])[1]
+        workspace._stores['connections']=BusinessConnections(workspace.path('connections.sqlite3'),workspace.datasets,
+            fetcher=ExportFixture(payload))
+        store=workspace.connections
+        connected=store.save(ConnectionInput(name='Tehran sales export' if company=='tehran_a' else 'Second company sales export',
+            provider='http',role='history',filename='sales.csv',url='https://erp.example/sales/export',
+            template_dataset_id=dataset['id'],confirmed_read_access=True))
+        store.pull(connected['id'],'synthetic-browser-seed')
     class InlineDispatch(list):
         def append(self, item):
             super().append(item)

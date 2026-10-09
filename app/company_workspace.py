@@ -58,6 +58,19 @@ class CompanyWorkspace:
                            vault=KeyVault(self.root)))
 
     @property
+    def connections(self):
+        import os
+        from .business_connections import BusinessConnections,InputFetcher,TargetPolicy,ConnectionError
+        try:
+            targets = json.loads(os.environ.get('DEMANDLAB_CONNECTOR_PRIVATE_TARGETS','{}'))
+            approved = targets.get(self.company_id,[])
+            if not isinstance(approved,list) or any(not isinstance(v,str) for v in approved): raise ValueError()
+        except (ValueError,AttributeError):
+            raise ConnectionError('Company connection settings are invalid. Ask an administrator.') from None
+        return self.store('connections',lambda:BusinessConnections(self.path('connections.sqlite3'),self.datasets,
+                          fetcher=InputFetcher(TargetPolicy(v.strip().lower() for v in approved))))
+
+    @property
     def site(self):
         path = self.path('site.json')
         if path.exists():

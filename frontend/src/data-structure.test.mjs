@@ -6,7 +6,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {createServer} from 'vite';
 import postcss from 'postcss';
 
-let server,Collection,ConnectionRecord,SalesFiles,Customers,OrderBooks,OrderRows,LiveSources,FolderInputs,appendOrder;
+let server,Collection,ConnectionRecord,SalesFiles,Customers,OrderBooks,OrderRows,LiveSources,FolderInputs,InputConnections,appendOrder;
 before(async()=>{
   server=await createServer({server:{middlewareMode:true,hmr:false,watch:null},appType:'custom'});
   ({Collection,ConnectionRecord}=await server.ssrLoadModule('/src/ui-layout.jsx'));
@@ -15,6 +15,7 @@ before(async()=>{
   ({OrderBooks,OrderRows,appendOrder}=await server.ssrLoadModule('/src/order-books.jsx'));
   ({LiveSources}=await server.ssrLoadModule('/src/live-sources.jsx'));
   ({FolderInputs}=await server.ssrLoadModule('/src/folder-inputs.jsx'));
+  ({InputConnections}=await server.ssrLoadModule('/src/business-connections.jsx'));
 });
 after(async()=>await server?.close());
 const ui={
@@ -26,7 +27,7 @@ const ui={
 };
 const common={api:async()=>({}),ui,datasets:[],canAdmin:true,canEdit:true,embedded:true,date:String,fmt:String,search:'',onSearch:()=>{}};
 test('all five Data tabs render one shared toolbar/controls/actions/body structure',()=>{
-  for(const Component of[SalesFiles,Customers,OrderBooks,LiveSources,FolderInputs]){
+  for(const Component of[SalesFiles,Customers,OrderBooks,LiveSources,FolderInputs,InputConnections]){
     const html=renderToStaticMarkup(React.createElement(Component,common));
     assert.equal((html.match(/class="ui-collection"/g)||[]).length,1,Component.name);
     assert.ok(html.indexOf('ui-collection-controls')<html.indexOf('ui-actions'),Component.name);
@@ -36,7 +37,7 @@ test('all five Data tabs render one shared toolbar/controls/actions/body structu
   }
 });
 test('all record-list tabs use the same table component, including empty/loading states',()=>{
-  for(const Component of[SalesFiles,Customers,OrderBooks,LiveSources,FolderInputs]){
+  for(const Component of[SalesFiles,Customers,OrderBooks,LiveSources,FolderInputs,InputConnections]){
     const html=renderToStaticMarkup(React.createElement(Component,common));
     assert.match(html,/<table>/,Component.name);assert.match(html,/<thead>/,Component.name);
     assert.match(html,/<tbody>/,Component.name);
@@ -48,9 +49,9 @@ test('files show period/product counts and the real review action without duplic
   assert.match(html,/>12</);assert.match(html,/Review data/);assert.doesNotMatch(html,/<h[123]|Start with your historical data/);
 });
 test('read-only Data views never expose create/save actions',()=>{
-  for(const Component of[Customers,OrderBooks,FolderInputs]){
+  for(const Component of[Customers,OrderBooks,FolderInputs,InputConnections]){
     const html=renderToStaticMarkup(React.createElement(Component,{...common,canEdit:false,canAdmin:false}));
-    assert.doesNotMatch(html,/Add customer|Add order|Save orders|Connect folder/,Component.name);
+    assert.doesNotMatch(html,/Add customer|Add order|Save orders|Connect folder|Add connection/,Component.name);
   }
 });
 test('Collection supports different controls without changing its structural contract',()=>{

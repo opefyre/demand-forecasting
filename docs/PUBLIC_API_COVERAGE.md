@@ -2,13 +2,13 @@
 
 Generated from source decorators by `scripts/audit_public_api.py`; no application stores are opened.
 
-131 implemented v1 operations. The rest of the useful business API is not delivered yet.
+140 implemented v1 operations. The rest of the useful business API is not delivered yet.
 
 New company authentication deliberately blocks unscoped legacy business routes. Existing local mode remains unchanged.
 
 The Better Auth identity service supplies library-managed login, Google callback, verification, recovery and factor endpoints behind `/api/login/*`. These are not business CRUD.
 
-Delivered business resources: customers/products, sales sources/datasets, versioned orders/reviews, factor preparation and comparisons, grouped forecasts/jobs/results/exports, independent releases, personal chats/views, advanced assistant scenarios, monthly updates, administrator recurring drafts, actual-vs-forecast checks, company settings/units and external factor connections. Pending: complete archive/revision lifecycle, business-system connections/ingestion runs and notifications. Immutable source evidence is never destructively overwritten.
+Delivered business resources: customers/products, sales sources/datasets, versioned orders/reviews, factor preparation and comparisons, grouped forecasts/jobs/results/exports, independent releases, personal chats/views, advanced assistant scenarios, monthly updates, administrator recurring drafts, actual-vs-forecast checks, company settings/units, external factors and read-only HTTPS/SFTP history/future-input connections with reviewed ingestion receipts. Pending: complete archive/revision lifecycle, connected customer/order ingestion, Odoo/Sheets, scheduled input pulls and notifications. Immutable source evidence is never destructively overwritten.
 
 | Method | Route | Delivery | Source |
 |---|---|---|---|
@@ -209,6 +209,15 @@ Delivered business resources: customers/products, sales sources/datasets, versio
 | PUT | `/api/v1/connections/external-sources/{key}` | Implemented; company-scoped | `app/platform_workspace_api.py:346` |
 | PUT | `/api/v1/connections/external-sources/{key}/permission` | Implemented; company-scoped | `app/platform_workspace_api.py:350` |
 | POST | `/api/v1/connections/external-sources/{key}/refresh` | Implemented; company-scoped | `app/platform_workspace_api.py:354` |
+| GET | `/api/v1/connections/imports/{import_id}` | Implemented; company-scoped | `app/platform_connections_api.py:91` |
+| POST | `/api/v1/connections/imports/{import_id}/accept` | Implemented; company-scoped | `app/platform_connections_api.py:95` |
+| GET | `/api/v1/connections/inputs` | Implemented; company-scoped | `app/platform_connections_api.py:50` |
+| POST | `/api/v1/connections/inputs` | Implemented; company-scoped | `app/platform_connections_api.py:57` |
+| DELETE | `/api/v1/connections/inputs/{connection_id}` | Implemented; company-scoped | `app/platform_connections_api.py:76` |
+| GET | `/api/v1/connections/inputs/{connection_id}` | Implemented; company-scoped | `app/platform_connections_api.py:63` |
+| PUT | `/api/v1/connections/inputs/{connection_id}` | Implemented; company-scoped | `app/platform_connections_api.py:67` |
+| POST | `/api/v1/connections/inputs/{connection_id}/fetch` | Implemented; company-scoped | `app/platform_connections_api.py:86` |
+| POST | `/api/v1/connections/inputs/{connection_id}/restore` | Implemented; company-scoped | `app/platform_connections_api.py:81` |
 | GET | `/api/v1/customers` | Implemented; company-scoped | `app/platform_api.py:72` |
 | POST | `/api/v1/customers` | Implemented; company-scoped | `app/platform_api.py:79` |
 | POST | `/api/v1/customers/imports` | Implemented; company-scoped | `app/platform_workspace_api.py:105` |

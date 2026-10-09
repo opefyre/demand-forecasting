@@ -11,6 +11,7 @@ licences if code is vendored. Pin and audit dependencies before each release.
 | Nodemailer | https://github.com/nodemailer/nodemailer | MIT | Verification, reset and invitation emails |
 | qrcode.react | https://github.com/zpao/qrcode.react | ISC | Authenticator enrollment QR code |
 | detect-secrets | https://github.com/Yelp/detect-secrets | Apache-2.0 | Pre-push secret scanning |
+| Paramiko 5.0.0 | https://github.com/paramiko/paramiko | LGPL-2.1 | SSH/SFTP client and host-key verification; installed dependency, not vendored |
 
 Existing FastAPI, Pydantic, SQLAlchemy, Huey, APScheduler, Authlib, Radix, Phosphor,
 i18next, forecasting and chart libraries remain in use. No custom password hashing,
@@ -22,7 +23,15 @@ zero known vulnerabilities on 9 October 2026. This is not a permanent guarantee;
 re-audit before deployment. The small private bridge adds application-specific
 company/role checks; authentication itself remains the upstream implementation.
 
-Next connector dependencies: Paramiko for SFTP; Google's official API/auth clients
+SFTP uses Paramiko; HTTPS reuses httpx and credentials reuse macOS Keychain through
+keyring. Standard-library SQLite and the existing dataset/import review services
+provide company receipts. No custom SSH, TLS or credential encryption is built.
+The runtime dependency is bounded to Paramiko 5.x; retain the package's bundled
+licence when distributing the environment. Upstream references:
+[SSH client](https://docs.paramiko.org/en/stable/api/client.html),
+[release](https://pypi.org/project/paramiko/5.0.0/).
+
+Next connector dependencies: Google's official API/auth clients
 for Sheets; official provider APIs/SDKs for notifications. Odoo-specific mappings
 must respect the API version and installed modules; do not copy an AGPL framework
 into the application without explicitly reviewing the distribution obligations.

@@ -36,7 +36,16 @@ class DatasetStore:
             temp.write_text(json.dumps(jsonable_encoder(data), ensure_ascii=False, allow_nan=False), encoding='utf-8')
             temp.replace(path)
 
-    def upload(self, name, payload, role, sheet=None):
+    def upload(self, name, payload, role, sheet=None, *, identifier=None):
+        # Trusted ingestion receipts may reserve a stable capture ID for recovery.
+        # A retry may reuse it only for exactly the same file and role.
+        if identifier:
+            path = self._path('source',identifier)
+            if path.exists():
+                row,content = self.source(identifier)
+                if content!=payload or row['role']!=role or row['name']!=Path(name).name:
+                    raise ValueError('This source receipt already belongs to different inputs.')
+                return row
         if role not in {'history','future','operations','inventory','actuals','receipts','sales_customers','sales_orders','sales_commitments','factor_observations'}:
             raise ValueError('Choose history, future factors, or operations.')
         if role in {'inventory', 'actuals', 'receipts','sales_customers','sales_orders','sales_commitments','factor_observations'}:
@@ -44,7 +53,7 @@ class DatasetStore:
             preview = inventory_preview(name, payload, sheet)
         else:
             preview = operations_preview(name, payload) if role == 'operations' else preview_table(name, payload, sheet_name=sheet)
-        key = uuid.uuid4().hex
+        key = identifier or uuid.uuid4().hex
         row = {'id':key,'name':Path(name).name,'role':role,'sheet':sheet or preview.get('selected_sheet') or preview.get('sheet'),'preview':preview,'sha256':hashlib.sha256(payload).hexdigest(),'created_at':datetime.now(timezone.utc).isoformat()}
         (self.root / f'{key}.bin').write_bytes(payload)
         self._write(self._path('source',key),row)

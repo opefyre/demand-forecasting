@@ -177,8 +177,18 @@ def create_platform_api(service, workspaces=None, dispatcher=None):
     install_platform_workspace(api, workspaces, dispatcher)
     from .platform_workflow_api import install_platform_workflows
     install_platform_workflows(api, workspaces, dispatcher, service)
+    from .platform_connections_api import install_platform_connections
+    install_platform_connections(api, workspaces)
     from .company_context import install_company_assistant
     install_company_assistant(api, workspaces, dispatcher)
+
+    from fastapi.exceptions import RequestValidationError
+    from fastapi.responses import JSONResponse
+    @api.exception_handler(RequestValidationError)
+    async def safe_validation(request,exc):
+        # Pydantic's default `input`/`ctx` fields can echo passwords or tokens.
+        return JSONResponse(status_code=422,content={'detail':[
+            {'loc':e['loc'],'type':e['type'],'msg':'Check this field.'} for e in exc.errors()]})
 
     def schema():
         if api.openapi_schema is None:
