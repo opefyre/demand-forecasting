@@ -104,6 +104,11 @@ class CompanyWorkspace:
         from .actuals import ActualsStore
         return self.store('actuals', lambda: ActualsStore(self.path('actuals.sqlite3'), self.datasets))
 
+    @property
+    def profiles(self):
+        from .factor_profiles import FactorProfiles
+        return self.store('profiles', lambda: FactorProfiles(self.customers))
+
     def save_site(self, values):
         from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
         try:

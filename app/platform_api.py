@@ -175,8 +175,10 @@ def create_platform_api(service, workspaces=None, dispatcher=None):
     install_platform_sales(api, workspaces, dispatcher)
     from .platform_workspace_api import install_platform_workspace
     install_platform_workspace(api, workspaces, dispatcher)
+    from .platform_workflow_api import install_platform_workflows
+    install_platform_workflows(api, workspaces, dispatcher, service)
     from .company_context import install_company_assistant
-    install_company_assistant(api, workspaces)
+    install_company_assistant(api, workspaces, dispatcher)
 
     def schema():
         if api.openapi_schema is None:

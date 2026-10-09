@@ -40,9 +40,10 @@ def principal_actor(request):
 
 
 class MonthlyRefresh:
-    def __init__(self, path, datasets, load_run, sales, outlook, jobs, submit, live=None):
+    def __init__(self, path, datasets, load_run, sales, outlook, jobs, submit, live=None, submit_for_actor=None):
         self.path, self.datasets, self.load_run = path, datasets, load_run
         self.sales, self.outlook, self.jobs, self.submit, self.live = sales, outlook, jobs, submit, live
+        self.submit_for_actor = submit_for_actor
         with self.db() as db:
             db.execute('CREATE TABLE IF NOT EXISTS monthly_updates '
                        '(id TEXT PRIMARY KEY, actor TEXT, updated REAL, payload TEXT)')
@@ -252,8 +253,9 @@ class MonthlyRefresh:
                 dispatch = 'monthly-'+value['id']+'-'+str(value['revision'])
                 saved = self.datasets.save(source['name']+' · Forecast update',sources,settings,
                     source['classification'],True,parent_dataset_id=source['id'],request_id=dispatch)
-                job = self.submit({'dataset_id':saved['id'],'method':payload.method,'adjustment':0,
-                                   'scenario_name':None,'base_run_id':None},saved['name'],dispatch)
+                submit = self.submit if self.submit_for_actor is None else lambda *args:self.submit_for_actor(actor,*args)
+                job = submit({'dataset_id':saved['id'],'method':payload.method,'adjustment':0,
+                              'scenario_name':None,'base_run_id':None},saved['name'],dispatch)
                 value.update(stage='calculating',job_id=job['id'],calculation_dataset_id=saved['id'],
                              source_check=self.source_status(),months=payload.months,method=payload.method)
             elif action in {'calculated','factor_calculated'}:

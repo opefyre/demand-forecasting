@@ -520,7 +520,7 @@ function App({ access }) {
       companyMode()?Promise.resolve({plans:[]}):api("/api/plans"),
       api("/api/run-list"),
       api("/api/workspace"),
-      companyMode()?Promise.resolve({updates:[]}):api('/api/forecast-updates'),
+      companyMode()&&!canEdit?Promise.resolve({updates:[]}):api('/api/forecast-updates'),
     ]);
     setDatasets(d.datasets);
     setPlans(p.plans);
@@ -615,8 +615,9 @@ function App({ access }) {
         "demandlab.pendingRequests",
         JSON.stringify(pending),
       );
-      const job = companyMode()?(await api('/api/v1/forecasts',{name:opts.forecast_name||'Forecast',
+      const job = companyMode()?(opts.sales_input_id?(await api('/api/v1/forecasts',{name:opts.forecast_name||'Forecast',
         dataset_id:id,sales_input_id:opts.sales_input_id,methods:[opts.method||'recommended'],request_id})).jobs[0]
+        :await api('/api/jobs',{dataset_id:id,base_run_id:opts.base_run_id||null,request_id}))
         :await api("/api/jobs", { ...payload, request_id });
       delete pending[key];
       localState.setItem(
@@ -685,7 +686,7 @@ function App({ access }) {
     canReview,
     canAdmin,
     updates,
-    startUpdate:companyMode()?null:startUpdate,
+    startUpdate,
     resumeUpdate:id=>{setUpdateId(id);navigate('today',{update_id:id});},
   };
   return (

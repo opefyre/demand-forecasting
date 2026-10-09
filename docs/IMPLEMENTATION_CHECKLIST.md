@@ -1050,3 +1050,16 @@ styles unchanged. Production build and 26 focused chat/framework tests pass.
 - [x] Rename chat; cheap background title role, manual-name protection, ownership/consent/budget checks.
 - [x] 215 frontend and 52 backend tests, build and browser checks passed. AI provider calls mocked; no paid call made.
 - [x] Full batch verification and boundaries recorded in `WORKFLOW_REFINEMENT.md`.
+
+### Company advanced workflows — 9 October 2026
+
+- [x] Advanced assistant factor/profile/batch/order scenarios use company stores;
+  confirmed actions recheck current rights. No legacy shared-data fallback.
+- [x] Monthly updates, exact reviewed-order reuse, change review and exports are
+  company/user-separated. Retry preserves source evidence and original results.
+- [x] Company administrator schedules use site time zones, durable cycles and
+  live identity checks before advancement and queued execution; draft-only.
+- [x] Shared settings/modal/form components and Persian text reused; no new CSS.
+- [x] Full backend 734 passed / one optional skipped; frontend 249 passed, build
+  and auth checks passed. Focused regression and synthetic browser export checked.
+- [x] Scope and limitations recorded in `COMPANY_WORKFLOWS_DELIVERY.md`.

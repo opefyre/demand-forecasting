@@ -32,7 +32,7 @@ export function SettingsWorkspace({
           ["workspace", "Workspace"],
           ["units", "Product units"],
           ["ai", "AI settings"],
-          ...(!companyAccess?[["schedules", "Schedules"]]:[]),
+          ["schedules", "Schedules"],
           ...(companyAccess ? [["people", "People"]] : [["access", "Access"]]),
         ]
       : []),
@@ -158,6 +158,7 @@ export function SettingsWorkspace({
               resumeUpdate={resumeUpdate}
               refresh={refresh}
               navigate={navigate}
+              timezone={workspace?.site?.timezone}
               settings
             />
           )}

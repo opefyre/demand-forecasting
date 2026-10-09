@@ -135,7 +135,10 @@ class PersonalJournal:
         return self.journal.record_result(key, actor, index, result)
 
 
-def install_company_assistant(api, workspaces):
+def install_company_assistant(api, workspaces, dispatcher=None):
+    if dispatcher is None:
+        from .company_jobs import dispatch
+        dispatcher=dispatch
     def owner(request):
         return personal_owner(principal(request, 'chats:own'))
 
@@ -148,6 +151,12 @@ def install_company_assistant(api, workspaces):
         ws = workspaces.for_principal(who)
         access = ReportAccess(ws, who)
         can_inputs = 'inputs:read' in who['permissions']
+        scopes=set(who['permissions'])
+        can_orders={'reports:read','drafts:read','orders:read'}<=scopes
+        can_factors={'reports:read','drafts:read','inputs:read','factors:read'}<=scopes
+        can_profiles=can_factors and 'customers:read' in scopes
+        advanced={'ai:actions','reports:read','drafts:read','inputs:read','inputs:write',
+                  'factors:read','factors:write','forecasts:run'}
         tools = {'inspect_forecast', 'compare_methods'}
         if can_inputs:
             tools |= {'inspect_inputs','inspect_input_formatting'}
@@ -157,6 +166,18 @@ def install_company_assistant(api, workspaces):
             tools.add('prepare_forecast')
         if 'reports:export' in who['permissions']:
             tools.add('prepare_export')
+        if can_orders:
+            tools|={'inspect_scenarios','preview_order_scenario','inspect_saved_orders','preview_saved_orders'}
+            if {'ai:actions','orders:write'}<=scopes:
+                tools|={'prepare_order_import','prepare_order_scenario','prepare_saved_orders'}
+        if can_factors:
+            tools|={'inspect_factor_sources','preview_factor_scenario','inspect_factor_batch','preview_factor_batch'}
+            if advanced<=scopes:
+                tools|={'prepare_factor_scenario','prepare_factor_batch','prepare_customer_factor_batch'}
+        if can_profiles:
+            tools|={'inspect_factor_profiles','preview_profile_sources'}
+            if advanced<=scopes:tools.add('prepare_profile_sources')
+        if advanced|{'orders:read'}<=scopes:tools.add('prepare_monthly_update')
         if operation == 'import_mapping':
             principal(request,'ai:actions'); principal(request,'inputs:write')
 
@@ -170,6 +191,11 @@ def install_company_assistant(api, workspaces):
                         'input_mapping':{'ai:actions','inputs:write'},
                         'input_correction':{'ai:actions','inputs:write'},
                         'history_refresh':{'ai:actions','inputs:write'}}
+            required.update({k:advanced for k in ('factor_scenario','factor_batch','factor_batch_review')})
+            required['factor_preparation']=advanced|{'customers:read'}
+            required['monthly_update']=advanced|{'orders:read'}
+            required.update({k:{'ai:actions','reports:read','drafts:read','orders:read','orders:write'}
+                             for k in ('order_import','order_scenario','order_reuse')})
             if kind not in required:
                 raise HTTPException(403, 'This workflow is not available in company access yet.')
             for scope in required[kind]: principal(request,scope)
@@ -184,9 +210,20 @@ def install_company_assistant(api, workspaces):
                 raise HTTPException(403, 'Use the approved report export policy.')
             return f'/api/v1/releases/{record["id"]}/export?kind={action["format"]}'
 
+        def load_run(key):
+            access.run(key)
+            # Internal review hashes include the exact persisted job evidence.
+            return ws.load_run(key)
+        def submit(*args):
+            from .company_workflows import submit_draft
+            for scope in advanced:principal(request,scope)
+            return submit_draft(ws,dispatcher,*args)
         return SimpleNamespace(journal=PersonalJournal(ws.journal,access),ledger=ws.ai_ledger,
-            load_run=access.run,get_outlook=access.outlook,datasets=ws.datasets if can_inputs else None,
-            sales_store=None,list_runs=None,factors=None,live=None,profiles=None,job_status=None,
-            submit=None,allowed_tools=tools,authorize_action=authorize_action,export_url=export_url)
+            load_run=load_run,get_outlook=access.outlook,datasets=ws.datasets if can_inputs else None,
+            sales_store=ws.sales if can_orders else None,
+            list_runs=(lambda:{'runs':[dict(r,name=r.get('scenario_name') or r.get('dataset_name','Forecast')) for r in ws.list_runs()]}) if can_orders else None,
+            factors=ws.factors if can_factors else None,live=ws.live_sources if can_factors else None,
+            profiles=ws.profiles if can_profiles else None,job_status=ws.jobs.get if can_factors else None,
+            submit=submit if advanced<=scopes else None,allowed_tools=tools,authorize_action=authorize_action,export_url=export_url)
 
     install_ai_routes(api,None,None,None,None,None,prefix='/ai',services=services,actor_provider=owner)

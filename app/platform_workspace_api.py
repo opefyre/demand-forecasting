@@ -203,9 +203,19 @@ def install_platform_workspace(api, workspaces, dispatcher=None):
         if old['state'] not in {'failed','interrupted','cancelled'}:raise HTTPException(409,'Only stopped calculations can be retried.')
         from .forecast_orders import reviewed
         payload=old['payload']
-        call(lambda:reviewed(w.datasets,w.sales,payload['dataset_id'],payload['sales_input_id'],site=w.site))
         request_id=body.get('request_id')
         if not isinstance(request_id,str) or not 8<=len(request_id)<=100:raise HTTPException(400,'A retry identifier is required.')
+        if not payload.get('sales_input_id'):
+            for scope in ('inputs:write','factors:write'):principal(request,scope)
+            from .company_workflows import submit_draft,schedule_authorized
+            values=dict(payload);owner=values.pop('_schedule_owner',None)
+            if owner:
+                principal(request,'settings:manage')
+                # Retry must not detach a scheduled job from its live owner grant.
+                from .main import ACCESS
+                if not schedule_authorized(ACCESS.identity_service,w,owner):raise HTTPException(403,'Schedule authorization is unavailable.')
+            return call(lambda:submit_draft(w,dispatcher,values,old['name'],request_id,schedule_owner=owner,retry_of=job_id))
+        call(lambda:reviewed(w.datasets,w.sales,payload['dataset_id'],payload['sales_input_id'],site=w.site))
         job=call(lambda:w.jobs.create(payload,old['name'],request_id,retry_of=job_id))
         dispatcher(w,job['id'])
         return {k:v for k,v in job.items() if k not in {'owner','heartbeat_at','request_id'}}

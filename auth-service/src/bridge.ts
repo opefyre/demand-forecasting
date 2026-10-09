@@ -171,6 +171,22 @@ export function createBridge(identity: ReturnType<typeof createIdentity>) {
   app.post("/internal/config", (c) =>
     c.json({ password: true, google: !!auth.options.socialProviders?.google }),
   );
+  // Background drafts never retain a browser cookie or API key. Recheck the
+  // verified owner against live company membership at each scheduled operation.
+  app.post("/internal/schedules/authorize", async (c) => {
+    const body = await c.req.json();
+    if (body.issuer !== config.origin ||
+        typeof body.company_id !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(body.company_id) ||
+        typeof body.subject !== "string" || !body.subject || body.subject.startsWith("service:"))
+      return c.json({ allowed: false });
+    try {
+      const current = await member(body.company_id, body.subject);
+      return c.json({ allowed: current.role === "admin" && !!current.twoFactorEnabled });
+    } catch (error) {
+      if (error instanceof BridgeError && error.status === 403) return c.json({ allowed: false });
+      throw error;
+    }
+  });
   app.post("/internal/policy", async (c) => {
     const who = await requireSession(await c.req.json());
     return c.json({

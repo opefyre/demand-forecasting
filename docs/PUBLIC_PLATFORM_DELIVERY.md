@@ -13,17 +13,18 @@ packages; retain licences and attribution. No SAML or messaging commands in v1.
   - [x] Four roles, administrator session-specific 2FA and recovery codes.
   - [x] Suspension, role changes, removal and company-session revocation.
   - [ ] Google OAuth and production mail verified with deployment credentials.
-- [ ] Company-scoped persistence, files, jobs, schedules and assistant context.
+- [x] Company-scoped persistence, files, jobs, schedules and assistant context.
   - [x] Explicit workspace factory and isolated customer/product directory.
   - [x] Sales history/files, order books/reviews, factors, grouped forecasts,
         durable jobs, results/exports and independent release approvals.
   - [x] Personal AI context, views, actual-vs-forecast checks, settings and core
         frontend migration; company/user-separated browser drafts.
-  - [ ] Advanced factor/scenario assistant actions and recurring monthly updates
+  - [x] Advanced factor/scenario assistant actions and recurring monthly updates
         with company-scoped scheduling; no shared-data fallback.
 - [ ] Public `/api/v1` and route-by-route permission/coverage inventory.
   - [x] Initial 21 v1 operations and source-derived full route inventory.
   - [x] Core screen operations and matching frontend migration: 105 v1 operations.
+  - [x] Advanced scenarios, monthly updates and recurring drafts: 131 v1 operations.
   - [ ] Remaining resource lifecycle, advanced automation and ingestion routes.
 - [x] Scoped personal and company API keys; revocation, rotation and expiry.
 - [ ] Useful CRUD for customers/products, inputs/orders, forecast lifecycle,
@@ -32,7 +33,8 @@ packages; retain licences and attribution. No SAML or messaging commands in v1.
 - [ ] Slack, Teams Workflows, Telegram and eligible WhatsApp notifications.
 - [ ] Unified English/Persian management UI using the existing design framework.
   - [x] People, API access and sign-in components; no new page-specific styles.
-  - [ ] Connections, schedules and notification management.
+  - [x] Company-scoped recurring forecast management, shared components and translations.
+  - [ ] Business connections and notification management.
 - [ ] Cross-company, role, key, ingestion, migration and end-to-end acceptance.
 - [ ] Publish tested commits to the existing GitHub repository.
 
@@ -103,13 +105,14 @@ Full backend 725 checks: 724 passed, one optional integration skipped. All 249
 frontend tests and production build passed. Two-company synthetic browser journey
 checked orders, grouped model results, exports, chats, settings and viewer access.
 
-1. Finish company-scoped advanced assistant factor/scenario actions, monthly
-   updates and recurring schedules. Core assistant/personal views, actual results,
-   settings, external-source management and first-use-to-export screens have moved
-   to company stores; see [context delivery](COMPANY_CONTEXT_DELIVERY.md).
-2. Public CRUD completion and ingestion: maintained SFTP/Google libraries,
+Advanced workflows milestone: [delivery and limits](COMPANY_WORKFLOWS_DELIVERY.md).
+Company-scoped scenarios, monthly updates and recurring drafts are implemented.
+Full backend: 735 checks, 734 passed, one optional integration skipped. Frontend:
+249 passed. Production build and identity-service checks passed. No paid AI call.
+
+1. Public CRUD completion and ingestion: maintained SFTP/Google libraries,
    version-aware Odoo, safe HTTP; preview/validation, mapping and repeat-safe sync.
-3. Notifications and schedules: Slack/Teams/Telegram/eligible WhatsApp with
+2. Notifications: Slack/Teams/Telegram/eligible WhatsApp with
    admin-only connection setup, delivery history and explicit outbound consent.
-4. Deployment acceptance: Google/mail credentials, real provider setup,
+3. Deployment acceptance: Google/mail credentials, real provider setup,
    backup/restore, role-based browser walkthrough and published API documentation.

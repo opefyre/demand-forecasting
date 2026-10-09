@@ -154,6 +154,9 @@ def compose_batch(base,dataset,report,children,runs_dir):
                   issued_at=datetime.now(timezone.utc).isoformat(),batch_evidence=evidence,
                   leaderboard=[],drivers=[],series_diagnostics={},range_model={},range_fitting_rows=[],
                   ensemble_weights={},recommended_ensemble_weights={})
+    # A new scenario must not claim its baseline's orders or method-group identity.
+    for key in ('sales_input_snapshot_id','forecast_order_inputs_id','forecast_group_id','forecast_name','job_id','job_owner'):
+        result.pop(key,None)
     result['evidence_policy']='reviewed_what_if' if report['retrospective'] else 'reviewed_batch'
     result['series_ensemble_weights'].update(weights)
     result['run_settings']['method_selection']='factor_batch'

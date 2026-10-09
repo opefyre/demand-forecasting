@@ -40,11 +40,12 @@ class PlatformAccessTests(unittest.TestCase):
     def test_company_source_lifecycle_is_forwarded_to_root_application(self):
         with patch('apscheduler.schedulers.background.BackgroundScheduler') as scheduler:
             with TestClient(self.app, base_url=self.origin):
-                scheduler.return_value.start.assert_called_once()
-                scheduler.return_value.add_job.assert_called_once()
-                refresh = scheduler.return_value.add_job.call_args.args[0]
+                self.assertEqual(scheduler.return_value.start.call_count,2)
+                self.assertEqual(scheduler.return_value.add_job.call_count,2)
+                refresh = scheduler.return_value.add_job.call_args_list[0].args[0]
                 self.assertIsInstance(refresh.__self__, CompanyWorkspaces)
-            scheduler.return_value.shutdown.assert_called_once_with(wait=False)
+                self.assertEqual(scheduler.return_value.add_job.call_args_list[1].kwargs['id'],'company-monthly-drafts')
+            self.assertEqual(scheduler.return_value.shutdown.call_count,2)
 
     def provider(self, request):
         self.calls.append(request)

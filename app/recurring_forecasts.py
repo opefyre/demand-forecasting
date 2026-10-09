@@ -27,9 +27,10 @@ class RecurringConfig(BaseModel):
 
 
 class RecurringForecasts:
-    def __init__(self,path,monthly,folders=None,authorized=None):
+    def __init__(self,path,monthly,folders=None,authorized=None,timezone_name=None):
         self.path,self.monthly,self.folders=path,monthly,folders
         self.authorized=authorized or (lambda actor:True)
+        self.timezone_name=timezone_name or (lambda:'Asia/Tehran')
         with self.db() as db:
             db.execute('CREATE TABLE IF NOT EXISTS recurring_forecasts (id TEXT PRIMARY KEY, actor TEXT, payload TEXT)')
             db.execute('CREATE TABLE IF NOT EXISTS recurring_cycles (id TEXT PRIMARY KEY, schedule_id TEXT, payload TEXT)')
@@ -126,7 +127,7 @@ class RecurringForecasts:
     def check(self,key,actor=None,now=None):
         owner,config=self.config(key,actor)
         if not config['enabled']:return {'state':'paused'}
-        today=local_today('Asia/Tehran',now)
+        today=local_today(self.timezone_name(),now)
         day=JalaliDate(today).day if config['basis']=='jalali' else today.day
         period=month_label(today,config['basis'])
         if day<config['day']:return {'state':'not_due','period':period}
@@ -136,7 +137,9 @@ class RecurringForecasts:
             db.execute('BEGIN IMMEDIATE')
             found=db.execute('SELECT payload FROM recurring_cycles WHERE id=?',(cycle_id,)).fetchone()
             value=json.loads(found[0]) if found else {'id':cycle_id,'period':period,'state':'checking'}
-            if value.get('update_id'):
+            if not self.authorized(owner):
+                value.update(state='attention',attention='Administrator access could not be verified. Check access and try again.')
+            elif value.get('update_id'):
                 try:
                     session=self.monthly.get(value['update_id'],owner)
                     value.update(state='calculating' if session['stage']=='calculating' else 'review',stage=session['stage'],attention=None)
@@ -151,7 +154,6 @@ class RecurringForecasts:
                     value.update(state='attention',attention='Saved update or calculation is unavailable. Review the saved inputs before retrying.')
             else:
                 try:
-                    if not self.authorized(owner):raise ValueError('Schedule owner no longer has administrator access. Review authorization.')
                     run,_=self.monthly.baseline(config['run_id'])
                     if digest(run)!=config['run_sha256']:raise ValueError('Original forecast changed. Review the schedule again.')
                     original,source=self.latest_history(config)

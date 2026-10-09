@@ -14,10 +14,14 @@ export function companyPath(value,method='GET'){
     '/api/customers':'/customers','/api/customers/preview':'/customers/imports/preview',
     '/api/jobs':'/jobs','/api/run-list':'/runs','/api/sales/schema':'/orders/schema',
     '/api/sales/sources':'/sources','/api/sales/views':'/views','/api/sales/releases':'/releases',
-    '/api/factors':'/factors','/api/live-sources':'/connections/external-sources'};
+    '/api/factors':'/factors','/api/live-sources':'/connections/external-sources',
+    '/api/forecast-updates':'/forecast-updates','/api/recurring-forecasts':'/recurring-forecasts'};
   let target=exact[path];
+  if(path==='/api/jobs'&&method==='POST')target='/scenario-jobs';
   const rules=[
     [/^\/api\/ai\/(.+)$/,'/ai/$1'],
+    [/^\/api\/forecast-updates\/(.+)$/,'/forecast-updates/$1'],
+    [/^\/api\/recurring-forecasts\/(.+)$/,'/recurring-forecasts/$1'],
     [/^\/api\/sources\/(.+)$/,'/sources/$1'],
     [/^\/api\/customers\/([a-f\d]+)(.*)$/,'/customers/$1$2'],
     [/^\/api\/datasets\/([^/]+)\/forecast-orders(.*)$/,'/datasets/$1/orders$2'],
@@ -27,6 +31,8 @@ export function companyPath(value,method='GET'){
     [/^\/api\/order-books\/([^/]+)$/,'/datasets/$1/orders'],
     [/^\/api\/jobs\/([^/]+)(.*)$/,'/jobs/$1$2'],
     [/^\/api\/runs\/([^/]+)$/,'/runs/$1'],
+    [/^\/api\/runs\/([^/]+)\/(factor-links|factor-batch|factor-preparation|factor-profiles|factor-comparison|factors)(.*)$/,'/runs/$1/$2$3'],
+    [/^\/api\/sales\/runs\/([^/]+)\/(order-reuse|order-comparison)(.*)$/,'/runs/$1/$2$3'],
     [/^\/api\/sales\/runs\/([^/]+)\/inputs$/,'/runs/$1/order-snapshots'],
     [/^\/api\/sales\/runs\/([^/]+)\/starter$/,'/runs/$1/orders/starter'],
     [/^\/api\/sales\/runs\/([^/]+)\/template\/(customers|orders|commitments)$/,'/runs/$1/orders/template/$2'],

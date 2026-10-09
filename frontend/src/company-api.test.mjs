@@ -14,11 +14,20 @@ test('company screens use explicit public routes without shared-data fallback',(
     '/api/live-sources/industry/refresh':'/api/v1/connections/external-sources/industry/refresh',
     '/api/customers/abcd/factor-profiles':'/api/v1/customers/abcd/factor-profiles',
     '/api/export/abc/models':'/api/v1/runs/abc/files/models',
+    '/api/runs/abc/factor-batch/preview':'/api/v1/runs/abc/factor-batch/preview',
+    '/api/runs/abc/factor-preparation':'/api/v1/runs/abc/factor-preparation',
+    '/api/runs/abc/factor-profiles':'/api/v1/runs/abc/factor-profiles',
+    '/api/sales/runs/abc/order-reuse/preview':'/api/v1/runs/abc/order-reuse/preview',
+    '/api/sales/runs/abc/order-comparison':'/api/v1/runs/abc/order-comparison',
+    '/api/forecast-updates/abc/steps':'/api/v1/forecast-updates/abc/steps',
+    '/api/forecast-updates/abc/export?mode=combined_demand&kind=xlsx':'/api/v1/forecast-updates/abc/export?mode=combined_demand&kind=xlsx',
+    '/api/recurring-forecasts/abc/check':'/api/v1/recurring-forecasts/abc/check',
   };
   for(const [legacy,current] of Object.entries(paths))assert.equal(companyPath(legacy),current);
   assert.throws(()=>companyPath('/api/production/abc'));
-  assert.throws(()=>companyPath('/api/forecast-updates'));
+  assert.equal(companyPath('/api/forecast-updates'),'/api/v1/forecast-updates');
   assert.equal(companyPath('/api/datasets/abc/forecast-orders','POST'),'/api/v1/datasets/abc/orders/snapshots');
+  assert.equal(companyPath('/api/jobs','POST'),'/api/v1/scenario-jobs');
 });
 test('company writes match strict contracts, preserving originals and request identifiers',async()=>{
   configureCompanyApi({mode:'better_auth'});

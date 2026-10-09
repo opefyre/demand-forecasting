@@ -6,9 +6,17 @@ from .forecast_orders import finalize
 
 
 def execute_company_job(workspace, key):
-    from .main import SavedRunConfig, calculate_saved
+    from .main import SavedRunConfig, calculate_saved, ACCESS
+    def calculate(payload):
+        values=dict(payload)
+        owner=values.pop('_schedule_owner',None)
+        if owner:
+            from .company_workflows import schedule_authorized
+            if not schedule_authorized(ACCESS.identity_service,workspace,owner):
+                raise ValueError('Schedule authorization is unavailable. Review administrator access before retrying.')
+        return asyncio.run(calculate_saved(SavedRunConfig(**values),workspace))
     execute_job(key, workspace.jobs,
-        executor=lambda payload: asyncio.run(calculate_saved(SavedRunConfig(**payload), workspace)),
+        executor=calculate,
         finalizer=lambda result, snapshot, folder: finalize(workspace.datasets,
             workspace.sales, result, snapshot, folder, site=workspace.site))
 

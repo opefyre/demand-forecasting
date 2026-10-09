@@ -11,7 +11,7 @@ from fastapi import HTTPException, Request
 ROLES = frozenset({'admin', 'planner', 'approver', 'viewer'})
 COMPANY_ID = re.compile(r'^[A-Za-z0-9_-]{1,128}$')
 INTERNAL_OPERATIONS = frozenset({'identity', 'config', 'policy', 'keys/list', 'keys/create', 'keys/manage',
-    'keys/rotate', 'members/list', 'members/invite', 'members/manage', 'members/cancel-invitation', 'audit'})
+    'keys/rotate', 'members/list', 'members/invite', 'members/manage', 'members/cancel-invitation', 'audit', 'schedules/authorize'})
 
 
 @dataclass(frozen=True)

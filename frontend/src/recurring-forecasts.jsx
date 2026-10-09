@@ -1,4 +1,5 @@
 import {t as uiText} from './localization.mjs';
+import {companyMode} from './company-api.mjs';
 import React,{useEffect,useState,useRef} from 'react';
 import {ArrowRight,CalendarDots,ArrowClockwise} from '@phosphor-icons/react';
 import {Panel,Stack,Grid,Actions,Disclosure} from './ui-layout.jsx';
@@ -7,7 +8,7 @@ export function RecurringRows({schedules,ui,onOpen,onCheck,onData,busy,canAdmin}
   const {Button}=ui;
   return schedules.map(s=><div className="ui-list-row" key={s.id}>
     <div className="ui-list-body"><strong>{s.name}</strong><small>{s.cycle?.period?s.cycle.period+' · ':''}{!s.enabled?uiText("Paused"):s.cycle?.state==='calculating'?uiText("Calculating draft"):s.cycle?.state==='review'?uiText("Ready for review"):s.cycle?.state==='attention'?uiText("Needs attention"):uiText("Monthly · day {{day}} · {{calendar}} months",{day:s.day,calendar:uiText(s.basis==='jalali'?"Persian":"Gregorian")})}</small>
-      {s.enabled&&s.cycle?.attention&&<p role="status">{s.cycle.attention}</p>}
+      {s.enabled&&s.cycle?.attention&&<p role="status">{uiText(s.cycle.attention)}</p>}
       {s.cycle?.changes?.change_count>0&&<Disclosure title={uiText("Sales changes")}><p>{s.cycle.changes.changed_groups}{' '}{uiText("monthly quantities changed;")}{' '}{s.cycle.changes.added_groups}{' '}{uiText("added;")}{' '}{s.cycle.changes.removed_groups}{' '}{uiText("removed.")}</p></Disclosure>}
     </div>
     <Actions>{s.cycle?.update_id&&<Button disabled={busy} onClick={()=>onOpen(s.cycle.update_id)}>{uiText("Review update")}{' '}<ArrowRight size={16}/></Button>}
@@ -17,7 +18,7 @@ export function RecurringRows({schedules,ui,onOpen,onCheck,onData,busy,canAdmin}
   </div>);
 }
 
-export function RecurringForecasts({api,ui,runs,run,datasets,canAdmin,resumeUpdate,refresh,navigate,onCycles,settings=false}){
+export function RecurringForecasts({api,ui,runs,run,datasets,canAdmin,resumeUpdate,refresh,navigate,onCycles,settings=false,timezone='Asia/Tehran'}){
   const {Button,Modal,Pick,Field,ErrorBox}=ui;
   const [schedules,setSchedules]=useState([]),[open,setOpen]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),
     [selected,setSelected]=useState(''),[day,setDay]=useState('5'),[months,setMonths]=useState('6'),[method,setMethod]=useState('recommended'),[enabled,setEnabled]=useState(false),[confirmed,setConfirmed]=useState(false),[connection,setConnection]=useState(''),[connections,setConnections]=useState([]);
@@ -33,7 +34,7 @@ export function RecurringForecasts({api,ui,runs,run,datasets,canAdmin,resumeUpda
   if(!methods.some(m=>m[0]===method))methods.push([method,method.replace(/^model:/,'')]);
   function choose(id){setSelected(id);const s=schedules.find(v=>v.run_id===id);setDay(String(s?.day||5));setMonths(String(s?.months||6));setMethod(s?.method||'recommended');setEnabled(s?.enabled||false);setConnection(s?.connection_id||'');setConfirmed(false);request.current=null;}
   async function setup(){setOpen(true);setError('');choose(run&&choices.some(c=>c[0]===run.run_id)?run.run_id:choices[0]?.[0]||'');
-    try{setConnections((await api('/api/integrations/folders')).connections);}catch(e){setError(e.message);}}
+    if(!companyMode())try{setConnections((await api('/api/integrations/folders')).connections);}catch(e){setError(e.message);}}
   async function act(work){setBusy(true);setError('');try{await work();await load();await refresh?.();}catch(e){setError(e.message);}finally{setBusy(false);}}
   const rows=<RecurringRows schedules={schedules} ui={ui} canAdmin={canAdmin} busy={busy} onOpen={resumeUpdate} onData={()=>navigate('data')} onCheck={id=>act(()=>api('/api/recurring-forecasts/'+id+'/check',{}))}/>;
   const setupAction=canAdmin&&choices.length>0&&<Button onClick={setup}><CalendarDots size={18}/>{uiText("Monthly draft settings")}</Button>;
@@ -50,9 +51,9 @@ export function RecurringForecasts({api,ui,runs,run,datasets,canAdmin,resumeUpda
         <Field title={uiText("Sales forecast")}><Pick label={uiText("Monthly draft baseline")} value={selected} options={choices} disabled={busy} onChange={choose}/></Field>
         <Grid><Field title={uiText("Day of month")}><input aria-label={uiText("Day of month")} type="number" min="1" max="28" value={day} onChange={e=>{setDay(e.target.value);setConfirmed(false);}}/></Field>
           <Field title={uiText("Months ahead")}><input aria-label={uiText("Months ahead")} type="number" min="1" max="24" value={months} onChange={e=>{setMonths(e.target.value);setConfirmed(false);}}/></Field></Grid>
-        <Field title={uiText("Sales connection")} help={uiText("Uses reviewed versions only. New files still need review in Data.")}><Pick label={uiText("Monthly sales connection")} value={connection} options={[["",uiText("Reviewed saved versions")],...connections.filter(c=>c.dataset_id===runs.find(r=>r.run_id===selected)?.dataset_id).filter(c=>Object.keys(c.files).length===1&&c.files.history).map(c=>[c.id,c.name])]} disabled={busy} onChange={v=>{setConnection(v);setConfirmed(false);}}/></Field>
+        {!companyMode()&&<Field title={uiText("Sales connection")} help={uiText("Uses reviewed versions only. New files still need review in Data.")}><Pick label={uiText("Monthly sales connection")} value={connection} options={[["",uiText("Reviewed saved versions")],...connections.filter(c=>c.dataset_id===runs.find(r=>r.run_id===selected)?.dataset_id).filter(c=>Object.keys(c.files).length===1&&c.files.history).map(c=>[c.id,c.name])]} disabled={busy} onChange={v=>{setConnection(v);setConfirmed(false);}}/></Field>}
         <Field title={uiText("Method")}><Pick label={uiText("Monthly forecasting method")} value={method} options={methods} disabled={busy} onChange={v=>{setMethod(v);setConfirmed(false);}}/></Field>
-        <p className="ui-panel-description">{uiText("Uses the forecast’s Persian or Gregorian months, on Tehran time. Runs only while this app server is running.")}</p>
+        <p className="ui-panel-description">{companyMode()?uiText("Uses the forecast calendar and site time zone: {{timezone}}.",{timezone}):uiText("Uses the forecast’s Persian or Gregorian months, on Tehran time. Runs only while this app server is running.")}</p>
         <label className="ui-check"><input type="checkbox" checked={enabled} disabled={busy} onChange={e=>{setEnabled(e.target.checked);setConfirmed(false);}}/>{uiText("Prepare a draft each month")}</label>
         <label className="ui-check"><input type="checkbox" checked={confirmed} disabled={busy} onChange={e=>setConfirmed(e.target.checked)}/>{uiText("I allow draft calculations from reviewed sales. Factors, orders and exports still need review.")}</label>
       <Actions><Button disabled={busy} onClick={()=>setOpen(false)}>{uiText("Cancel")}</Button><Button kind="primary" disabled={busy||!selected||!confirmed||!Number.isInteger(Number(day))||Number(day)<1||Number(day)>28||!Number.isInteger(Number(months))||Number(months)<1||Number(months)>24} onClick={()=>act(async()=>{

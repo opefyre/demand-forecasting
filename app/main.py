@@ -1379,9 +1379,12 @@ async def calculate_saved(payload: SavedRunConfig, workspace=None):
     DATASET_STORE = workspace.datasets if workspace else globals()['DATASET_STORE']
     SALES_STORE = workspace.sales if workspace else globals()['SALES_STORE']
     UNIT_STORE = workspace.units if workspace else globals()['UNIT_STORE']
+    FACTOR_STORE = workspace.factors if workspace else globals()['FACTOR_STORE']
+    LIVE_SOURCES = workspace.live_sources if workspace else globals()['LIVE_SOURCES']
+    FACTOR_PROFILES = workspace.profiles if workspace else globals()['FACTOR_PROFILES']
     RUNS_DIR = workspace.runs if workspace else globals()['RUNS_DIR']
     _load_run = workspace.load_run if workspace else globals()['_load_run']
-    if workspace and (payload.scenario_name or payload.base_run_id or payload.adjustment):
+    if workspace and (payload.scenario_name or payload.adjustment):
         raise HTTPException(400, 'Company quantity scenarios are not available yet.')
     try:
         dataset=DATASET_STORE.get(payload.dataset_id)
@@ -1396,8 +1399,16 @@ async def calculate_saved(payload: SavedRunConfig, workspace=None):
                 raise ValueError('Use reviewed orders with a new forecast, not a quantity scenario.')
             reviewed(DATASET_STORE, SALES_STORE, dataset['id'], payload.sales_input_id, site=workspace.site if workspace else None)
         assumption = dataset.get('scenario_provenance')
-        if workspace and assumption:
-            raise ValueError('Choose reviewed forecast inputs, not a legacy scenario.')
+        if workspace and assumption and assumption.get('type') not in {'factor_link','factor_batch','factor_comparison'}:
+            raise ValueError('Choose a reviewed factor comparison.')
+        if workspace and payload.base_run_id and not assumption:
+            raise ValueError('This comparison has no reviewed factor inputs.')
+        if workspace and assumption and assumption.get('type')=='factor_link':
+            from .factor_links import preview_link
+            report=preview_link(_load_run(assumption['base_run_id']),DATASET_STORE,FACTOR_STORE,
+                assumption['reviewed_inputs'],LIVE_SOURCES,FACTOR_PROFILES)
+            if report['missing'] or report['review_token']!=assumption['review_token']:
+                raise ValueError('Factor inputs changed. Review the comparison again.')
         if assumption and (payload.scenario_name or payload.adjustment or payload.method):
             raise ValueError('An assumption scenario keeps its baseline method. Start a new baseline to change methods or demand percentages.')
         if assumption and assumption.get('type')=='factor_batch':
@@ -1405,7 +1416,7 @@ async def calculate_saved(payload: SavedRunConfig, workspace=None):
             if payload.base_run_id and payload.base_run_id!=assumption['base_run_id']:
                 raise ValueError('This batch belongs to another baseline.')
             async def calculate_group(identifier):
-                return await run_saved(SavedRunConfig(dataset_id=identifier,base_run_id=assumption['base_run_id']))
+                return await calculate_saved(SavedRunConfig(dataset_id=identifier,base_run_id=assumption['base_run_id']),workspace)
             return await calculate_batch(_load_run(assumption['base_run_id']),dataset,
                 DATASET_STORE,FACTOR_STORE,LIVE_SOURCES,FACTOR_PROFILES,calculate_group,output_directory(RUNS_DIR))
         if payload.scenario_name is not None:
