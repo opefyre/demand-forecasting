@@ -12,6 +12,7 @@ licences if code is vendored. Pin and audit dependencies before each release.
 | qrcode.react | https://github.com/zpao/qrcode.react | ISC | Authenticator enrollment QR code |
 | detect-secrets | https://github.com/Yelp/detect-secrets | Apache-2.0 | Pre-push secret scanning |
 | Paramiko 5.0.0 | https://github.com/paramiko/paramiko | LGPL-2.1 | SSH/SFTP client and host-key verification; installed dependency, not vendored |
+| google-auth 2.61.0 | https://github.com/googleapis/google-auth-library-python | Apache-2.0 | Official service-account authentication for read-only Sheets; installed dependency, not vendored |
 
 Existing FastAPI, Pydantic, SQLAlchemy, Huey, APScheduler, Authlib, Radix, Phosphor,
 i18next, forecasting and chart libraries remain in use. No custom password hashing,
@@ -31,7 +32,12 @@ licence when distributing the environment. Upstream references:
 [SSH client](https://docs.paramiko.org/en/stable/api/client.html),
 [release](https://pypi.org/project/paramiko/5.0.0/).
 
-Next connector dependencies: Google's official API/auth clients
-for Sheets; official provider APIs/SDKs for notifications. Odoo-specific mappings
+Sheets uses Google's maintained authentication library and documented values API,
+through the existing bounded/pinned httpx transport. No custom JWT signing or OAuth
+protocol is implemented. Odoo uses its documented read-only JSON-RPC (18) and JSON2
+(19) APIs through httpx, with version-specific Sales fields; no Odoo server code is
+copied. Existing APScheduler supplies recurring captures. No new scheduling engine.
+
+Next connector dependencies: official provider APIs/SDKs for notifications. Odoo-specific mappings
 must respect the API version and installed modules; do not copy an AGPL framework
 into the application without explicitly reviewing the distribution obligations.

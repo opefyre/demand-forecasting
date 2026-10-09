@@ -978,6 +978,8 @@ function DataPage({
   const [error, setError] = useState(""),
     [selected, setSelected] = useState(null);
   const [search,setSearch] = useState('');
+  const [orderDataset,setOrderDataset] = useState(null);
+  const viewConnected=(kind,id)=>{setOrderDataset(id||null);setView(kind);};
   const visibleDatasets = forecastInputs(datasets).filter(d => d.name.toLowerCase().includes(search.toLowerCase()));
   const loadSaved = async (d) => {
     setError("");
@@ -1033,7 +1035,7 @@ function DataPage({
       />
       </>}>
       <ErrorBox error={error} />
-      {view === "customers"?<Customers api={api} ui={inventoryUi} canEdit={canEdit} embedded navigate={()=>setView('files')}/>:view === "orders"?<OrderBooks datasets={datasets} api={api} ui={inventoryUi} canEdit={canEdit}/>:view === "connections" && companyMode()?<BusinessConnections api={api} ui={inventoryUi} canAdmin={canAdmin} canEdit={canEdit} datasets={datasets} onReview={reviewConnection}/>:view === "connections" ? (
+      {view === "customers"?<Customers api={api} ui={inventoryUi} canEdit={canEdit} embedded navigate={()=>setView('files')}/>:view === "orders"?<OrderBooks datasets={datasets} api={api} ui={inventoryUi} canEdit={canEdit} initialDatasetId={orderDataset}/>:view === "connections" && companyMode()?<BusinessConnections api={api} ui={inventoryUi} canAdmin={canAdmin} canEdit={canEdit} datasets={datasets} onReview={reviewConnection} onViewRole={viewConnected}/>:view === "connections" ? (
         <FolderInputs
           api={api}
           ui={inventoryUi}

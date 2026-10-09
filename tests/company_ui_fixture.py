@@ -27,22 +27,33 @@ def run():
     # Business input pulls use a synthetic in-memory remote, never a real account.
     from app.business_connections import BusinessConnections,ConnectionInput
     class ExportFixture:
-        def __init__(self,payload):self.payload=payload
+        def __init__(self,payload,multiplier):self.payload,self.multiplier=payload,multiplier
         def fetch(self,config,credential):
             if config['url']!='https://erp.example/sales/export':
                 raise ValueError('Only the synthetic fixture export is available.')
+            if config['role']=='sales_customers':return b'customer,external_id,active\nMehr,buyer-1,true\nAftab,buyer-2,true\nPars,buyer-3,true\nNegin,buyer-4,true\n'
+            if config['role']=='sales_orders':
+                rows=['reference,customer,sku,unit,due_date,ordered,fulfilled,cancelled,status']
+                for name,sku,qty,status in [('Mehr','001',30,'confirmed'),('Aftab','001',3,'confirmed'),('Pars','002',7,'unconfirmed'),('Negin','002',2,'confirmed')]:
+                    rows.append(f'Connected-{name},{name},{sku},tonnes,{fixture.today},{qty*self.multiplier},0,0,{status}')
+                return ('\n'.join(rows)+'\n').encode()
             return self.payload
     for company in ['tehran_a','tehran_b']:
         workspace=fixture.workspaces.for_principal({'company_id':company})
         dataset=workspace.datasets.list()[0]
         payload=workspace.datasets.source(dataset['sources']['history'])[1]
         workspace._stores['connections']=BusinessConnections(workspace.path('connections.sqlite3'),workspace.datasets,
-            fetcher=ExportFixture(payload))
+            fetcher=ExportFixture(payload,1 if company=='tehran_a' else 2))
         store=workspace.connections
         connected=store.save(ConnectionInput(name='Tehran sales export' if company=='tehran_a' else 'Second company sales export',
             provider='http',role='history',filename='sales.csv',url='https://erp.example/sales/export',
             template_dataset_id=dataset['id'],confirmed_read_access=True))
         store.pull(connected['id'],'synthetic-browser-seed')
+        for role,name in [('sales_customers','Customer directory'),('sales_orders','Customer orders')]:
+            connection=store.save(ConnectionInput(name=name,provider='http',role=role,filename=role+'.csv',
+                url='https://erp.example/sales/export',template_dataset_id=dataset['id'] if role=='sales_orders' else None,
+                confirmed_read_access=True))
+            store.pull(connection['id'],'synthetic-browser-'+role)
     class InlineDispatch(list):
         def append(self, item):
             super().append(item)

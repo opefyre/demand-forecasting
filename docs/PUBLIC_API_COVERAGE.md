@@ -2,13 +2,13 @@
 
 Generated from source decorators by `scripts/audit_public_api.py`; no application stores are opened.
 
-140 implemented v1 operations. The rest of the useful business API is not delivered yet.
+145 implemented v1 operations. The rest of the useful business API is not delivered yet.
 
 New company authentication deliberately blocks unscoped legacy business routes. Existing local mode remains unchanged.
 
 The Better Auth identity service supplies library-managed login, Google callback, verification, recovery and factor endpoints behind `/api/login/*`. These are not business CRUD.
 
-Delivered business resources: customers/products, sales sources/datasets, versioned orders/reviews, factor preparation and comparisons, grouped forecasts/jobs/results/exports, independent releases, personal chats/views, advanced assistant scenarios, monthly updates, administrator recurring drafts, actual-vs-forecast checks, company settings/units, external factors and read-only HTTPS/SFTP history/future-input connections with reviewed ingestion receipts. Pending: complete archive/revision lifecycle, connected customer/order ingestion, Odoo/Sheets, scheduled input pulls and notifications. Immutable source evidence is never destructively overwritten.
+Delivered business resources: customers/products, sales sources/datasets, versioned orders/reviews, factor preparation and comparisons, grouped forecasts/jobs/results/exports, independent releases, personal chats/views, advanced assistant scenarios, monthly updates, administrator recurring drafts, actual-vs-forecast checks, company settings/units, external factors, read-only HTTPS/SFTP/Google Sheets inputs, Odoo 18/19 customers/orders, reviewed ingestion receipts and permission-checked scheduled captures. Pending: complete archive/revision lifecycle and notifications. Immutable source evidence is never destructively overwritten.
 
 | Method | Route | Delivery | Source |
 |---|---|---|---|
@@ -37,10 +37,10 @@ Delivered business resources: customers/products, sales sources/datasets, versio
 | POST | `/api/auth/logout` | Account bridge; existing OIDC routes also retained | `app/security.py:293` |
 | GET | `/api/auth/providers` | Account bridge; existing OIDC routes also retained | `app/security.py:257` |
 | GET | `/api/auth/session` | Account bridge; existing OIDC routes also retained | `app/security.py:229` |
-| GET | `/api/customers` | Pending company-scoped v1 migration; blocked in new auth mode | `app/customers.py:134` |
-| POST | `/api/customers` | Pending company-scoped v1 migration; blocked in new auth mode | `app/customers.py:138` |
-| POST | `/api/customers/preview` | Pending company-scoped v1 migration; blocked in new auth mode | `app/customers.py:146` |
-| PUT | `/api/customers/{customer_id}` | Pending company-scoped v1 migration; blocked in new auth mode | `app/customers.py:142` |
+| GET | `/api/customers` | Pending company-scoped v1 migration; blocked in new auth mode | `app/customers.py:176` |
+| POST | `/api/customers` | Pending company-scoped v1 migration; blocked in new auth mode | `app/customers.py:180` |
+| POST | `/api/customers/preview` | Pending company-scoped v1 migration; blocked in new auth mode | `app/customers.py:188` |
+| PUT | `/api/customers/{customer_id}` | Pending company-scoped v1 migration; blocked in new auth mode | `app/customers.py:184` |
 | GET | `/api/customers/{customer_id}/factor-profiles` | Pending company-scoped v1 migration; blocked in new auth mode | `app/factor_profiles.py:88` |
 | PUT | `/api/customers/{customer_id}/factor-profiles` | Pending company-scoped v1 migration; blocked in new auth mode | `app/factor_profiles.py:93` |
 | GET | `/api/datasets` | Pending company-scoped v1 migration; blocked in new auth mode | `app/main.py:1037` |
@@ -114,8 +114,8 @@ Delivered business resources: customers/products, sales sources/datasets, versio
 | POST | `/api/login/{path:path}` | Better Auth proxy; identity-service allowlist | `app/security.py:253` |
 | GET | `/api/monitoring` | Pending company-scoped v1 migration; blocked in new auth mode | `app/main.py:920` |
 | POST | `/api/operations/preview` | Pending company-scoped v1 migration; blocked in new auth mode | `app/main.py:338` |
-| GET | `/api/order-books/{dataset_id}` | Pending company-scoped v1 migration; blocked in new auth mode | `app/order_books.py:89` |
-| PUT | `/api/order-books/{dataset_id}` | Pending company-scoped v1 migration; blocked in new auth mode | `app/order_books.py:94` |
+| GET | `/api/order-books/{dataset_id}` | Pending company-scoped v1 migration; blocked in new auth mode | `app/order_books.py:105` |
+| PUT | `/api/order-books/{dataset_id}` | Pending company-scoped v1 migration; blocked in new auth mode | `app/order_books.py:110` |
 | GET | `/api/plans` | Pending company-scoped v1 migration; blocked in new auth mode | `app/main.py:649` |
 | POST | `/api/plans` | Pending company-scoped v1 migration; blocked in new auth mode | `app/main.py:688` |
 | POST | `/api/plans/{plan_id}/comments` | Pending company-scoped v1 migration; blocked in new auth mode | `app/main.py:818` |
@@ -209,15 +209,20 @@ Delivered business resources: customers/products, sales sources/datasets, versio
 | PUT | `/api/v1/connections/external-sources/{key}` | Implemented; company-scoped | `app/platform_workspace_api.py:346` |
 | PUT | `/api/v1/connections/external-sources/{key}/permission` | Implemented; company-scoped | `app/platform_workspace_api.py:350` |
 | POST | `/api/v1/connections/external-sources/{key}/refresh` | Implemented; company-scoped | `app/platform_workspace_api.py:354` |
-| GET | `/api/v1/connections/imports/{import_id}` | Implemented; company-scoped | `app/platform_connections_api.py:91` |
-| POST | `/api/v1/connections/imports/{import_id}/accept` | Implemented; company-scoped | `app/platform_connections_api.py:95` |
-| GET | `/api/v1/connections/inputs` | Implemented; company-scoped | `app/platform_connections_api.py:50` |
-| POST | `/api/v1/connections/inputs` | Implemented; company-scoped | `app/platform_connections_api.py:57` |
-| DELETE | `/api/v1/connections/inputs/{connection_id}` | Implemented; company-scoped | `app/platform_connections_api.py:76` |
-| GET | `/api/v1/connections/inputs/{connection_id}` | Implemented; company-scoped | `app/platform_connections_api.py:63` |
-| PUT | `/api/v1/connections/inputs/{connection_id}` | Implemented; company-scoped | `app/platform_connections_api.py:67` |
-| POST | `/api/v1/connections/inputs/{connection_id}/fetch` | Implemented; company-scoped | `app/platform_connections_api.py:86` |
-| POST | `/api/v1/connections/inputs/{connection_id}/restore` | Implemented; company-scoped | `app/platform_connections_api.py:81` |
+| GET | `/api/v1/connections/imports/{import_id}` | Implemented; company-scoped | `app/platform_connections_api.py:95` |
+| POST | `/api/v1/connections/imports/{import_id}/accept` | Implemented; company-scoped | `app/platform_connections_api.py:113` |
+| POST | `/api/v1/connections/imports/{import_id}/rows/accept` | Implemented; company-scoped | `app/platform_connections_api.py:108` |
+| POST | `/api/v1/connections/imports/{import_id}/rows/preview` | Implemented; company-scoped | `app/platform_connections_api.py:102` |
+| GET | `/api/v1/connections/inputs` | Implemented; company-scoped | `app/platform_connections_api.py:54` |
+| POST | `/api/v1/connections/inputs` | Implemented; company-scoped | `app/platform_connections_api.py:61` |
+| DELETE | `/api/v1/connections/inputs/{connection_id}` | Implemented; company-scoped | `app/platform_connections_api.py:80` |
+| GET | `/api/v1/connections/inputs/{connection_id}` | Implemented; company-scoped | `app/platform_connections_api.py:67` |
+| PUT | `/api/v1/connections/inputs/{connection_id}` | Implemented; company-scoped | `app/platform_connections_api.py:71` |
+| POST | `/api/v1/connections/inputs/{connection_id}/fetch` | Implemented; company-scoped | `app/platform_connections_api.py:90` |
+| POST | `/api/v1/connections/inputs/{connection_id}/restore` | Implemented; company-scoped | `app/platform_connections_api.py:85` |
+| DELETE | `/api/v1/connections/inputs/{connection_id}/schedule` | Implemented; company-scoped | `app/platform_connections_api.py:131` |
+| PUT | `/api/v1/connections/inputs/{connection_id}/schedule` | Implemented; company-scoped | `app/platform_connections_api.py:125` |
+| POST | `/api/v1/connections/inputs/{connection_id}/schedule/check` | Implemented; company-scoped | `app/platform_connections_api.py:140` |
 | GET | `/api/v1/customers` | Implemented; company-scoped | `app/platform_api.py:72` |
 | POST | `/api/v1/customers` | Implemented; company-scoped | `app/platform_api.py:79` |
 | POST | `/api/v1/customers/imports` | Implemented; company-scoped | `app/platform_workspace_api.py:105` |
@@ -229,44 +234,44 @@ Delivered business resources: customers/products, sales sources/datasets, versio
 | PUT | `/api/v1/customers/{customer_id}/factor-profiles` | Implemented; company-scoped | `app/platform_workspace_api.py:117` |
 | GET | `/api/v1/customers/{customer_id}/products` | Implemented; company-scoped | `app/platform_api.py:103` |
 | PUT | `/api/v1/customers/{customer_id}/products` | Implemented; company-scoped | `app/platform_api.py:107` |
-| GET | `/api/v1/datasets` | Implemented; company-scoped | `app/platform_sales_api.py:156` |
-| POST | `/api/v1/datasets` | Implemented; company-scoped | `app/platform_sales_api.py:168` |
-| POST | `/api/v1/datasets/preview` | Implemented; company-scoped | `app/platform_sales_api.py:161` |
-| GET | `/api/v1/datasets/{dataset_id}` | Implemented; company-scoped | `app/platform_sales_api.py:176` |
-| GET | `/api/v1/datasets/{dataset_id}/factors` | Implemented; company-scoped | `app/platform_sales_api.py:239` |
-| POST | `/api/v1/datasets/{dataset_id}/factors` | Implemented; company-scoped | `app/platform_sales_api.py:253` |
-| POST | `/api/v1/datasets/{dataset_id}/factors/preview` | Implemented; company-scoped | `app/platform_sales_api.py:246` |
+| GET | `/api/v1/datasets` | Implemented; company-scoped | `app/platform_sales_api.py:159` |
+| POST | `/api/v1/datasets` | Implemented; company-scoped | `app/platform_sales_api.py:171` |
+| POST | `/api/v1/datasets/preview` | Implemented; company-scoped | `app/platform_sales_api.py:164` |
+| GET | `/api/v1/datasets/{dataset_id}` | Implemented; company-scoped | `app/platform_sales_api.py:179` |
+| GET | `/api/v1/datasets/{dataset_id}/factors` | Implemented; company-scoped | `app/platform_sales_api.py:242` |
+| POST | `/api/v1/datasets/{dataset_id}/factors` | Implemented; company-scoped | `app/platform_sales_api.py:256` |
+| POST | `/api/v1/datasets/{dataset_id}/factors/preview` | Implemented; company-scoped | `app/platform_sales_api.py:249` |
 | POST | `/api/v1/datasets/{dataset_id}/forecast-settings` | Implemented; company-scoped | `app/platform_workspace_api.py:135` |
-| GET | `/api/v1/datasets/{dataset_id}/orders` | Implemented; company-scoped | `app/platform_sales_api.py:180` |
-| PUT | `/api/v1/datasets/{dataset_id}/orders` | Implemented; company-scoped | `app/platform_sales_api.py:190` |
-| POST | `/api/v1/datasets/{dataset_id}/orders/preview` | Implemented; company-scoped | `app/platform_sales_api.py:196` |
-| POST | `/api/v1/datasets/{dataset_id}/orders/snapshots` | Implemented; company-scoped | `app/platform_sales_api.py:203` |
+| GET | `/api/v1/datasets/{dataset_id}/orders` | Implemented; company-scoped | `app/platform_sales_api.py:183` |
+| PUT | `/api/v1/datasets/{dataset_id}/orders` | Implemented; company-scoped | `app/platform_sales_api.py:193` |
+| POST | `/api/v1/datasets/{dataset_id}/orders/preview` | Implemented; company-scoped | `app/platform_sales_api.py:199` |
+| POST | `/api/v1/datasets/{dataset_id}/orders/snapshots` | Implemented; company-scoped | `app/platform_sales_api.py:206` |
 | GET | `/api/v1/datasets/{dataset_id}/orders/template/{role}` | Implemented; company-scoped | `app/platform_workspace_api.py:151` |
-| GET | `/api/v1/factors` | Implemented; company-scoped | `app/platform_sales_api.py:219` |
-| POST | `/api/v1/factors/imports` | Implemented; company-scoped | `app/platform_sales_api.py:229` |
-| POST | `/api/v1/factors/imports/preview` | Implemented; company-scoped | `app/platform_sales_api.py:223` |
-| GET | `/api/v1/factors/{snapshot_id}` | Implemented; company-scoped | `app/platform_sales_api.py:235` |
-| GET | `/api/v1/forecast-methods` | Implemented; company-scoped | `app/platform_sales_api.py:292` |
+| GET | `/api/v1/factors` | Implemented; company-scoped | `app/platform_sales_api.py:222` |
+| POST | `/api/v1/factors/imports` | Implemented; company-scoped | `app/platform_sales_api.py:232` |
+| POST | `/api/v1/factors/imports/preview` | Implemented; company-scoped | `app/platform_sales_api.py:226` |
+| GET | `/api/v1/factors/{snapshot_id}` | Implemented; company-scoped | `app/platform_sales_api.py:238` |
+| GET | `/api/v1/forecast-methods` | Implemented; company-scoped | `app/platform_sales_api.py:295` |
 | GET | `/api/v1/forecast-updates` | Implemented; company-scoped | `app/platform_workflow_api.py:157` |
 | POST | `/api/v1/forecast-updates` | Implemented; company-scoped | `app/platform_workflow_api.py:162` |
 | GET | `/api/v1/forecast-updates/{key}` | Implemented; company-scoped | `app/platform_workflow_api.py:167` |
 | GET | `/api/v1/forecast-updates/{key}/export` | Implemented; company-scoped | `app/platform_workflow_api.py:178` |
 | POST | `/api/v1/forecast-updates/{key}/steps` | Implemented; company-scoped | `app/platform_workflow_api.py:172` |
-| GET | `/api/v1/forecasts` | Implemented; company-scoped | `app/platform_sales_api.py:303` |
-| POST | `/api/v1/forecasts` | Implemented; company-scoped | `app/platform_sales_api.py:261` |
-| GET | `/api/v1/forecasts/{forecast_id}` | Implemented; company-scoped | `app/platform_sales_api.py:308` |
+| GET | `/api/v1/forecasts` | Implemented; company-scoped | `app/platform_sales_api.py:306` |
+| POST | `/api/v1/forecasts` | Implemented; company-scoped | `app/platform_sales_api.py:264` |
+| GET | `/api/v1/forecasts/{forecast_id}` | Implemented; company-scoped | `app/platform_sales_api.py:311` |
 | POST | `/api/v1/invitations` | Implemented; company-scoped | `app/platform_api.py:145` |
 | DELETE | `/api/v1/invitations/{invitation_id}` | Implemented; company-scoped | `app/platform_api.py:149` |
 | GET | `/api/v1/jobs` | Implemented; company-scoped | `app/platform_workspace_api.py:193` |
-| GET | `/api/v1/jobs/{job_id}` | Implemented; company-scoped | `app/platform_sales_api.py:313` |
-| POST | `/api/v1/jobs/{job_id}/cancel` | Implemented; company-scoped | `app/platform_sales_api.py:317` |
+| GET | `/api/v1/jobs/{job_id}` | Implemented; company-scoped | `app/platform_sales_api.py:316` |
+| POST | `/api/v1/jobs/{job_id}/cancel` | Implemented; company-scoped | `app/platform_sales_api.py:320` |
 | POST | `/api/v1/jobs/{job_id}/retry` | Implemented; company-scoped | `app/platform_workspace_api.py:199` |
 | GET | `/api/v1/me` | Implemented; company-scoped | `app/platform_api.py:49` |
 | GET | `/api/v1/members` | Implemented; company-scoped | `app/platform_api.py:141` |
 | DELETE | `/api/v1/members/{member_id}` | Implemented; company-scoped | `app/platform_api.py:162` |
 | PATCH | `/api/v1/members/{member_id}` | Implemented; company-scoped | `app/platform_api.py:153` |
 | POST | `/api/v1/members/{member_id}/revoke-sessions` | Implemented; company-scoped | `app/platform_api.py:166` |
-| GET | `/api/v1/order-snapshots/{snapshot_id}` | Implemented; company-scoped | `app/platform_sales_api.py:210` |
+| GET | `/api/v1/order-snapshots/{snapshot_id}` | Implemented; company-scoped | `app/platform_sales_api.py:213` |
 | GET | `/api/v1/order-snapshots/{snapshot_id}/demand` | Implemented; company-scoped | `app/platform_workspace_api.py:231` |
 | GET | `/api/v1/order-snapshots/{snapshot_id}/export` | Implemented; company-scoped | `app/platform_workspace_api.py:258` |
 | GET | `/api/v1/orders/schema` | Implemented; company-scoped | `app/platform_workspace_api.py:146` |
@@ -276,19 +281,19 @@ Delivered business resources: customers/products, sales sources/datasets, versio
 | GET | `/api/v1/recurring-forecasts/{key}` | Implemented; company-scoped | `app/platform_workflow_api.py:199` |
 | PUT | `/api/v1/recurring-forecasts/{key}` | Implemented; company-scoped | `app/platform_workflow_api.py:204` |
 | POST | `/api/v1/recurring-forecasts/{key}/check` | Implemented; company-scoped | `app/platform_workflow_api.py:222` |
-| GET | `/api/v1/releases` | Implemented; company-scoped | `app/platform_sales_api.py:373` |
-| POST | `/api/v1/releases` | Implemented; company-scoped | `app/platform_sales_api.py:385` |
-| POST | `/api/v1/releases/preview` | Implemented; company-scoped | `app/platform_sales_api.py:380` |
-| GET | `/api/v1/releases/{release_id}` | Implemented; company-scoped | `app/platform_sales_api.py:390` |
-| POST | `/api/v1/releases/{release_id}/approve` | Implemented; company-scoped | `app/platform_sales_api.py:395` |
-| GET | `/api/v1/releases/{release_id}/export` | Implemented; company-scoped | `app/platform_sales_api.py:401` |
+| GET | `/api/v1/releases` | Implemented; company-scoped | `app/platform_sales_api.py:376` |
+| POST | `/api/v1/releases` | Implemented; company-scoped | `app/platform_sales_api.py:388` |
+| POST | `/api/v1/releases/preview` | Implemented; company-scoped | `app/platform_sales_api.py:383` |
+| GET | `/api/v1/releases/{release_id}` | Implemented; company-scoped | `app/platform_sales_api.py:393` |
+| POST | `/api/v1/releases/{release_id}/approve` | Implemented; company-scoped | `app/platform_sales_api.py:398` |
+| GET | `/api/v1/releases/{release_id}/export` | Implemented; company-scoped | `app/platform_sales_api.py:404` |
 | GET | `/api/v1/runs` | Implemented; company-scoped | `app/platform_workspace_api.py:161` |
-| GET | `/api/v1/runs/{run_id}` | Implemented; company-scoped | `app/platform_sales_api.py:323` |
+| GET | `/api/v1/runs/{run_id}` | Implemented; company-scoped | `app/platform_sales_api.py:326` |
 | GET | `/api/v1/runs/{run_id}/actuals` | Implemented; company-scoped | `app/platform_workspace_api.py:308` |
 | POST | `/api/v1/runs/{run_id}/actuals` | Implemented; company-scoped | `app/platform_workspace_api.py:326` |
 | POST | `/api/v1/runs/{run_id}/actuals/preview` | Implemented; company-scoped | `app/platform_workspace_api.py:321` |
-| GET | `/api/v1/runs/{run_id}/demand` | Implemented; company-scoped | `app/platform_sales_api.py:350` |
-| GET | `/api/v1/runs/{run_id}/export` | Implemented; company-scoped | `app/platform_sales_api.py:356` |
+| GET | `/api/v1/runs/{run_id}/demand` | Implemented; company-scoped | `app/platform_sales_api.py:353` |
+| GET | `/api/v1/runs/{run_id}/export` | Implemented; company-scoped | `app/platform_sales_api.py:359` |
 | POST | `/api/v1/runs/{run_id}/factor-batch` | Implemented; company-scoped | `app/platform_workflow_api.py:94` |
 | POST | `/api/v1/runs/{run_id}/factor-batch/preview` | Implemented; company-scoped | `app/platform_workflow_api.py:88` |
 | POST | `/api/v1/runs/{run_id}/factor-comparison` | Implemented; company-scoped | `app/platform_workflow_api.py:106` |
@@ -298,7 +303,7 @@ Delivered business resources: customers/products, sales sources/datasets, versio
 | POST | `/api/v1/runs/{run_id}/factor-preparation` | Implemented; company-scoped | `app/platform_workflow_api.py:77` |
 | GET | `/api/v1/runs/{run_id}/factor-profiles` | Implemented; company-scoped | `app/platform_workflow_api.py:83` |
 | GET | `/api/v1/runs/{run_id}/factors` | Implemented; company-scoped | `app/platform_workflow_api.py:100` |
-| GET | `/api/v1/runs/{run_id}/files/{kind}` | Implemented; company-scoped | `app/platform_sales_api.py:329` |
+| GET | `/api/v1/runs/{run_id}/files/{kind}` | Implemented; company-scoped | `app/platform_sales_api.py:332` |
 | POST | `/api/v1/runs/{run_id}/order-comparison` | Implemented; company-scoped | `app/platform_workflow_api.py:151` |
 | POST | `/api/v1/runs/{run_id}/order-comparison/preview` | Implemented; company-scoped | `app/platform_workflow_api.py:145` |
 | POST | `/api/v1/runs/{run_id}/order-reuse` | Implemented; company-scoped | `app/platform_workflow_api.py:139` |
@@ -311,9 +316,9 @@ Delivered business resources: customers/products, sales sources/datasets, versio
 | GET | `/api/v1/runs/{run_id}/orders/template/{role}` | Implemented; company-scoped | `app/platform_workspace_api.py:184` |
 | POST | `/api/v1/scenario-jobs` | Implemented; company-scoped | `app/platform_workflow_api.py:112` |
 | PUT | `/api/v1/settings/site` | Implemented; company-scoped | `app/platform_workspace_api.py:75` |
-| GET | `/api/v1/sources` | Implemented; company-scoped | `app/platform_sales_api.py:145` |
-| POST | `/api/v1/sources` | Implemented; company-scoped | `app/platform_sales_api.py:125` |
-| GET | `/api/v1/sources/{source_id}` | Implemented; company-scoped | `app/platform_sales_api.py:136` |
+| GET | `/api/v1/sources` | Implemented; company-scoped | `app/platform_sales_api.py:149` |
+| POST | `/api/v1/sources` | Implemented; company-scoped | `app/platform_sales_api.py:129` |
+| GET | `/api/v1/sources/{source_id}` | Implemented; company-scoped | `app/platform_sales_api.py:140` |
 | POST | `/api/v1/sources/{source_id}/preview` | Implemented; company-scoped | `app/platform_workspace_api.py:123` |
 | POST | `/api/v1/sources/{source_id}/sheet` | Implemented; company-scoped | `app/platform_workspace_api.py:129` |
 | GET | `/api/v1/units` | Implemented; company-scoped | `app/platform_workspace_api.py:79` |

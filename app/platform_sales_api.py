@@ -16,6 +16,10 @@ class StrictInput(BaseModel):
     model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
 
 
+def source_scope(role):
+    return 'customers' if role=='sales_customers' else 'orders' if role.startswith('sales_') else 'factors' if role=='factor_observations' else 'inputs'
+
+
 class DatasetInput(StrictInput):
     name: str = Field(min_length=1, max_length=120)
     sources: dict[Literal['history','future'], str] = Field(min_length=1, max_length=2)
@@ -126,7 +130,7 @@ def install_platform_sales(api, workspaces, dispatcher=None):
     async def upload_source(request: Request, file: UploadFile = File(...),
             role: Literal['history','future','actuals','sales_customers','sales_orders','sales_commitments','factor_observations'] = Form('history'),
             sheet: str | None = Form(None)):
-        scope = 'orders:write' if role.startswith('sales_') else 'factors:write' if role == 'factor_observations' else 'inputs:write'
+        scope = source_scope(role)+':write'
         ws = workspace(request, scope)
         payload = await file.read(50 * 1024 * 1024 + 1)
         if not payload or len(payload) > 50 * 1024 * 1024:
@@ -138,7 +142,7 @@ def install_platform_sales(api, workspaces, dispatcher=None):
         # File roles determine access; callers never choose the permission themselves.
         ws = workspace(request)
         value = call(lambda: ws.datasets.source(source_id)[0], missing=True)
-        scope = 'orders:read' if value['role'].startswith('sales_') else 'factors:read' if value['role'] == 'factor_observations' else 'inputs:read'
+        scope = source_scope(value['role'])+':read'
         principal(request, scope)
         return value
 
@@ -146,11 +150,10 @@ def install_platform_sales(api, workspaces, dispatcher=None):
     def sources(request: Request, limit: int = Query(100, ge=1, le=1000), offset: int = Query(0, ge=0)):
         ws = workspace(request)
         scopes = set(principal(request)['permissions'])
-        if not scopes.intersection({'inputs:read','orders:read','factors:read'}):
+        if not scopes.intersection({'inputs:read','customers:read','orders:read','factors:read'}):
             raise HTTPException(403, 'Sales input access is required.')
         rows = [row for row in ws.datasets.list_sources() if
-            ('orders:read' if row['role'].startswith('sales_') else
-             'factors:read' if row['role'] == 'factor_observations' else 'inputs:read') in scopes]
+            source_scope(row['role'])+':read' in scopes]
         return {'sources':rows[offset:offset+limit], 'total':len(rows), 'limit':limit, 'offset':offset}
 
     @router.get('/datasets', tags=['Sales inputs'])

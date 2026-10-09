@@ -32,8 +32,8 @@ class ConnectionConflict(ConnectionError):
 class ConnectionInput(BaseModel):
     model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
     name: str = Field(min_length=1, max_length=120)
-    provider: str = Field(pattern=r'^(http|sftp)$')
-    role: str = Field(pattern=r'^(history|future)$')
+    provider: str = Field(pattern=r'^(http|sftp|sheets|odoo18|odoo19)$')
+    role: str = Field(pattern=r'^(history|future|sales_customers|sales_orders)$')
     filename: str = Field(min_length=1, max_length=160)
     url: str = Field(default='', max_length=1000)
     host: str = Field(default='', max_length=253)
@@ -41,7 +41,12 @@ class ConnectionInput(BaseModel):
     username: str = Field(default='', max_length=128)
     path: str = Field(default='', max_length=1000)
     host_key: str = Field(default='', max_length=2000)
-    credential: SecretStr | None = Field(default=None, max_length=4096)
+    credential: SecretStr | None = Field(default=None, max_length=20000)
+    spreadsheet_id: str = Field(default='', max_length=200)
+    sheet_range: str = Field(default='', max_length=250)
+    database: str = Field(default='', max_length=120)
+    odoo_company_id: int = Field(default=1,ge=1,strict=True)
+    timezone: str = Field(default='Asia/Tehran',max_length=100)
     template_dataset_id: str | None = Field(default=None, pattern=r'^[a-f0-9]{32}$')
     confirmed_read_access: bool = False
 
@@ -51,18 +56,37 @@ class ConnectionInput(BaseModel):
             raise ValueError('Confirm permission to read this source.')
         if self.role=='future' and not self.template_dataset_id:
             raise ValueError('Choose reviewed sales data before connecting future factors.')
+        if self.role=='sales_orders' and not self.template_dataset_id:
+            raise ValueError('Choose sales data before connecting orders.')
         if self.filename != PurePosixPath(self.filename).name or '\\' in self.filename or any(ord(c)<32 for c in self.filename):
             raise ValueError('Use a filename without a folder path.')
         if PurePosixPath(self.filename).suffix.lower() not in {'.csv','.tsv','.json','.xlsx'}:
             raise ValueError('Choose CSV, TSV, JSON or XLSX.')
-        if self.provider == 'http':
+        if self.provider in {'http','odoo18','odoo19'}:
             parsed = urlsplit(self.url)
             if (parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password
                     or parsed.query or parsed.fragment or parsed.port not in {None,443}
                     or any(ord(c)<33 for c in self.url)):
                 raise ValueError('Use an HTTPS endpoint without credentials, query parameters or redirects.')
             if self.host or self.username or self.path or self.host_key:
-                raise ValueError('SFTP settings do not apply to HTTPS.')
+                if self.provider=='http' or self.host or self.path or self.host_key:
+                    raise ValueError('SFTP settings do not apply to HTTPS.')
+            if self.provider.startswith('odoo'):
+                from zoneinfo import ZoneInfo
+                try: ZoneInfo(self.timezone)
+                except (KeyError,ValueError): raise ValueError('Choose a valid delivery-date timezone.') from None
+                if parsed.path not in {'','/'} or not self.database or (self.provider=='odoo18' and not self.username):
+                    raise ValueError('Enter the Odoo base address, database and login for version 18.')
+                if self.role not in {'sales_customers','sales_orders'} or not self.filename.endswith('.json'):
+                    raise ValueError('Odoo supports customer and order inputs using JSON.')
+                if any(ord(c)<32 for c in self.database+self.username):raise ValueError('Check the Odoo database and login.')
+        elif self.provider=='sheets':
+            if self.url or self.host or self.username or self.path or self.host_key or self.database:
+                raise ValueError('Enter only the spreadsheet ID and sheet name for Google Sheets.')
+            if not re.fullmatch(r'[A-Za-z0-9_-]{10,200}',self.spreadsheet_id) or not self.sheet_range or not self.filename.endswith('.csv'):
+                raise ValueError('Enter a Google spreadsheet ID and worksheet name. Use a CSV filename.')
+            if '!' in self.sheet_range or any(ord(c)<32 for c in self.sheet_range):
+                raise ValueError('Use a worksheet name, not a partial range.')
         else:
             if self.url or not self.username or not re.fullmatch(r'[A-Za-z0-9.-]+', self.host):
                 raise ValueError('Enter the SFTP host and username.')
@@ -142,7 +166,10 @@ class InputFetcher:
 
     def fetch(self, config, credential):
         try:
-            data = self.http(config, credential) if config['provider']=='http' else self.sftp(config, credential)
+            if config['provider'] in {'sheets','odoo18','odoo19'}:
+                from .connection_providers import provider_fetch
+                data=provider_fetch(self,config,credential)
+            else:data = self.http(config, credential) if config['provider']=='http' else self.sftp(config, credential)
             return check_payload(data, config['filename'])
         except ConnectionError: raise
         except Exception:
@@ -223,6 +250,8 @@ class BusinessConnections:
               version INTEGER NOT NULL,digest TEXT NOT NULL,source_id TEXT NOT NULL,data TEXT NOT NULL,
               accepted_dataset_id TEXT,UNIQUE(connection_id,version,digest));
             ''')
+            db.execute('CREATE TABLE IF NOT EXISTS import_acceptance(id TEXT PRIMARY KEY,payload TEXT NOT NULL)')
+            db.execute('CREATE TABLE IF NOT EXISTS input_schedules(connection_id TEXT PRIMARY KEY,payload TEXT NOT NULL)')
 
     @contextmanager
     def db(self):
@@ -238,7 +267,12 @@ class BusinessConnections:
             pulls = [dict(r) for r in db.execute('''SELECT p.*,c.accepted_dataset_id FROM pulls p
                 LEFT JOIN candidates c ON c.id=p.candidate_id WHERE p.connection_id=?
                 ORDER BY p.started DESC LIMIT 20''',(identifier,))]
-        return {'id':row['id'],**json.loads(row['config']),'version':row['version'],
+        with self.db() as db:
+            schedule=db.execute('SELECT payload FROM input_schedules WHERE connection_id=?',(identifier,)).fetchone()
+            accepted={p['candidate_id']:self.acceptance(p['candidate_id']) for p in pulls if p['candidate_id']}
+        for p in pulls:p['accepted_resource']=accepted.get(p['candidate_id'])
+        return {'id':row['id'],**ConnectionInput.model_validate({**json.loads(row['config']),'confirmed_read_access':True}).public_config(),'version':row['version'],
+                'schedule':{k:v for k,v in json.loads(schedule[0]).items() if k!='owner'} if schedule else None,
                 'archived':bool(row['archived']),'credential_configured':bool(row['credential']),'pulls':pulls}
 
     def list(self, include_archived=False):
@@ -267,8 +301,8 @@ class BusinessConnections:
             elif configured:
                 previous = json.loads(old['config'])
                 # Never send an existing secret to a newly chosen destination without reconfirmation.
-                target = ('provider','url','host','port','username','host_key')
-                if any(previous[k]!=config[k] for k in target):
+                target = ('provider','url','host','port','username','host_key','spreadsheet_id','database','odoo_company_id')
+                if any(previous.get(k,ConnectionInput.model_fields[k].default)!=config[k] for k in target):
                     raise ConnectionError('Supply a new credential when changing the destination.')
                 self.vault.set(f'{identifier}:{next_version}',self.vault.get(f'{identifier}:{old["version"]}'))
             db.execute('INSERT INTO connections VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET config=excluded.config,version=excluded.version,credential=excluded.credential',
@@ -292,7 +326,12 @@ class BusinessConnections:
         self.datasets.source(row['source_id'])
         return result
 
-    def pull(self, identifier, request_id):
+    def acceptance(self,identifier):
+        with self.db() as db:row=db.execute('SELECT payload FROM import_acceptance WHERE id=?',(identifier,)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def pull(self, identifier, request_id, authorized=lambda:True):
+        if not authorized():raise ConnectionError('Schedule permission is no longer available.')
         started = time.time()
         with self.db() as db:
             db.execute('BEGIN IMMEDIATE')
@@ -309,6 +348,7 @@ class BusinessConnections:
             config = json.loads(row['config'])
             secret = self.vault.get(f'{identifier}:{row["version"]}') if row['credential'] else None
             payload = check_payload(self.fetcher.fetch(config,secret),config['filename'])
+            if not authorized():raise ConnectionError('Schedule permission is no longer available.')
             digest = hashlib.sha256(payload).hexdigest()
             with self.db() as db:
                 db.execute('BEGIN IMMEDIATE')
@@ -323,13 +363,14 @@ class BusinessConnections:
                     source = self.datasets.upload(config['filename'],payload,config['role'],identifier=candidate_id)
                     data = {'name':config['name'],'sources':{config['role']:source['id']},'settings':{},
                             'parent_dataset_id':None,'role':config['role'],'classification':'user_provided'}
-                    if config['template_dataset_id']:
+                    if config['template_dataset_id'] and config['role'] in {'history','future'}:
                         parent = self.datasets.get(config['template_dataset_id'])
                         settings = dict(parent['settings'])
                         if config['role']=='history':
                             settings.pop('history_cell_corrections',None)
                             settings.pop('history_corrections_sha256',None)
                         data.update(sources={**parent['sources'],config['role']:source['id']},settings=settings,parent_dataset_id=parent['id'])
+                    elif config['template_dataset_id']:data['parent_dataset_id']=config['template_dataset_id']
                     db.execute('INSERT INTO candidates VALUES(?,?,?,?,?,?,?)',(candidate_id,identifier,row['version'],digest,source['id'],json.dumps(data),None))
                     message = 'Ready for review'
                 db.execute("UPDATE pulls SET state='ready',message=?,candidate_id=? WHERE id=?",(message,candidate_id,key))

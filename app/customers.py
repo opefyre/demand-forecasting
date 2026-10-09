@@ -5,7 +5,8 @@ import json
 import sqlite3
 import uuid
 import unicodedata
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
+import hashlib
 from zipfile import BadZipFile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -56,6 +57,7 @@ class CustomerStore:
         path.parent.mkdir(parents=True, exist_ok=True)
         with self.connect() as db:
             db.execute('CREATE TABLE IF NOT EXISTS customers (id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL, payload TEXT NOT NULL, updated_at TEXT NOT NULL)')
+            db.execute('CREATE TABLE IF NOT EXISTS customer_import_receipts(id TEXT PRIMARY KEY, payload TEXT NOT NULL)')
 
     @contextmanager
     def connect(self):
@@ -71,11 +73,11 @@ class CustomerStore:
         with self.connect() as db:
             return [dict(id=r['id'], updated_at=r['updated_at'], **json.loads(r['payload'])) for r in db.execute('SELECT * FROM customers ORDER BY name COLLATE NOCASE')]
 
-    def save(self, customers, customer_id=None):
+    def save(self, customers, customer_id=None, *, _db=None):
         ids = []
         try:
-            with self.connect() as db:
-                db.execute('BEGIN IMMEDIATE')
+            with (nullcontext(_db) if _db is not None else self.connect()) as db:
+                if _db is None:db.execute('BEGIN IMMEDIATE')
                 if customer_id and not db.execute('SELECT 1 FROM customers WHERE id=?', (customer_id,)).fetchone():
                     raise HTTPException(404, 'Customer not found.')
                 identities={};codes={}
@@ -108,6 +110,46 @@ class CustomerStore:
         except sqlite3.IntegrityError:
             raise HTTPException(409, 'A customer with that name already exists. Edit the existing customer; no changes were saved.')
         return {'ids': ids}
+
+    @staticmethod
+    def directory_hash(rows):
+        return hashlib.sha256(json.dumps(rows,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+
+    def import_receipt(self,key):
+        with self.connect() as db:row=db.execute('SELECT payload FROM customer_import_receipts WHERE id=?',(key,)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def import_connected(self,customers,key,expected_hash,provenance,request_hash,active_mapped=False):
+        # Directory mutations and their receipt commit together. A retry after a
+        # connection-receipt interruption cannot create/update the buyers twice.
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            receipt=db.execute('SELECT payload FROM customer_import_receipts WHERE id=?',(key,)).fetchone()
+            if receipt:
+                saved=json.loads(receipt[0])
+                if saved['request_hash']!=request_hash:raise ValueError('This import was already saved with different review settings.')
+                return saved
+            existing=[dict(id=r['id'],updated_at=r['updated_at'],**json.loads(r['payload'])) for r in db.execute('SELECT * FROM customers ORDER BY name COLLATE NOCASE')]
+            if self.directory_hash(existing)!=expected_hash:raise ValueError('Customers changed. Review this import again.')
+            codes={r['external_id']:r for r in existing if r.get('external_id')}
+            names={name_key(n):r for r in existing for n in [r['customer'],*r.get('aliases',[])]}
+            ids=[]
+            for incoming in customers:
+                values=incoming.model_dump();old=codes.get(incoming.external_id) or names.get(name_key(incoming.customer))
+                if old:
+                    if incoming.external_id and old.get('external_id') and incoming.external_id!=old['external_id']:
+                        raise ValueError('A source customer ID conflicts with the saved customer. Review the identity first.')
+                    aliases=list(dict.fromkeys([*old.get('aliases',[]),*incoming.aliases,*([incoming.customer] if name_key(incoming.customer)!=name_key(old['customer']) else [])]))
+                    products=list({(p['sku'],p['unit']):p for p in [*old['products'],*values['products']]}.values())
+                    values.update(customer=old['customer'],aliases=aliases,products=products,external_id=incoming.external_id or old.get('external_id',''))
+                    if not active_mapped:values['active']=old['active']
+                result=self.save([Customer(**values)],old['id'] if old else None,_db=db)
+                ids+=result['ids']
+                # Source duplicates resolving to one saved identity are unsafe.
+                if len(ids)!=len(set(ids)):raise ValueError('Multiple source customers match the same saved customer.')
+            result=dict(kind='customers',ids=ids,count=len(ids),request_hash=request_hash,provenance=provenance)
+            db.execute('INSERT INTO customer_import_receipts VALUES (?,?)',(key,json.dumps(result,ensure_ascii=False)))
+            return result
 
 
 def parse_customers(rows):

@@ -178,7 +178,7 @@ def create_platform_api(service, workspaces=None, dispatcher=None):
     from .platform_workflow_api import install_platform_workflows
     install_platform_workflows(api, workspaces, dispatcher, service)
     from .platform_connections_api import install_platform_connections
-    install_platform_connections(api, workspaces)
+    install_platform_connections(api, workspaces,service)
     from .company_context import install_company_assistant
     install_company_assistant(api, workspaces, dispatcher)
 

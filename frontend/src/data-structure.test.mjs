@@ -6,7 +6,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {createServer} from 'vite';
 import postcss from 'postcss';
 
-let server,Collection,ConnectionRecord,SalesFiles,Customers,OrderBooks,OrderRows,LiveSources,FolderInputs,InputConnections,appendOrder;
+let server,Collection,ConnectionRecord,SalesFiles,Customers,OrderBooks,OrderRows,LiveSources,FolderInputs,InputConnections,ConnectionRowReview,reviewPayload,appendOrder;
 before(async()=>{
   server=await createServer({server:{middlewareMode:true,hmr:false,watch:null},appType:'custom'});
   ({Collection,ConnectionRecord}=await server.ssrLoadModule('/src/ui-layout.jsx'));
@@ -16,6 +16,7 @@ before(async()=>{
   ({LiveSources}=await server.ssrLoadModule('/src/live-sources.jsx'));
   ({FolderInputs}=await server.ssrLoadModule('/src/folder-inputs.jsx'));
   ({InputConnections}=await server.ssrLoadModule('/src/business-connections.jsx'));
+  ({ConnectionRowReview,reviewPayload}=await server.ssrLoadModule('/src/connection-review.jsx'));
 });
 after(async()=>await server?.close());
 const ui={
@@ -26,6 +27,36 @@ const ui={
   Table:({headers,children,empty})=>React.createElement('table',null,React.createElement('thead',null,React.createElement('tr',null,headers.map((h,i)=>React.createElement('th',{key:i},h)))),React.createElement('tbody',null,empty?React.createElement('tr',null,React.createElement('td',{colSpan:headers.length},empty)):children)),
 };
 const common={api:async()=>({}),ui,datasets:[],canAdmin:true,canEdit:true,embedded:true,date:String,fmt:String,search:'',onSearch:()=>{}};
+test('customer imports send no order dates; order imports preserve explicit dates',()=>{
+  assert.deepEqual(reviewPayload({mapping:{customer:'A'},as_of:'',valid_until:''}),{mapping:{customer:'A'},as_of:null,valid_until:null});
+  assert.deepEqual(reviewPayload({as_of:'2026-10-09',valid_until:'2026-11-01'}),{as_of:'2026-10-09',valid_until:'2026-11-01'});
+});
+test('View orders opens the imported dataset, not an unrelated first order book',()=>{
+  const datasets=[{id:'first',name:'First sales',sources:{history:'one'}},{id:'imported',name:'Imported sales',sources:{history:'two'}}];
+  const reviewUi={...ui,Pick:({label,value})=>React.createElement('button',{'aria-label':label,'data-value':value})};
+  for(const [preferred,expected] of [['imported','imported'],['foreign','first']]){
+    const html=renderToStaticMarkup(React.createElement(OrderBooks,{...common,ui:reviewUi,datasets,initialDatasetId:preferred}));
+    assert.match(html,new RegExp('data-value="'+expected+'"'));
+  }
+});
+test('connected customer/order reviews reuse the fixed dialog and shared layout without inline styles',()=>{
+  const reviewUi={...ui,Modal:({title,open,fixed,children})=>React.createElement('section',{'aria-label':title,'data-fixed':String(fixed)},children)};
+  for(const role of ['sales_customers','sales_orders']){
+    const candidate={id:'capture',role,source_id:'source',source:{preview:{columns:[{id:'A',label:'customer'}]}}};
+    const html=renderToStaticMarkup(React.createElement(ConnectionRowReview,{candidate,api:common.api,ui:reviewUi,onClose:()=>{},onSaved:()=>{}}));
+    assert.match(html,/data-fixed="true"/);assert.match(html,/ui-stack/);assert.match(html,/ui-grid/);
+    assert.match(html,/aria-label="Customer"/);assert.match(html,/Review rows/);assert.doesNotMatch(html,/style=/);
+    if(role==='sales_orders'){assert.equal((html.match(/type="date"/g)||[]).length,2);assert.match(html,/Order update/);assert.doesNotMatch(html,/type="checkbox"/);}
+    else assert.doesNotMatch(html,/Order update|type="date"/);
+  }
+});
+test('connection reviews refresh mapping after a worksheet/header change and scope every request',async()=>{
+  const source=await readFile(new URL('connection-review.jsx',import.meta.url),'utf8');
+  assert.match(source,/columnsCurrent=form\.sheet===loadedSpec\.sheet&&form\.header_row===loadedSpec\.header_row/);
+  assert.match(source,/disabled=\{busy\|\|!columnsCurrent/);
+  assert.match(source,/\/api\/v1\/sources\//);assert.match(source,/\/api\/v1\/connections\/imports\//);
+  assert.doesNotMatch(source,/style=|\/api\/customers|\/api\/orders/);
+});
 test('all five Data tabs render one shared toolbar/controls/actions/body structure',()=>{
   for(const Component of[SalesFiles,Customers,OrderBooks,LiveSources,FolderInputs,InputConnections]){
     const html=renderToStaticMarkup(React.createElement(Component,common));

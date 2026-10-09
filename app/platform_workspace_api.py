@@ -9,7 +9,7 @@ from fastapi.responses import Response
 from pydantic import Field
 from persiantools.jdatetime import JalaliDate
 from .platform_identity import principal
-from .platform_sales_api import StrictInput
+from .platform_sales_api import StrictInput,source_scope
 from .company_context import ReportAccess, personal_owner
 from .forecast_views import SavedView
 from .sales_demand import SCHEMAS, export_demand, StaleOrderRevision
@@ -62,7 +62,7 @@ def install_platform_workspace(api, workspaces, dispatcher=None):
     def file(request,key,write=False):
         w=ws(request)
         source,content=call(lambda:w.datasets.source(key),True)
-        scope='orders' if source['role'].startswith('sales_') else 'factors' if source['role']=='factor_observations' else 'inputs'
+        scope=source_scope(source['role'])
         principal(request,scope+(':write' if write else ':read'))
         return w,source,content
 

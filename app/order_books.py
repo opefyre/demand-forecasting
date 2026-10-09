@@ -55,6 +55,7 @@ class OrderBooks:
         self.site = site
         with closing(sqlite3.connect(path)) as con:
             con.execute('CREATE TABLE IF NOT EXISTS order_books (id TEXT PRIMARY KEY, version INTEGER, payload TEXT)')
+            con.execute('CREATE TABLE IF NOT EXISTS order_import_receipts(id TEXT PRIMARY KEY, payload TEXT NOT NULL)')
             con.commit()
 
     def get(self, identifier):
@@ -68,7 +69,11 @@ class OrderBooks:
         data['version']=row[0] if row else 0
         return data
 
-    def save(self, identifier, payload):
+    def import_receipt(self,key):
+        with closing(sqlite3.connect(self.path)) as db:row=db.execute('SELECT payload FROM order_import_receipts WHERE id=?',(key,)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def save(self, identifier, payload, *, receipt_id=None,provenance=None,request_hash=None):
         data=self.get(identifier)
         inputs={**data['inputs'],**payload.model_dump(mode='json',exclude={'version'}),
                 'reviewed':True,'note':'Order book reviewed and saved by the planner.'}
@@ -76,12 +81,23 @@ class OrderBooks:
         keep={key:checked[key] for key in ('as_of','valid_until','order_feed','orders')}
         with closing(sqlite3.connect(self.path,timeout=30)) as con:
             con.execute('BEGIN IMMEDIATE')
+            if receipt_id:
+                prior=con.execute('SELECT payload FROM order_import_receipts WHERE id=?',(receipt_id,)).fetchone()
+                if prior:
+                    result=json.loads(prior[0])
+                    if result['request_hash']!=request_hash:raise ValueError('This import was already saved with different review settings.')
+                    return result
             key=lineage(self.datasets,identifier)
             current=con.execute('SELECT version FROM order_books WHERE id=?',(key,)).fetchone()
             if (current[0] if current else 0)!=payload.version:
                 raise StaleOrderRevision('Orders changed. Reload the order book before saving.')
             con.execute('INSERT OR REPLACE INTO order_books VALUES (?,?,?)',(key,payload.version+1,json.dumps(keep)))
+            if receipt_id:
+                result=dict(kind='orders',dataset_id=identifier,version=payload.version+1,count=len(keep['orders']),
+                            request_hash=request_hash,provenance=provenance)
+                con.execute('INSERT INTO order_import_receipts VALUES (?,?)',(receipt_id,json.dumps(result)))
             con.commit()
+        if receipt_id:return result
         return self.get(identifier)
 
 

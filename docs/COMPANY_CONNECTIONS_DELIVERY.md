@@ -1,5 +1,10 @@
 # Company input connections — 9 October 2026
 
+This records the earlier HTTPS/SFTP milestone. Customer/order, Sheets/Odoo and
+scheduled-capture extensions are now implemented; see
+[current ingestion delivery](COMPANY_INGESTION_DELIVERY.md). The verification below
+belongs to the earlier milestone, not live-provider acceptance.
+
 Implemented in authenticated company mode, not activated in the existing local
 demo. Only sales/demand inputs are in scope. No client account, original spreadsheet,
 saved demo quantity or paid OpenAI call was changed.
@@ -88,12 +93,8 @@ provider-account verification. Existing 8010 demo remains untouched; the disposa
 
 ## Remaining work, in order
 
-1. Connected customers/orders with explicit coverage and import evidence; Google
-   Sheets and version-aware Odoo, retaining the same review/receipt workflow.
-2. Permission-checked scheduled input pulls and reviewed mapping grants; data changes
-   must not silently inherit order coverage or publish forecasts.
-3. Remaining source/dataset/forecast naming/archive/revision presentation lifecycle.
-4. Admin-only outbound notifications/consent/history; deployment vault, Google/mail,
+1. Remaining source/dataset/forecast naming/archive/revision presentation lifecycle.
+2. Admin-only outbound notifications/consent/history; deployment vault, Google/mail,
    real provider setup, backup/restore and company-mode activation acceptance.
 
 Public OpenAPI now covers **140 v1 operations**, including nine new connection and

@@ -130,10 +130,10 @@ export function OrderRows({ inputs, onChange, ui, canEdit = true, showAdd = true
   );
 }
 
-export function OrderBooks({ datasets, api, ui, canEdit }) {
+export function OrderBooks({ datasets, api, ui, canEdit,initialDatasetId }) {
   const { Button, Pick, Field, ErrorBox, Table, Modal } = ui;
   const sources = forecastInputs(datasets),
-    [id, setId] = useState(sources[0]?.id || ""),
+    [id, setId] = useState(sources.find(s=>s.id===initialDatasetId)?.id||sources[0]?.id || ""),
     [book, setBook] = useState(null),
     [saved, setSaved] = useState(false),
     [error, setError] = useState(null),

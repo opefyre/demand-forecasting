@@ -4,6 +4,8 @@ from pydantic import Field
 from .business_connections import ConnectionInput, ConnectionError, ConnectionConflict, ROLES
 from .platform_identity import principal
 from .platform_sales_api import DatasetInput, StrictInput
+from .connection_review import RowReview,rows_preview,accept_rows
+from .connection_schedules import ImportSchedule,configure,tick,install_scheduler
 
 
 class ConnectionUpdate(ConnectionInput):
@@ -16,7 +18,7 @@ class Pull(StrictInput):
     request_id: str = Field(min_length=8,max_length=100)
 
 
-def install_platform_connections(api,workspaces):
+def install_platform_connections(api,workspaces,service=None):
     router = APIRouter(prefix='',tags=['Business connections'])
 
     def ws(request,*scopes):
@@ -45,6 +47,8 @@ def install_platform_connections(api,workspaces):
         # A future-factor receipt also contains historical sales references.
         if 'history' in item['sources']: principal(request,'inputs:write' if write else 'inputs:read')
         if 'future' in item['sources']: principal(request,'factors:write' if write else 'factors:read')
+        if item['role']=='sales_orders':
+            principal(request,'inputs:read');principal(request,'customers:read')
         return w,item
 
     @router.get('/connections/inputs')
@@ -90,7 +94,21 @@ def install_platform_connections(api,workspaces):
 
     @router.get('/connections/imports/{import_id}')
     def get_candidate(import_id:str,request:Request):
-        return candidate(request,import_id)[1]
+        w,item=candidate(request,import_id)
+        if item['role'] in {'sales_customers','sales_orders'}:
+            item={**item,'source':call(lambda:w.datasets.source(item['source_id'])[0]),'accepted_resource':w.connections.acceptance(import_id)}
+        return item
+
+    @router.post('/connections/imports/{import_id}/rows/preview')
+    def preview_rows(import_id:str,body:RowReview,request:Request):
+        w,item=candidate(request,import_id,True)
+        report=call(lambda:rows_preview(w,item,body))
+        return {k:v for k,v in report.items() if k in {'kind','count','target','review_token'}} | {'rows':report['rows'][:30]}
+
+    @router.post('/connections/imports/{import_id}/rows/accept',status_code=201)
+    def save_rows(import_id:str,body:RowReview,request:Request):
+        w,item=candidate(request,import_id,True)
+        return call(lambda:accept_rows(w,item,body))
 
     @router.post('/connections/imports/{import_id}/accept',status_code=201,description='Validate and save the exact captured inputs as an immutable reviewed dataset revision.')
     def accept(import_id:str,body:DatasetInput,request:Request):
@@ -98,4 +116,33 @@ def install_platform_connections(api,workspaces):
         principal(request,'inputs:write')
         return call(lambda:w.connections.accept(import_id,body))
 
+    def admin(request,key):
+        w,item=connection(request,key,'manage')
+        if principal(request)['role']!='admin':raise HTTPException(403,'Administrator access required.')
+        from .company_context import personal_owner
+        return w,item,personal_owner(principal(request))
+
+    @router.put('/connections/inputs/{connection_id}/schedule')
+    def schedule(connection_id:str,body:ImportSchedule,request:Request):
+        w,item,owner=admin(request,connection_id)
+        call(lambda:configure(w.connections,connection_id,body,owner))
+        return w.connections.get(connection_id)['schedule']
+
+    @router.delete('/connections/inputs/{connection_id}/schedule')
+    def pause(connection_id:str,body:Revision,request:Request):
+        w,item,owner=admin(request,connection_id)
+        if not item['schedule']:raise HTTPException(404,'Schedule not found.')
+        old=item['schedule']
+        call(lambda:configure(w.connections,connection_id,ImportSchedule(version=body.version,
+            connection_version=item['version'],minutes=old['minutes'],enabled=False,confirmed=True),owner))
+        return w.connections.get(connection_id)['schedule']
+
+    @router.post('/connections/inputs/{connection_id}/schedule/check')
+    def check_schedule(connection_id:str,request:Request):
+        w,_,owner=admin(request,connection_id)
+        from .company_workflows import schedule_authorized
+        call(lambda:tick(w.connections,lambda actor:schedule_authorized(service,w,actor),force={connection_id}))
+        return w.connections.get(connection_id)['schedule']
+
     api.include_router(router)
+    install_scheduler(api,workspaces,service)
