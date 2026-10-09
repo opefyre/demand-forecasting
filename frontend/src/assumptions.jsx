@@ -1,3 +1,4 @@
+import {localState} from './workspace-storage.mjs';
 import {t as uiText} from './localization.mjs';
 import React, { useEffect, useRef, useState } from "react";
 
@@ -17,7 +18,7 @@ export function AssumptionEditor({
   const draftKey = `demandlab.assumptions.${run.run_id}`;
   const [draft] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem(draftKey) || "{}");
+      return JSON.parse(localState.getItem(draftKey) || "{}");
     } catch {
       return {};
     }
@@ -38,7 +39,7 @@ export function AssumptionEditor({
   });
   const request = useRef(draft.request_id || null);
   useEffect(() => {
-    localStorage.setItem(
+    localState.setItem(
       draftKey,
       JSON.stringify({
         changes,
@@ -123,7 +124,7 @@ export function AssumptionEditor({
         request_id: request.current || crypto.randomUUID(),
       };
       request.current = payload.request_id;
-      localStorage.setItem(
+      localState.setItem(
         draftKey,
         JSON.stringify({
           changes,
@@ -134,7 +135,7 @@ export function AssumptionEditor({
       );
       const saved = await api(`/api/runs/${run.run_id}/assumptions`, payload);
       await onSave(saved);
-      localStorage.removeItem(draftKey);
+      localState.removeItem(draftKey);
     } catch (e) {
       setError(e.message);
     } finally {

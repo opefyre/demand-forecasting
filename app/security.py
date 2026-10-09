@@ -239,7 +239,12 @@ def install_access(app, access):
         from .platform_api import create_platform_api
         from .company_workspace import CompanyWorkspaces
         company_workspaces = CompanyWorkspaces(access.data_dir/'companies')
-        app.mount('/api/v1', create_platform_api(access.identity_service, company_workspaces))
+        platform = create_platform_api(access.identity_service, company_workspaces)
+        app.mount('/api/v1', platform)
+        for handler in platform.router.on_startup:
+            app.router.add_event_handler('startup', handler)
+        for handler in platform.router.on_shutdown:
+            app.router.add_event_handler('shutdown', handler)
 
         @app.on_event('shutdown')
         def close_company_workspaces():

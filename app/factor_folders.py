@@ -181,7 +181,7 @@ class FactorFolders(FolderInputs):
         return saved
 
 
-def install_factor_folders(app,store,scheduler):
+def install_factor_folders(app,store,scheduler, *, allow_schedule=lambda: True):
     router=APIRouter(prefix='/api/integrations/factor-folders')
     def schedule(config):
         key='factor-folder-'+config['id']
@@ -192,6 +192,7 @@ def install_factor_folders(app,store,scheduler):
 
     @app.on_event('startup')
     def restore():
+        if not allow_schedule():return
         with store.connect() as db:
             configs=[json.loads(row[0]) for row in db.execute('SELECT config FROM folder_inputs')]
         for config in configs:schedule(config)

@@ -118,7 +118,7 @@ class OrderFolders(FolderInputs):
                 'imports':{'orders':mapping},'order_mode':'replace'}
 
 
-def install_order_folders(app, store, scheduler):
+def install_order_folders(app, store, scheduler, *, allow_schedule=lambda: True):
     router=APIRouter(prefix='/api/integrations/order-folders')
 
     def schedule(config):
@@ -130,6 +130,7 @@ def install_order_folders(app, store, scheduler):
 
     @app.on_event('startup')
     def restore():
+        if not allow_schedule():return
         with store.connect() as db:
             configs=[json.loads(row[0]) for row in db.execute('SELECT config FROM folder_inputs')]
         for config in configs: schedule(config)

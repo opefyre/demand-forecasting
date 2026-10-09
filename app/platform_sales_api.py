@@ -31,6 +31,7 @@ class OrdersReview(StrictInput):
     request_id: str = Field(min_length=8, max_length=100)
     review_token: str | None = Field(default=None, pattern=r'^[a-f0-9]{64}$')
     reuse_snapshot_id: str | None = Field(default=None, pattern=r'^[a-f0-9]{32}$')
+    imports: dict = Field(default_factory=dict)
 
 
 class ForecastCreate(StrictInput):
@@ -123,7 +124,7 @@ def install_platform_sales(api, workspaces, dispatcher=None):
 
     @router.post('/sources', status_code=201, tags=['Sales inputs'])
     async def upload_source(request: Request, file: UploadFile = File(...),
-            role: Literal['history','future','sales_orders','sales_commitments','factor_observations'] = Form('history'),
+            role: Literal['history','future','actuals','sales_customers','sales_orders','sales_commitments','factor_observations'] = Form('history'),
             sheet: str | None = Form(None)):
         scope = 'orders:write' if role.startswith('sales_') else 'factors:write' if role == 'factor_observations' else 'inputs:write'
         ws = workspace(request, scope)
@@ -180,7 +181,11 @@ def install_platform_sales(api, workspaces, dispatcher=None):
     def get_orders(dataset_id: str, request: Request):
         ws = workspace(request, 'orders:read','inputs:read')
         dataset(ws, dataset_id)
-        return call(lambda: ws.order_books.get(dataset_id))
+        value = call(lambda: ws.order_books.get(dataset_id))
+        from .order_reuse import compatible
+        value['saved_orders'] = [{'id':s['id'],'name':s['inputs']['name'],'as_of':s['inputs']['as_of']}
+            for r in ws.list_runs() if compatible(r,value['context']) for s in ws.sales.list(r['run_id'])[:1]]
+        return value
 
     @router.put('/datasets/{dataset_id}/orders', tags=['Orders'])
     def update_orders(dataset_id: str, body: BookRequest, request: Request):
@@ -204,7 +209,12 @@ def install_platform_sales(api, workspaces, dispatcher=None):
 
     @router.get('/order-snapshots/{snapshot_id}', tags=['Orders'])
     def snapshot(snapshot_id: str, request: Request):
-        return call(lambda: workspace(request, 'orders:read').sales.get(snapshot_id), missing=True)
+        from .company_context import ReportAccess
+        ws = workspace(request)
+        if 'orders:read' in principal(request)['permissions']:
+            return call(lambda:ws.sales.get(snapshot_id),missing=True)
+        principal(request,'reports:read')
+        return ReportAccess(ws,principal(request)).snapshot(snapshot_id)
 
     @router.get('/factors', tags=['Forecast factors'])
     def factors(request: Request):
@@ -312,9 +322,9 @@ def install_platform_sales(api, workspaces, dispatcher=None):
 
     @router.get('/runs/{run_id}', tags=['Forecast results'])
     def result(run_id: str, request: Request):
-        value = dict(run(workspace(request, 'drafts:read'), run_id))
-        value.pop('job_owner', None)
-        return value
+        from .company_context import ReportAccess
+        ws = workspace(request, 'reports:read')
+        return ReportAccess(ws,principal(request)).run(run_id)
 
     @router.get('/runs/{run_id}/files/{kind}', tags=['Forecast results'])
     def model_file(run_id: str, kind: Literal['csv','xlsx','models','drivers'], request: Request):

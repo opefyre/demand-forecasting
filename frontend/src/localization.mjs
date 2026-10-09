@@ -1,3 +1,4 @@
+import {localState} from './workspace-storage.mjs';
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { fa } from './locales/fa.mjs';
@@ -10,7 +11,7 @@ export function storedLanguage(storage) {
 }
 export const i18n=i18next.createInstance();
 i18n.use(initReactI18next).init({
-  lng:storedLanguage(typeof localStorage==='undefined'?null:localStorage),
+  lng:storedLanguage(typeof localState==='undefined'?null:localState),
   fallbackLng:'en',supportedLngs:languages,initAsync:false,
   keySeparator:false,nsSeparator:false,
   resources:{en:{translation:{...Object.fromEntries(Object.keys(fa).map(key=>[key,key])),

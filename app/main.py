@@ -83,6 +83,8 @@ MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 @app.on_event('startup')
 def start_integrations():
+    if ACCESS.config.mode == 'better_auth':
+        return
     INTEGRATION_STORE.restore_schedules()
     for config in FOLDER_INPUTS.list():
         schedule_folder(config)
@@ -1735,13 +1737,13 @@ DEMAND_RELEASES = DemandReleases(SALES_STORE, lambda key:_load_run(key))
 install_demand_releases(app, DEMAND_RELEASES)
 from .order_folders import OrderFolders, install_order_folders
 ORDER_FOLDERS = OrderFolders(DATA_DIR / 'order-folders.sqlite3', DATASET_STORE, FOLDER_INPUTS.roots, SALES_STORE, _load_run)
-install_order_folders(app, ORDER_FOLDERS, INTEGRATION_STORE.scheduler)
+install_order_folders(app, ORDER_FOLDERS, INTEGRATION_STORE.scheduler, allow_schedule=lambda: ACCESS.config.mode != 'better_auth')
 from .factor_folders import FactorFolders, install_factor_folders
 FACTOR_FOLDERS = FactorFolders(DATA_DIR / 'factor-folders.sqlite3', DATASET_STORE, FOLDER_INPUTS.roots, FACTOR_STORE)
-install_factor_folders(app, FACTOR_FOLDERS, INTEGRATION_STORE.scheduler)
+install_factor_folders(app, FACTOR_FOLDERS, INTEGRATION_STORE.scheduler, allow_schedule=lambda: ACCESS.config.mode != 'better_auth')
 from .live_sources import LiveSources, install_live_sources
 LIVE_SOURCES = LiveSources(DATA_DIR / 'live-sources.sqlite3', FACTOR_STORE)
-install_live_sources(app, LIVE_SOURCES, INTEGRATION_STORE.scheduler)
+install_live_sources(app, LIVE_SOURCES, INTEGRATION_STORE.scheduler, enabled=lambda: ACCESS.config.mode != 'better_auth')
 sales_outlook = install_sales_routes(app, SALES_STORE, DATASET_STORE, _load_run, run_list)
 
 
@@ -1816,7 +1818,7 @@ def recurring_owner_authorized(actor):
     issuer,subject=json.loads(actor)
     return issuer==ACCESS.config.issuer and ACCESS.config.members().get(subject)=='admin'
 RECURRING_FORECASTS=RecurringForecasts(DATA_DIR/'recurring-forecasts.sqlite3',MONTHLY_REFRESH,FOLDER_INPUTS,recurring_owner_authorized)
-install_recurring_forecasts(app,RECURRING_FORECASTS,INTEGRATION_STORE.scheduler)
+install_recurring_forecasts(app,RECURRING_FORECASTS,INTEGRATION_STORE.scheduler,enabled=lambda: ACCESS.config.mode != 'better_auth')
 from .forecast_views import ViewStore, install_view_routes
 install_view_routes(app, ViewStore(SALES_STORE.path), _load_run, SALES_STORE.get)
 from .ai_workspace import AIJournal, install_ai_routes

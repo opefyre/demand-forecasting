@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 import httpx
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -35,6 +36,15 @@ class PlatformAccessTests(unittest.TestCase):
     def tearDown(self):
         self.client.close()
         self.temp.cleanup()
+
+    def test_company_source_lifecycle_is_forwarded_to_root_application(self):
+        with patch('apscheduler.schedulers.background.BackgroundScheduler') as scheduler:
+            with TestClient(self.app, base_url=self.origin):
+                scheduler.return_value.start.assert_called_once()
+                scheduler.return_value.add_job.assert_called_once()
+                refresh = scheduler.return_value.add_job.call_args.args[0]
+                self.assertIsInstance(refresh.__self__, CompanyWorkspaces)
+            scheduler.return_value.shutdown.assert_called_once_with(wait=False)
 
     def provider(self, request):
         self.calls.append(request)

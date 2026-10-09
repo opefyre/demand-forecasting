@@ -1,3 +1,4 @@
+import {apiLink} from './company-api.mjs';
 import {t as uiText} from './localization.mjs';
 import React from 'react';
 import {planningMonth} from './planning-calendar.mjs';
@@ -21,8 +22,8 @@ export function AssistantComparison({action,result,expired,busy,canEdit,onConfir
     <p className="table-note">{uiText("Orders stay unchanged. Totals include deliveries; exports exclude them. This saves all customers and SKUs, not just a filtered preview.")}</p>
     {result?.snapshot_id?<><p role="status">{uiText("Separate draft saved. The original is unchanged.")}</p><div className="demand-actions">
       <Button onClick={onOpen}>{uiText("Open forecast")}</Button>
-      <a href={`/api/sales/inputs/${encodeURIComponent(result.snapshot_id)}/export?mode=combined_demand&kind=xlsx`}>{uiText("Full scenario · Excel")}</a>
-      <a href={`/api/sales/inputs/${encodeURIComponent(result.snapshot_id)}/export?mode=remaining_forecast&kind=csv`}>{uiText("Remaining forecast · CSV")}</a>
+      <a href={apiLink(`/api/sales/inputs/${encodeURIComponent(result.snapshot_id)}/export?mode=combined_demand&kind=xlsx`)}>{uiText("Full scenario · Excel")}</a>
+      <a href={apiLink(`/api/sales/inputs/${encodeURIComponent(result.snapshot_id)}/export?mode=remaining_forecast&kind=csv`)}>{uiText("Remaining forecast · CSV")}</a>
     </div></>:expired?<p>{uiText("This proposal expired. Ask again to refresh it.")}</p>:<Button kind="primary" disabled={!canEdit||busy} onClick={onConfirm}>{busy?uiText("Saving…"):uiText("Approve & save draft")}</Button>}
   </div>;
 }

@@ -1,3 +1,5 @@
+import {apiLink,companyMode} from './company-api.mjs';
+import {localState} from './workspace-storage.mjs';
 import {chartTheme} from './chart-theme.mjs';
 import {Page,PageControls} from './ui-layout.jsx';
 import {useSmoothState} from './ui-motion.jsx';
@@ -21,10 +23,11 @@ import {demandLoadState} from './demand-load-state.mjs';
 import {ModelEstimate} from './model-estimate.jsx';
 import {forecastGroups} from './forecast-groups.mjs';
 import {MethodComparison,methodName} from './method-comparison.jsx';
+import {ActualResults} from './actuals.jsx';
 
 const number = n => n == null ? uiText('Unknown') : new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 2 }).format(n);
 const title = value => value.replaceAll('_', ' ').replace(/^./, c => c.toUpperCase());
-const remembered = run => localStorage.getItem(`demandlab.orders.${run}`) || '';
+const remembered = run => localState.getItem(`demandlab.orders.${run}`) || '';
 export { remembered };
 
 export function SalesDemand({ api, ui, run, runs = [], openRun, importNew, navigate, canEdit, canAdmin, showHeading = true, decisionTarget,startUpdate,startNewForecast }) {
@@ -32,6 +35,7 @@ export function SalesDemand({ api, ui, run, runs = [], openRun, importNew, navig
   const basis=planningBasis(run);
   const groups=forecastGroups(runs),group=groups.find(g=>g.runs.some(r=>r.run_id===run?.run_id));
   const [comparing,setComparing]=useState(false);
+  const [actualsOpen,setActualsOpen]=useState(false);
   const previousGroup=useRef(null);
   const [snapshots, setSnapshots] = useState([]), [selected, setSelected] = useState('');
   const [outlook, setOutlook] = useState(null), [editing, setEditing] = useState(null), [error, setError] = useState('');
@@ -76,7 +80,7 @@ export function SalesDemand({ api, ui, run, runs = [], openRun, importNew, navig
       if (!live) return;
       setOutlook(data); setUnit(data.rows[0]?.unit || '');
       if(pendingView.current?.snapshot_id===selected){restoreSettings(pendingView.current.settings);pendingView.current=null;}
-      localStorage.setItem(`demandlab.orders.${run.run_id}`, selected);
+      localState.setItem(`demandlab.orders.${run.run_id}`, selected);
     }).catch(e => live && setError(e)).finally(() => live && setLoading(false));
     return () => { live = false; };
   }, [selected,loadRevision]);
@@ -120,21 +124,24 @@ export function SalesDemand({ api, ui, run, runs = [], openRun, importNew, navig
   const newForecast=canEdit&&startNewForecast&&<Button kind="primary" data-action="new-forecast" onClick={()=>startNewForecast()}><Plus/>{uiText('New forecast')}</Button>;
   if (!run) return <Page title={uiText('Sales forecast')} actions={newForecast}><section className="surface demand-empty"><UsersThree size={40}/><p>{uiText("No forecasts yet")}</p></section></Page>;
   if (editing) return <DemandImport api={api} ui={ui} run={run} initial={editing} onCancel={() => setEditing(null)} onSaved={async value => {
-    localStorage.setItem(`demandlab.orders.${run.run_id}`, value.id);
+    localState.setItem(`demandlab.orders.${run.run_id}`, value.id);
     setEditing(null); await refresh(run.run_id);
   }}/>;
-  return <Page title={showHeading&&uiText('Sales forecast')} actions={<>{outlook&&!comparing&&<><SavedDemandViews api={api} ui={ui} runId={run.run_id} snapshotId={selected} settings={viewSettings} onApply={applyView} canEdit={canEdit}/><Button onClick={() => setExporting(true)}><DownloadSimple/>{uiText('Export demand')}</Button></>}{newForecast}</>} controls={
+  return <Page title={showHeading&&uiText('Sales forecast')} actions={<>{outlook&&!comparing&&<><SavedDemandViews api={api} ui={ui} runId={run.run_id} snapshotId={selected} settings={viewSettings} onApply={applyView} canEdit={canEdit||companyMode()}/><Button onClick={() => setExporting(true)}><DownloadSimple/>{uiText('Export demand')}</Button></>}{newForecast}</>} controls={
     <div className="compact-toolbar demand-context">
       {canEdit&&startUpdate&&!run.base_run_id&&!run.scenario_name&&<button className="home-text-link" title={uiText("Review updated sales, factors and orders; keep this forecast unchanged")} onClick={()=>startUpdate(run.run_id)}>{uiText("Update forecast")}</button>}
       {!startNewForecast&&!outlook&&!demandLoading&&!error&&canEdit&&<OrderReuse runId={run.run_id} api={api} ui={ui} onSaved={async saved=>{
-        localStorage.setItem(`demandlab.orders.${run.run_id}`,saved.id);await refresh(run.run_id);
+        localState.setItem(`demandlab.orders.${run.run_id}`,saved.id);await refresh(run.run_id);
       }}/>}
       {showHeading && <Pick label={uiText("Forecast")} value={group?.id||run.run_id} options={groups.map(g => [g.id,g.name])} onChange={id=>{setComparing(false);openRun(groups.find(g=>g.id===id).runs[0].run_id,'demand');}}/>}
       {group?.runs.length>1&&<>{!comparing&&<Pick label={uiText('Method')} value={run.run_id} options={group.runs.map(r=>[r.run_id,methodName(r.method_selection)])} onChange={id=>openRun(id,'demand')}/>}<Button onClick={()=>setComparing(v=>!v)}>{uiText(comparing?'Back to results':'Compare methods')}</Button></>}
       {!comparing&&snapshots.length>1 && <Pick label={uiText("Order version")} value={selected} options={snapshots.map(s => [s.id, `${s.name} · ${s.as_of}`])} onChange={setSelected}/>}
-      {outlook&&!comparing && <div className="demand-context-actions">{canEdit && <Button onClick={() => start(false)}>{outlook.fresh ? uiText("Update orders") : uiText("Review orders")}</Button>}{navigate && <button className="home-text-link" onClick={()=>navigate('forecast')}>{uiText("How was this calculated?")}</button>}{!showHeading&&<Button onClick={()=>setExporting(true)}>{uiText("Export demand")}</Button>}</div>}
+      {outlook&&!comparing && <div className="demand-context-actions">{canEdit && <Button onClick={() => start(false)}>{outlook.fresh ? uiText("Update orders") : uiText("Review orders")}</Button>}{companyMode()?<Button onClick={()=>setActualsOpen(true)}>{uiText('Actual results')}</Button>:navigate && <button className="home-text-link" onClick={()=>navigate('forecast')}>{uiText("How was this calculated?")}</button>}{!showHeading&&<Button onClick={()=>setExporting(true)}>{uiText("Export demand")}</Button>}</div>}
     </div>}>
     <ErrorBox error={error} onReload={reloadSaved} busy={listing||loading}/>
+    <Modal open={actualsOpen} onClose={()=>setActualsOpen(false)} title={uiText('Actual results')} wide fixed>
+      {actualsOpen&&<ActualResults ui={ui} api={api} run={run} plans={[]} canEdit={canEdit} embedded
+        fmt={number} date={value=>new Intl.DateTimeFormat(i18n.language).format(new Date(value))}/>}</Modal>
     {demandLoading ? <p role="status">{uiText("Loading demand…")}</p> : !outlook&&error ? null : !outlook ? <ModelEstimate key={run.run_id+':'+(decisionTarget?.customer||'')} run={run} ui={ui} canEdit={canEdit} onOrders={()=>startNewForecast?startNewForecast(run.dataset_id,run.method_selection||'recommended',decisionTarget?.customer||''):start(false)} unified={!!startNewForecast} navigate={navigate} initialCustomer={decisionTarget?.customer||''}/> : <>
       <PageControls><div className="compact-toolbar demand-filters">
         {[['Customer', customer, setCustomer, 'customer'], ['SKU', sku, setSku, 'sku'], ['Month', period, setPeriod, 'period']].map(([label,value,set,field]) => <Pick key={field} label={uiText(label)} value={value} onChange={set} options={[["", uiText(`All ${label === 'SKU' ? 'SKUs' : label.toLowerCase()+'s'}`)], ...[...new Set(outlook.rows.map(r => r[field]))].sort().map(v => [v,field==='period'?planningMonth(v,basis):v])]}/>)}
@@ -195,6 +202,7 @@ export function DemandImport({ api, ui, run, initial, onCancel, onSaved }) {
     setBusy(true);setError('');
     try {
       const payload = {inputs, imports, request_id:attempt, base_snapshot_id:initial.base_snapshot_id, order_mode:orderMode,
+        ...(save&&review?.review_token?{review_token:review.review_token}:{}),
         ...(initial.order_refresh_source?{order_refresh_source:initial.order_refresh_source}:{})};
       const result = await api(save ? '/api/sales/inputs' : '/api/sales/validate', payload);
       if(save) await onSaved(result); else {setReview(result);setStep(3);}
@@ -252,7 +260,7 @@ export function SalesSource({api,ui,role,schema,config,setConfig,run,fallbackCou
   function resetUpload() {
     setError('');setSource(null);setPreview(null);setHeading(1);setConfig(undefined);
   }
-  return <article className={embedded?'ui-stack':'sales-source'}><div className={embedded?'ui-panel-header':'section-heading'}><div><h3 className={embedded?'ui-panel-title':undefined}>{uiText(title(role))}{role==='commitments' ? <> · {uiText('optional')}</> : ''}</h3>{!embedded&&<p>{role==='customers' ? uiText('{{count}} relationships loaded. Upload a full list to replace them.',{count:fallbackCount}) : role==='orders' ? <>{uiText('{{count}} order lines loaded.',{count:fallbackCount})}{' '}{uiText(orderMode==='changes' ? 'Matching references are updated; other lines are kept. Use full quantities, not increases.' : 'A full file replaces the order book, including any missing lines.')}</> : uiText('Only for customers who explicitly confirm their entire monthly requirement.')}</p>}</div><a className="btn secondary" href={`${templateBase||'/api/sales/runs/'+run.run_id+'/template'}/${role}`}>{uiText("Template")}</a></div>{modeControl}<label className="sales-upload"><UploadSimple size={22}/><span>{busy ? uiText("Reading file…") : source?.name || (embedded&&fallbackCount?uiText('{{count}} {{label}} loaded — choose a file to replace',{count:fallbackCount,label:uiText(title(role))}):uiText(`Choose ${role} file`))}</span><input aria-label={uiText('Upload {{label}}',{label:uiText(title(role))})} type="file" accept=".csv,.tsv,.xlsx,.xlsm,.json" disabled={busy} onChange={e => {const file=e.target.files[0];e.target.value='';upload(file);}}/></label><ErrorBox error={error}/>{(source||error)&&<Button disabled={busy} onClick={resetUpload}>{fallbackCount ? uiText('Use saved {{label}}',{label:uiText(title(role))}) : uiText("Clear upload")}</Button>}{preview&&!mappingReady&&!error&&<p role="status">{uiText(Number(heading)!==config?.header_row ? 'Read the new heading row before continuing.' : 'Choose a column for each required field before continuing.')}</p>}
+  return <article className={embedded?'ui-stack':'sales-source'}><div className={embedded?'ui-panel-header':'section-heading'}><div><h3 className={embedded?'ui-panel-title':undefined}>{uiText(title(role))}{role==='commitments' ? <> · {uiText('optional')}</> : ''}</h3>{!embedded&&<p>{role==='customers' ? uiText('{{count}} relationships loaded. Upload a full list to replace them.',{count:fallbackCount}) : role==='orders' ? <>{uiText('{{count}} order lines loaded.',{count:fallbackCount})}{' '}{uiText(orderMode==='changes' ? 'Matching references are updated; other lines are kept. Use full quantities, not increases.' : 'A full file replaces the order book, including any missing lines.')}</> : uiText('Only for customers who explicitly confirm their entire monthly requirement.')}</p>}</div><a className="btn secondary" href={apiLink(`${templateBase||'/api/sales/runs/'+run.run_id+'/template'}/${role}`)}>{uiText("Template")}</a></div>{modeControl}<label className="sales-upload"><UploadSimple size={22}/><span>{busy ? uiText("Reading file…") : source?.name || (embedded&&fallbackCount?uiText('{{count}} {{label}} loaded — choose a file to replace',{count:fallbackCount,label:uiText(title(role))}):uiText(`Choose ${role} file`))}</span><input aria-label={uiText('Upload {{label}}',{label:uiText(title(role))})} type="file" accept=".csv,.tsv,.xlsx,.xlsm,.json" disabled={busy} onChange={e => {const file=e.target.files[0];e.target.value='';upload(file);}}/></label><ErrorBox error={error}/>{(source||error)&&<Button disabled={busy} onClick={resetUpload}>{fallbackCount ? uiText('Use saved {{label}}',{label:uiText(title(role))}) : uiText("Clear upload")}</Button>}{preview&&!mappingReady&&!error&&<p role="status">{uiText(Number(heading)!==config?.header_row ? 'Read the new heading row before continuing.' : 'Choose a column for each required field before continuing.')}</p>}
     {preview && <>{role!=='customers'&&<Field title={uiText("Dates in this file")}><Pick label={uiText("Order file calendar")} value={config?.calendar||'gregorian'} options={[["gregorian",uiText("Gregorian")],["jalali",uiText("Persian (Jalali)")]]} onChange={calendar=>setConfig({...config,calendar})}/></Field>}<CustomerMatches api={api} ui={ui} matches={config?.customer_matches||{}} onChange={customer_matches=>setConfig({...config,customer_matches})}/><div className="demand-controls">{!!preview.sheets.length && <Field title={uiText("Worksheet")}><Pick label={uiText("Worksheet")} value={preview.sheet} onChange={rePreview} options={preview.sheets.map(v=>[v,v])}/></Field>}<Field title={uiText("Heading row")}><input type="number" min="1" max="200" value={heading} onChange={e=>setHeading(e.target.value)}/></Field><Button disabled={busy} onClick={()=>rePreview(preview.sheet)}>{uiText("Read headings")}</Button></div><div className="demand-mapping">{Object.entries(schema).map(([field,rule])=><Field key={field} title={`${uiText(title(field))}${rule.required?' *':''}`}><Pick label={uiText(title(field))} value={config?.mapping[field] || ''} onChange={v=>setConfig({...config,mapping:{...config.mapping,[field]:v}})} options={[["",rule.required?uiText('Choose column'):uiText("Not provided")],...preview.columns.map(c=>[c.id,c.label])]}/></Field>)}</div><details><summary>{uiText("Preview source rows")}</summary><Table headers={preview.columns.map(c=>c.label)}>{(preview.preview || preview.rows || []).slice(0,5).map((r,i)=><tr key={i}>{preview.columns.map(c=><td key={c.id}>{String((r.values || r)[c.id] ?? '')}</td>)}</tr>)}</Table></details></>}
   </article>;
 }

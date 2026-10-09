@@ -1,3 +1,4 @@
+import {localState} from './workspace-storage.mjs';
 import { t as uiText } from "./localization.mjs";
 import { smoothUpdate, useSmoothState } from "./ui-motion.jsx";
 import React, { useEffect, useState, useRef } from "react";
@@ -33,6 +34,7 @@ import { AssistantSavedOrders } from "./order-reuse";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { canShare, recipient } from "./ai-sharing.mjs";
+import {apiLink} from './company-api.mjs';
 
 export function AssistantWorkspace({
   api,
@@ -75,7 +77,7 @@ export function AssistantWorkspace({
     [actionBusy, setActionBusy] = useState("");
   const [pending, setPending] = useState("");
   const [sourceChoice, setSourceChoice] = useState(() =>
-      readInputChoice(localStorage, currentRun?.run_id, datasets),
+      readInputChoice(localState, currentRun?.run_id, datasets),
     ),
     [choosing, setChoosing] = useState(false),
     [search, setSearch] = useState(""),
@@ -118,7 +120,7 @@ export function AssistantWorkspace({
   }, [currentRun?.run_id]);
   useEffect(() => {
     if (!openedChat)
-      writeInputChoice(localStorage, currentRun?.run_id, datasetId);
+      writeInputChoice(localState, currentRun?.run_id, datasetId);
   }, [currentRun?.run_id, datasetId, openedChat]);
   async function loadChats(offset = 0) {
     const request = ++historyRequest.current;
@@ -162,7 +164,7 @@ export function AssistantWorkspace({
     }
     if (operation === "export") {
       const link = document.createElement("a");
-      link.href = "/api/ai/conversations/" + chat.head_id + "/export";
+      link.href = apiLink("/api/ai/conversations/" + chat.head_id + "/export");
       link.download = "conversation.txt";
       link.click();
       return;
@@ -301,7 +303,7 @@ export function AssistantWorkspace({
         setTurns(openedChat.turns);
         setContextReady(true);
         writeChatHead(
-          localStorage,
+          localState,
           keyFor(openedChat.context.snapshot_id),
           openedChat.head_id,
         );
@@ -318,7 +320,7 @@ export function AssistantWorkspace({
         : "";
       setSnapshot(selected);
       const key = keyFor(selected),
-        head = readChatHead(localStorage, key);
+        head = readChatHead(localState, key);
       if (head) {
         try {
           const history = await api(
@@ -333,7 +335,7 @@ export function AssistantWorkspace({
           if (live) setTurns(history.turns);
         } catch (e) {
           if (live) {
-            writeChatHead(localStorage, key, null);
+            writeChatHead(localState, key, null);
             setError(
               "Previous chat could not be reopened. You can start a new conversation.",
             );
@@ -350,7 +352,7 @@ export function AssistantWorkspace({
   function newChat() {
     setChatFolder('active');setChatSearch('');
     smoothUpdate(() => {
-      writeChatHead(localStorage, keyFor(snapshot), null);
+      writeChatHead(localState, keyFor(snapshot), null);
       if (openedChat)
         setOpenedChat({
           ...openedChat,
@@ -404,7 +406,7 @@ export function AssistantWorkspace({
         provider_id: status.consent_id,
       });
       if (current !== generation.current) return;
-      writeChatHead(localStorage, keyFor(snapshot), result.id);
+      writeChatHead(localState, keyFor(snapshot), result.id);
       setTurns((v) => [...v, { ...result, question: submittedQuestion }]);
       loadChats();
       if (result.title_pending) awaitTitle();
@@ -527,7 +529,7 @@ export function AssistantWorkspace({
         initial={orderEditing}
         onCancel={() => setOrderEditing(null)}
         onSaved={async (value) => {
-          localStorage.setItem(`demandlab.orders.${run.run_id}`, value.id);
+          localState.setItem(`demandlab.orders.${run.run_id}`, value.id);
           setOrderEditing(null);
           openRun(run.run_id, "demand");
         }}
@@ -847,7 +849,7 @@ export function AssistantWorkspace({
               actionBusy={actionBusy}
               execute={execute}
               openResult={(result) => {
-                localStorage.setItem(
+                localState.setItem(
                   `demandlab.orders.${result.run_id}`,
                   result.snapshot_id,
                 );
@@ -1219,7 +1221,7 @@ export function AssistantMessages({
                       action.format.toUpperCase()}
                 </p>
                 {turn.results?.[index]?.url ? (
-                  <a className="btn primary" href={turn.results[index].url}>
+                  <a className="btn primary" href={apiLink(turn.results[index].url)}>
                     {uiText("Download draft")}
                   </a>
                 ) : turn.results?.[index]?.job ? (

@@ -298,4 +298,5 @@ export const fa={
   'Add sales history, customers and orders.':'سوابق فروش، مشتریان و سفارش‌ها را اضافه کنید.',
   'Choose inputs, factors and methods in one window.':'ورودی‌ها، عوامل و روش‌ها را در یک پنجره انتخاب کنید.',
   'Compare methods, filter results and export.':'روش‌ها را مقایسه کنید، نتایج را فیلتر کنید و خروجی بگیرید.',
+  'No factors yet.':'هنوز عاملی وجود ندارد.',
 };

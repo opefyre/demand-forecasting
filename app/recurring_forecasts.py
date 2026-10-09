@@ -186,7 +186,7 @@ class RecurringForecasts:
             except Exception:pass # One unavailable schedule must not stop other owners' checks.
 
 
-def install_recurring_forecasts(app,service,scheduler):
+def install_recurring_forecasts(app,service,scheduler, *, enabled=lambda: True):
     router=APIRouter(prefix='/api/recurring-forecasts')
     def safe(work):
         try:return work()
@@ -199,4 +199,5 @@ def install_recurring_forecasts(app,service,scheduler):
     def check(key:str,request:Request):return safe(lambda:service.check(key,principal_actor(request)))
     app.include_router(router)
     @app.on_event('startup')
-    def restore():scheduler.add_job(service.tick,'interval',minutes=10,id='monthly-forecast-drafts',replace_existing=True,max_instances=1,coalesce=True)
+    def restore():
+        if enabled():scheduler.add_job(service.tick,'interval',minutes=10,id='monthly-forecast-drafts',replace_existing=True,max_instances=1,coalesce=True)

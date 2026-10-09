@@ -1,9 +1,10 @@
 # Authentication and public API foundation
 
 Status: tested foundation, not yet a complete authenticated forecasting deployment.
-Company sales/forecast/job APIs are delivered; AI context and remaining screens
-still need migration. Keep the current demo in local mode until that migration
-passes. Do not expose local evaluation mode to the internet.
+Company sales/forecast/jobs and core assistant/screens now use separate stores.
+Advanced scenario/monthly automation remains blocked in company mode until
+migrated. Keep the demo in local mode pending deployment acceptance.
+Do not expose local evaluation mode to the internet.
 
 ## What is available
 
@@ -17,7 +18,8 @@ passes. Do not expose local evaluation mode to the internet.
   keys for admins. Hashes remain in PostgreSQL, raw key shown once. Default expiry
   90 days, maximum 365 days; 60 requests/minute/key. Rotate/revoke immediately.
 - `/api/v1` provides identity/access management, customers/products, sales inputs,
-  reviewed orders/factors, grouped forecast jobs, results/exports and approvals.
+  reviewed orders/factors, grouped jobs/results/exports, approvals, personal
+  chats/views, actual-results comparisons, settings and external factor connections.
   See COMPANY_FORECAST_DELIVERY.md for the workflow and limitations; remaining
   business API coverage is listed in PUBLIC_API_COVERAGE.md.
 
@@ -101,4 +103,6 @@ and the Python application's actual bridge/proxy middleware.
 in the production bundle. Its four people and keys are memory-only and synthetic;
 clicking it never changes actual access. Frontend tests also check shared layouts,
 safe errors, viewer restrictions and Persian labels. Full company-scoped sales,
-jobs, AI, Google/mail and provider integration acceptance remain to be done.
+jobs and core AI context are additionally covered by company-store tests and the
+disposable browser fixture in COMPANY_CONTEXT_DELIVERY.md. Advanced monthly
+automation, Google/mail and real provider/deployment acceptance remain open.

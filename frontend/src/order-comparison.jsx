@@ -1,3 +1,4 @@
+import {apiLink} from './company-api.mjs';
 import React,{useState,useRef} from 'react';
 import {comparisonRows} from './order-comparison.mjs';
 import {planningBasis,planningMonth} from './planning-calendar.mjs';
@@ -31,7 +32,7 @@ export function OrderComparison({base,scenario,api,ui,fmt,canEdit}) {
         <p className="table-note">Total = delivered + open orders + remaining expectation. Exports exclude quantities already delivered.</p>
         {!saved&&<label className="order-comparison-approval"><input type="checkbox" checked={approved} disabled={busy||!report.can_save} onChange={e=>setApproved(e.target.checked)}/> I reviewed the scenario for all customers and SKUs. Save a separate draft; keep the original unchanged.</label>}
         {saved&&<p role="status">Separate draft saved. Publication approval was not copied.</p>}
-        {saved&&<p><a href={`/api/sales/inputs/${saved.id}/export?mode=combined_demand&kind=xlsx`}>Export full scenario · Excel</a>{' · '}<a href={`/api/sales/inputs/${saved.id}/export?mode=remaining_forecast&kind=csv`}>Export full remaining forecast · CSV</a></p>}
+        {saved&&<p><a href={apiLink(`/api/sales/inputs/${saved.id}/export?mode=combined_demand&kind=xlsx`)}>Export full scenario · Excel</a>{' · '}<a href={apiLink(`/api/sales/inputs/${saved.id}/export?mode=remaining_forecast&kind=csv`)}>Export full remaining forecast · CSV</a></p>}
       </>}
       <div className="dialog-actions"><Button disabled={busy} onClick={()=>setOpen(false)}>Close</Button>{report&&!saved&&<Button kind="primary" disabled={busy||!approved||!report.can_save} onClick={()=>act(async()=>{
         attempt.current ||= crypto.randomUUID();setSaved(await api(`/api/sales/runs/${scenario.run_id}/order-comparison`,{snapshot_id:report.source_snapshot_id,review_token:report.review_token,reviewed:true,request_id:attempt.current}));

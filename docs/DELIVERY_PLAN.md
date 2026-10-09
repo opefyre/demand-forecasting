@@ -10,9 +10,12 @@ grouped model jobs, results/exports and independent approvals are now implemente
 as a backend milestone. See [COMPANY_FORECAST_DELIVERY.md](COMPANY_FORECAST_DELIVERY.md).
 The existing local demo remains usable; do not enable company mode yet.
 
-Next: company-scoped assistant/personal context and remaining frontend business
-routing/settings/views. Then SFTP/Odoo/Google Sheets/HTTP, notifications/schedules,
-and deployment/provider acceptance. No production or inventory-execution scope.
+Core assistant/personal context, settings/views, actual results, external-source
+management and primary frontend workflows now use company stores. See
+[context migration](COMPANY_CONTEXT_DELIVERY.md) for evidence and bounded scope.
+Next: company-scoped advanced assistant factor/scenario actions, monthly updates
+and recurring schedules. Then SFTP/Odoo/Google Sheets/HTTP, notifications and
+deployment/provider acceptance. No production or inventory-execution scope.
 
 ## Earlier delivery history
 

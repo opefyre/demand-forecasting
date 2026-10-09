@@ -1,3 +1,4 @@
+import {localState} from './workspace-storage.mjs';
 // Development-only UI acceptance fixture. No network requests, provider calls or real data.
 // This entry point is not imported or built into the production app.
 import React,{useState,useRef,useMemo} from 'react';
@@ -26,7 +27,7 @@ function initialChats(){
 }
 function Fixture(){
   const [language,setLanguage]=useState('en'),[destination,setDestination]=useState(''),[dataView,setDataView]=useState(''),[sent,setSent]=useState(0);
-  const [collapsed,setCollapsed]=useState(()=>readSidebarPreference(localStorage));
+  const [collapsed,setCollapsed]=useState(()=>readSidebarPreference(localState));
   const [toast,setToast]=useState('');
   const fail=useRef(false),saved=useRef(initialChats()),counter=useRef(0),lastContext=useRef('');
   function chain(head){const turns=[];while(head){const turn=saved.current.find(t=>t.id===head);if(!turn)throw Error('Synthetic chat not found');turns.unshift(turn);head=turn.previous_turn_id;}return turns;}
@@ -47,7 +48,7 @@ function Fixture(){
     }
     throw Error('Unexpected fixture request: '+url);
   },[]);
-  return <Tooltip.Provider><div className="app-shell" data-sidebar-collapsed={collapsed}><AppSidebar collapsed={collapsed} onToggle={()=>setCollapsed(value=>{saveSidebarPreference(localStorage,!value);return !value;})}
+  return <Tooltip.Provider><div className="app-shell" data-sidebar-collapsed={collapsed}><AppSidebar collapsed={collapsed} onToggle={()=>setCollapsed(value=>{saveSidebarPreference(localState,!value);return !value;})}
     page="today" onNavigate={page=>{if(page==='today')setDestination('');else setDestination(page);}}
     items={[["today","Home",House],["demand","Forecast",ChartLineUp],["data","Data",Database]]} secondary={[["help","Help",Question],["settings","Settings",GearSix]]}/><div className="main">
     <header className="topbar"><span className="site-name">Synthetic chat test · no real AI</span><button className="text-btn" onClick={()=>setToast('Synthetic notification')}>Preview toast</button><button className="text-btn" onClick={()=>setToast('')}>Dismiss toast</button><button className="text-btn" onClick={async()=>{const next=language==='en'?'fa':'en';await changeInterfaceLanguage(next);applyInterfaceLanguage(document,next);setLanguage(next);}}>English / فارسی</button></header>

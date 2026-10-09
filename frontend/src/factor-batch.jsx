@@ -1,3 +1,4 @@
+import {localState} from './workspace-storage.mjs';
 import {t as uiText,pluralSuffix} from './localization.mjs';
 import React,{useState,useRef,useEffect} from 'react';
 import {X,PencilSimple} from '@phosphor-icons/react';
@@ -24,10 +25,10 @@ export function FactorBatch({run,api,ui,canEdit,onSaved,onManageSources,onManage
   const close=()=>{setOpen(false);onDismiss?.();};
   useEffect(()=>{if(autoOpen)show();},[autoOpen]);
   function change(next){setGroups(next);setReport(null);setApproved(false);request.current=null;
-    try{localStorage.setItem(key,JSON.stringify(next.map(d=>d.id)));}catch{setError('The draft could not be kept in this browser. Keep this window open.');}}
+    try{localState.setItem(key,JSON.stringify(next.map(d=>d.id)));}catch{setError('The draft could not be kept in this browser. Keep this window open.');}}
   async function show(){setOpen(true);setBusy(true);setError('');setReport(null);setApproved(false);
     try{const [p,library]=await Promise.all([api('/api/runs/'+run.run_id+'/factor-profiles'),api('/api/datasets')]);setProfiles(p.profiles);
-      const ids=JSON.parse(localStorage.getItem(key)||'[]');
+      const ids=JSON.parse(localState.getItem(key)||'[]');
       if(!Array.isArray(ids)||ids.length>20||ids.some(id=>typeof id!=='string'))throw Error('Saved group list needs review.');
       const saved=ids.map(id=>library.datasets.find(d=>d.id===id&&d.scenario_provenance?.type==='factor_link'&&d.scenario_provenance.base_run_id===run.run_id));
       if(saved.some(d=>!d))throw Error('Some saved groups are unavailable. Review factors again.');

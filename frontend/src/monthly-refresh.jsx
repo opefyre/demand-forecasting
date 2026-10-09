@@ -1,3 +1,5 @@
+import {apiLink} from './company-api.mjs';
+import {localState} from './workspace-storage.mjs';
 import React, { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -527,7 +529,7 @@ export function MonthlyRefresh({
                 kind="ghost"
                 disabled={busy}
                 onClick={() => {
-                  localStorage.setItem(
+                  localState.setItem(
                     "demandlab.orders." + run.run_id,
                     session.snapshot_id,
                   );
@@ -757,12 +759,12 @@ export function UpdateExports({ sessionId, ui }) {
                 className="btn"
                 key={kind}
                 href={
-                  "/api/forecast-updates/" +
+                  apiLink("/api/forecast-updates/" +
                   sessionId +
                   "/export?mode=" +
                   mode +
                   "&kind=" +
-                  kind
+                  kind)
                 }
               >
                 {kind === "xlsx" ? uiText("Excel") : kind.toUpperCase()}

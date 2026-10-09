@@ -1,3 +1,4 @@
+import {apiLink} from './company-api.mjs';
 import {t as uiText} from './localization.mjs';
 import {useSmoothState} from './ui-motion.jsx';
 import React, {useState,useRef,useEffect} from 'react';
@@ -101,7 +102,7 @@ export function FactorLinkEvidence({scenario,ui}) {
   const {Table}=ui,a=scenario.alignment;
   const factors=a.factors||[a];
   return <details className="surface disclosure"><summary>{factors.length===1?uiText("Linked factor"):uiText("Combined factors")} · {factors.map(f=>f.factor).join(' + ')}</summary><div className="detail-body">
-    {factors.map(f=><p key={f.snapshot_id}>{f.factor} · {f.geography} · {f.unit} · {f.lag_months}{uiText("-month lag")}{f.normalization?.factor_details?.kind==='exchange_rate'&&<> · {f.normalization.factor_details.market.replaceAll('_',' ')} · {f.normalization.factor_details.side}</>}{f.attribution&&<> · {f.attribution} <a href={f.license_url} target="_blank" rel="noreferrer">{uiText("Terms of use")}</a></>}</p>)}
+    {factors.map(f=><p key={f.snapshot_id}>{f.factor} · {f.geography} · {f.unit} · {f.lag_months}{uiText("-month lag")}{f.normalization?.factor_details?.kind==='exchange_rate'&&<> · {f.normalization.factor_details.market.replaceAll('_',' ')} · {f.normalization.factor_details.side}</>}{f.attribution&&<> · {f.attribution} <a href={apiLink(f.license_url)} target="_blank" rel="noreferrer">{uiText("Terms of use")}</a></>}</p>)}
     <p>{a.scope}</p><p>{a.policy}</p>
     <Table headers={[uiText("Factor"),uiText("Sales month"),uiText("Observation"),uiText("Available"),uiText("Value"),uiText("Use")]}>{factors.flatMap(f=>f.rows.map(r=><tr key={f.snapshot_id+'-'+r.kind+'-'+r.sales_month}><td>{f.factor}</td><td>{r.sales_month}</td><td>{r.observation_period}</td><td>{r.availability_date||r.publication_date||'—'}</td><td>{r.value} {f.unit}</td><td>{r.kind==='history'?uiText("Historical input"):r.treatment==='planning_assumption'?uiText("Future assumption"):uiText("Known future input")}</td></tr>))}</Table>
   </div></details>;

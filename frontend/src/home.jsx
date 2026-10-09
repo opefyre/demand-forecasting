@@ -1,3 +1,4 @@
+import {localState} from './workspace-storage.mjs';
 import {t as uiText} from './localization.mjs';
 import React,{useState} from 'react';
 import { ArrowRight, ChartLineUp, Play } from '@phosphor-icons/react';
@@ -8,7 +9,7 @@ export function Home({run,runs,datasets,importNew,navigate,openRun,canEdit,canAd
   const {Button} = ui;
   const [cycleUpdates,setCycleUpdates]=useState([]);
   const recentUpdates=updates.filter(u=>!cycleUpdates.includes(u.id));
-  const draft = pendingImport(localStorage.getItem('demandlab.importDraft'));
+  const draft = pendingImport(localState.getItem('demandlab.importDraft'));
   const state = workflowState({run,runs,datasets,hasDraft:draft.exists});
   const next = {
     start: {eyebrow:'Start here',title:'Turn sales data into your next forecast.',body:'Bring your sales history. We’ll help you turn it into demand by customer, product and month.',action:'Add sales history',onClick:importNew},

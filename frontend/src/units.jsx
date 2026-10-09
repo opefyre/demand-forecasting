@@ -1,3 +1,4 @@
+import {localState} from './workspace-storage.mjs';
 import {t as uiText} from './localization.mjs';
 import React, { useEffect, useState } from "react";
 import { Plus, ArrowLeft } from "@phosphor-icons/react";
@@ -15,7 +16,7 @@ const blankRule = () => ({
 const draftKey = "demandlab.unitDefinitionsDraft";
 function readDraft() {
   try {
-    const value = JSON.parse(localStorage.getItem(draftKey) || "null");
+    const value = JSON.parse(localState.getItem(draftKey) || "null");
     return Array.isArray(value?.rules) ? { ...value, reviewed: false } : null;
   } catch {
     return null;
@@ -31,8 +32,8 @@ export function UnitSettings({ ui, api, fmt, date }) {
     [error, setError] = useState("");
   useEffect(() => {
     try {
-      if (form) localStorage.setItem(draftKey, JSON.stringify(form));
-      else localStorage.removeItem(draftKey);
+      if (form) localState.setItem(draftKey, JSON.stringify(form));
+      else localState.removeItem(draftKey);
     } catch {}
   }, [form]);
   useEffect(() => {

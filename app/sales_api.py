@@ -21,69 +21,73 @@ def run_hash(run):
     return hashlib.sha256(json.dumps(run, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
+def prepare_sales_inputs(store, sources, load_run, payload):
+    inputs = dict(payload.get('inputs', {}))
+    evidence = []
+    for role, config in payload.get('imports', {}).items():
+        if role not in SCHEMAS:
+            raise ValueError('Unknown sales input role.')
+        inputs[role], proof = import_rows(sources, role, config)
+        evidence.append(proof)
+    run = load_run(inputs.get('run_id', ''))
+    refresh_source=payload.get('order_refresh_source')
+    refresh_changes=None
+    if refresh_source:
+        from .order_reuse import compatible
+        source=store.get(refresh_source.get('snapshot_id',''))
+        source_run=load_run(source['inputs']['run_id'])
+        latest=store.list(source['inputs']['run_id'])
+        if not latest or latest[0]['id']!=source['id'] or refresh_source.get('sha256')!=source['sha256']:
+            raise StaleOrderRevision('Source orders changed. Refresh and review again.')
+        if (next((e.get('run_sha256') for e in source['evidence'] if 'run_sha256' in e),None)!=run_hash(source_run)
+                or (source_run['run_id']!=run['run_id'] and not compatible(source_run,run))):
+            raise ValueError('The order source does not match this forecast.')
+        target=store.list(run['run_id'])
+        if (target[0]['id'] if target else None)!=payload.get('base_snapshot_id'):
+            raise StaleOrderRevision('Target orders changed. Refresh and review again.')
+        if inputs.get('as_of','')<source['inputs']['as_of']:
+            raise ValueError('An order refresh cannot have an earlier source date.')
+        if source_run['run_id']!=run['run_id'] and not payload.get('base_snapshot_id'):
+            inputs['orders'],refresh_changes=revise_orders(source['inputs']['orders'],inputs.get('orders',[]),'replace',inputs.get('as_of',''))
+        evidence.append({'type':'connected_order_refresh','source_snapshot_id':source['id'],
+            'source_sha256':source['sha256'],
+            'request_sha256':hashlib.sha256(json.dumps(payload,sort_keys=True,ensure_ascii=False).encode()).hexdigest(),
+            'guard':{'source_id':source['id'],
+                'source_sha256':source['sha256'],'target_latest_id':target[0]['id'] if target else None}})
+    base_id = payload.get('base_snapshot_id')
+    mode = payload.get('order_mode', 'replace')
+    changes = refresh_changes
+    if base_id:
+        base = store.get(base_id)
+        if base['inputs']['run_id'] != inputs.get('run_id'):
+            raise ValueError('This order version belongs to another forecast.')
+        digest = next((e['run_sha256'] for e in base['evidence'] if 'run_sha256' in e), None)
+        if digest != run_hash(run):
+            raise ValueError('The baseline changed. Create and review a new order book for this forecast.')
+        if inputs.get('as_of', '') < base['inputs']['as_of']:
+            raise ValueError('An order update cannot have an earlier source date than the saved version.')
+        if mode == 'changes' and base['inputs']['order_feed'] != 'complete_snapshot':
+            raise ValueError('Import a full order book first. Changed lines cannot fill gaps in an incomplete source.')
+        inputs['orders'], changes = revise_orders(base['inputs']['orders'], inputs.get('orders', []), mode, inputs.get('as_of', ''))
+        evidence.append({'base_snapshot_id': base_id, 'base_sha256': base['sha256'], 'order_mode': mode,
+                         'order_changes': changes})
+    elif mode != 'replace':
+        raise ValueError('Changed lines need a saved complete order book to update.')
+    evidence.append({'run_sha256': run_hash(run)})
+    outlook = demand_outlook(inputs, run)
+    for proof in evidence:
+        if proof.get('customer_matches'):
+            outlook['warnings'].append('Reviewed customer matches: '+', '.join(f'{old} → {new}' for old,new in proof['customer_matches'].items()))
+    if changes is not None:
+        outlook['order_changes'] = changes
+    return inputs, run, evidence, outlook
+
+
 def install_sales_routes(app, store, sources, load_run, list_runs=None):
     router = APIRouter(prefix='/api/sales')
 
     def prepare(payload):
-        inputs = dict(payload.get('inputs', {}))
-        evidence = []
-        for role, config in payload.get('imports', {}).items():
-            if role not in SCHEMAS:
-                raise ValueError('Unknown sales input role.')
-            inputs[role], proof = import_rows(sources, role, config)
-            evidence.append(proof)
-        run = load_run(inputs.get('run_id', ''))
-        refresh_source=payload.get('order_refresh_source')
-        refresh_changes=None
-        if refresh_source:
-            from .order_reuse import compatible
-            source=store.get(refresh_source.get('snapshot_id',''))
-            source_run=load_run(source['inputs']['run_id'])
-            latest=store.list(source['inputs']['run_id'])
-            if not latest or latest[0]['id']!=source['id'] or refresh_source.get('sha256')!=source['sha256']:
-                raise StaleOrderRevision('Source orders changed. Refresh and review again.')
-            if (next((e.get('run_sha256') for e in source['evidence'] if 'run_sha256' in e),None)!=run_hash(source_run)
-                    or (source_run['run_id']!=run['run_id'] and not compatible(source_run,run))):
-                raise ValueError('The order source does not match this forecast.')
-            target=store.list(run['run_id'])
-            if (target[0]['id'] if target else None)!=payload.get('base_snapshot_id'):
-                raise StaleOrderRevision('Target orders changed. Refresh and review again.')
-            if inputs.get('as_of','')<source['inputs']['as_of']:
-                raise ValueError('An order refresh cannot have an earlier source date.')
-            if source_run['run_id']!=run['run_id'] and not payload.get('base_snapshot_id'):
-                inputs['orders'],refresh_changes=revise_orders(source['inputs']['orders'],inputs.get('orders',[]),'replace',inputs.get('as_of',''))
-            evidence.append({'type':'connected_order_refresh','source_snapshot_id':source['id'],
-                'source_sha256':source['sha256'],
-                'request_sha256':hashlib.sha256(json.dumps(payload,sort_keys=True,ensure_ascii=False).encode()).hexdigest(),
-                'guard':{'source_id':source['id'],
-                    'source_sha256':source['sha256'],'target_latest_id':target[0]['id'] if target else None}})
-        base_id = payload.get('base_snapshot_id')
-        mode = payload.get('order_mode', 'replace')
-        changes = refresh_changes
-        if base_id:
-            base = store.get(base_id)
-            if base['inputs']['run_id'] != inputs.get('run_id'):
-                raise ValueError('This order version belongs to another forecast.')
-            digest = next((e['run_sha256'] for e in base['evidence'] if 'run_sha256' in e), None)
-            if digest != run_hash(run):
-                raise ValueError('The baseline changed. Create and review a new order book for this forecast.')
-            if inputs.get('as_of', '') < base['inputs']['as_of']:
-                raise ValueError('An order update cannot have an earlier source date than the saved version.')
-            if mode == 'changes' and base['inputs']['order_feed'] != 'complete_snapshot':
-                raise ValueError('Import a full order book first. Changed lines cannot fill gaps in an incomplete source.')
-            inputs['orders'], changes = revise_orders(base['inputs']['orders'], inputs.get('orders', []), mode, inputs.get('as_of', ''))
-            evidence.append({'base_snapshot_id': base_id, 'base_sha256': base['sha256'], 'order_mode': mode,
-                             'order_changes': changes})
-        elif mode != 'replace':
-            raise ValueError('Changed lines need a saved complete order book to update.')
-        evidence.append({'run_sha256': run_hash(run)})
-        outlook = demand_outlook(inputs, run)
-        for proof in evidence:
-            if proof.get('customer_matches'):
-                outlook['warnings'].append('Reviewed customer matches: '+', '.join(f'{old} → {new}' for old,new in proof['customer_matches'].items()))
-        if changes is not None:
-            outlook['order_changes'] = changes
-        return inputs, run, evidence, outlook
+        return prepare_sales_inputs(store,sources,load_run,payload)
 
     def stored_outlook(key):
         saved = store.get(key)

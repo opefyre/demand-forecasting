@@ -1,3 +1,4 @@
+import {localState} from './workspace-storage.mjs';
 import React,{useEffect} from 'react';
 import {useTranslation} from 'react-i18next';
 import {i18n,t,changeInterfaceLanguage,applyInterfaceLanguage} from './localization.mjs';
@@ -15,7 +16,7 @@ export function LanguageSettings({ui}){
     <Field title={t('Interface language')} help={t('Display only. Your planning calendar, customer names, product codes and export files stay unchanged.')}>
       <Pick label={t('Interface language')} value={i18n.language}
         options={[["en","English"],["fa","فارسی"]]}
-        onChange={language=>changeInterfaceLanguage(language,localStorage)}/>
+        onChange={language=>changeInterfaceLanguage(language,localState)}/>
     </Field>
   </Panel>;
 }
@@ -23,7 +24,7 @@ export function LanguageSwitch(){
   const {i18n:instance}=useTranslation();
   return <button type="button" className="language-switch" dir="ltr"
     aria-label={t('Interface language')} title={t('Interface language')}
-    onClick={()=>changeInterfaceLanguage(instance.language==='fa'?'en':'fa',localStorage)}>
+    onClick={()=>changeInterfaceLanguage(instance.language==='fa'?'en':'fa',localState)}>
     {instance.language==='fa'?'English':'فارسی'}
   </button>;
 }

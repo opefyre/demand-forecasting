@@ -1,3 +1,4 @@
+import {apiLink} from './company-api.mjs';
 import {t as uiText} from './localization.mjs';
 import React, { useEffect, useRef, useState } from "react";
 import {Stack,Grid,Actions} from './ui-layout.jsx';
@@ -251,11 +252,11 @@ export function WeatherContext({ api, ui, fmt }) {
               in older forecast tests.
             </p>
             <p>
-              <a href={snapshot.source_url} target="_blank" rel="noreferrer">
+              <a href={apiLink(snapshot.source_url)} target="_blank" rel="noreferrer">
                 NASA POWER documentation ↗
               </a>{" "}
               ·{" "}
-              <a href={snapshot.license_url} target="_blank" rel="noreferrer">
+              <a href={apiLink(snapshot.license_url)} target="_blank" rel="noreferrer">
                 Usage and attribution ↗
               </a>
             </p>
@@ -286,7 +287,7 @@ export function WeatherContext({ api, ui, fmt }) {
             </Table>
           </details>
           <Actions>
-            <a className="btn" href={`/api/weather/${snapshot.id}/export`}>
+            <a className="btn" href={apiLink(`/api/weather/${snapshot.id}/export`)}>
               Download daily readings
             </a>
             <Button

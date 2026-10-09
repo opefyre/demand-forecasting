@@ -1,3 +1,4 @@
+import {apiLink} from './company-api.mjs';
 import {chartTheme} from './chart-theme.mjs';
 import {t as uiText,i18n} from './localization.mjs';
 import React, {useEffect, useState} from 'react';
@@ -84,9 +85,9 @@ export function LiveSources({api, ui, canAdmin, supplemental=[]}) {
     </Modal>
     <Modal title={source?sourceCaption(source,uiText):uiText('Source details')} open={!!selected} onClose={()=>setSelected(null)} wide>
       {source&&<div className="ui-stack">
-        <p>{uiText(source.description)}</p><a href={source.url} target="_blank" rel="noreferrer">{source.provider}{' '}{uiText("documentation")}{' '}<ArrowSquareOut size={16}/></a>
+        <p>{uiText(source.description)}</p><a href={apiLink(source.url)} target="_blank" rel="noreferrer">{source.provider}{' '}{uiText("documentation")}{' '}<ArrowSquareOut size={16}/></a>
         {source.permission_required&&<details className="help-details" open={!source.permission_confirmed}><summary>{uiText("Commercial data access")}</summary>
-          <p>{uiText("IMF asks for permission for commercial reuse. Request permission at")}{' '}<a href="mailto:copyright@imf.org">copyright@imf.org</a>{' '}{uiText("covering this app’s automated data fetches and forecast use. A free account alone is not permission.")}{' '}<a href={source.terms_url} target="_blank" rel="noreferrer">{uiText("Read terms")}</a>.</p>
+          <p>{uiText("IMF asks for permission for commercial reuse. Request permission at")}{' '}<a href="mailto:copyright@imf.org">copyright@imf.org</a>{' '}{uiText("covering this app’s automated data fetches and forecast use. A free account alone is not permission.")}{' '}<a href={apiLink(source.terms_url)} target="_blank" rel="noreferrer">{uiText("Read terms")}</a>.</p>
           {source.permission_confirmed?<><p className="footnote">{uiText("Permission recorded by your administrator; not independently verified. Reference:")}{' '}{source.permission_reference}</p>{canAdmin&&<button className="text-button" disabled={!!busy} onClick={()=>action(source.id,()=>api(`/api/live-sources/${source.id}/permission`,{confirmed:false,reference:''},'PUT'))}>{uiText("Withdraw permission & pause")}</button>}</>:canAdmin&&<form className="ui-stack" onSubmit={e=>{e.preventDefault();action(source.id,()=>api(`/api/live-sources/${source.id}/permission`,{confirmed:true,reference},'PUT'));}}>
             <Field title={uiText("Permission reference")}><input value={reference} onChange={e=>setReference(e.target.value)} minLength={8} maxLength={300} required placeholder={uiText("Permission email date or agreement reference")}/></Field>
             <label className="ui-check"><input type="checkbox" checked={permission} onChange={e=>setPermission(e.target.checked)}/>{uiText("I have permission covering automated commercial use.")}</label>

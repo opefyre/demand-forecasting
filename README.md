@@ -31,32 +31,29 @@ npm run build
 
 ## Everyday workflow
 
-1. **Home → Add sales history**: import CSV, TSV, JSON or Excel, choose the sheet,
-   match date, customer, SKU and quantity, then review. Declare units, what sales
-   means, and whether totals use Persian or Gregorian months.
-2. **Customers**: maintain the customer/product list, including customers with
-   no current orders. Optional exposure settings suggest relevant factor sources.
-3. **Calculate**: choose a method and horizon, or let the app compare tested
-   methods. Calculations run in a durable background queue; navigate, cancel or
-   review a stopped attempt without overwriting the original forecast.
-4. **Factors**: connect sources in Data and review their history, freshness,
-   coverage, permissions and future assumptions. Different customer/product
-   scenarios can use different factors. Missing data is not zero.
-5. **Forecast → Orders**: review the current complete order book, or apply reviewed
-   changes using stable order-line references. Include fulfilled and cancelled
-   quantities, delivery dates and customers without orders.
-6. **Review demand**: filter customer, SKU and month; inspect charts, trends,
+1. **Data**: maintain customers/products and orders, import sales history, and
+   connect relevant external sources. Review units, calendar and what sales means.
+2. **Forecast → New forecast**: use the single modal to choose sales history,
+   horizon/calendar and factors, then review customers and orders. Include
+   customers without orders, fulfilled/cancelled quantities and delivery dates.
+   Reuse saved orders where compatible; missing data is not zero.
+3. **Methods**: select one or more methods, or Automatic, then run. All selected
+   methods belong to one named forecast and use the same reviewed inputs.
+   Calculations run in a durable queue without overwriting earlier results.
+4. **Review demand**: compare methods, filter customer, SKU and month; inspect charts, trends,
    tables, monthly grids and order coverage. Save useful views.
-7. **Export demand**: download Excel, CSV or JSON. Export remaining expectation
+5. **Export demand**: download Excel, CSV or JSON. Export remaining expectation
    if the receiver already has orders; otherwise export open orders plus remaining
    expectation. Fulfilled quantities are excluded. Draft downloads are distinct
    from independently approved company planning releases.
 
-Monthly updates guide history → calculation → factors → orders → changes → export.
+In local mode, monthly updates guide history → calculation → factors → orders → changes → export.
 Optional **Home → Monthly draft settings** prepares a baseline on a chosen
 Persian/Gregorian day, on Tehran time. Only reviewed inputs are used; factors,
 orders and approval still require review. Automation runs only while the server
 is running. Help explains these flows in the app.
+Advanced monthly/scenario automation is not yet migrated to company-auth mode;
+those routes remain blocked rather than using shared demo stores.
 
 Assistant accepts plain-language requests and uses existing calculation,
 import-review and export services. Different model roles handle queries, data

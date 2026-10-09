@@ -1,3 +1,4 @@
+import {apiLink} from './company-api.mjs';
 import {chartTheme} from './chart-theme.mjs';
 import {Page,PageTabs,Disclosure} from './ui-layout.jsx';
 import {SalesFiles} from './sales-files.jsx';
@@ -88,6 +89,9 @@ import {salesSeriesLabel} from './demand-view.mjs';
 import {FactorEvaluation} from './factor-evaluation';
 import { pendingImport } from "./workflow-state.mjs";
 import {requestJSON} from './request-errors.mjs';
+import {companyMode,companyPage,configureCompanyApi,companyRequest} from './company-api.mjs';
+import {configureWorkspaceStorage,workspaceContextKey,localState,sessionState} from './workspace-storage.mjs';
+import {CompanyFactors} from './company-factors.jsx';
 import {RequestRecovery} from './request-recovery.jsx';
 import { AccessGate } from "./access";
 import { FolderInputs } from "./folder-inputs";
@@ -104,8 +108,8 @@ import {
 let csrfToken = "";
 
 async function api(url, body, method) {
-  return requestJSON(url,body,method,{csrfToken,
-    onSessionExpired:()=>window.dispatchEvent(new Event('demandlab:session-expired'))});
+  return companyRequest(url,body,method,(target,value,verb)=>requestJSON(target,value,verb,{csrfToken,
+    onSessionExpired:()=>window.dispatchEvent(new Event('demandlab:session-expired'))}));
 }
 const fmt = (n, d = 1) =>
   n == null || !Number.isFinite(Number(n))
@@ -445,8 +449,8 @@ function Pill({ children, tone = "" }) {
 const inventoryUi = { Button, Pick, Field, Table, ErrorBox, Help, Modal };
 function App({ access }) {
   useInterfaceLanguage();
-  const [sidebarCollapsed,setSidebarCollapsed]=useState(()=>readSidebarPreference(localStorage));
-  function toggleSidebar(){smoothUpdate(()=>setSidebarCollapsed(value=>{saveSidebarPreference(localStorage,!value);return !value;}));}
+  const [sidebarCollapsed,setSidebarCollapsed]=useState(()=>readSidebarPreference(localState));
+  function toggleSidebar(){smoothUpdate(()=>setSidebarCollapsed(value=>{saveSidebarPreference(localState,!value);return !value;}));}
   const canEdit =
     access.mode === "local" || ["planner", "admin"].includes(access.user?.role);
   const canReview =
@@ -454,7 +458,7 @@ function App({ access }) {
     ["reviewer", "approver", "admin"].includes(access.user?.role);
   const canAdmin = access.mode === "local" || access.user?.role === "admin";
   const canSettings = canAdmin || access.mode === 'better_auth';
-  const initial = workspaceRequest(location);
+  const initial = companyPage(workspaceRequest(location));
   const [page, setPage] = useSmoothState(workspacePage(initial));
   const [forecastRequest,setForecastRequest]=useState(initial==='new'?{id:'legacy-new'}:null);
   const forecastIdentity=useRef(forecastRequest?.id);
@@ -473,22 +477,23 @@ function App({ access }) {
     [importing, setImporting] = useState(false),
     [forecastTab, setForecastTab] = useSmoothState("methods");
   const [chosenPlan, setChosenPlan] = useState(() =>
-    localStorage.getItem("demandlab.activePlan"),
+    localState.getItem("demandlab.activePlan"),
   );
   useEffect(() => {
-    if (chosenPlan) localStorage.setItem("demandlab.activePlan", chosenPlan);
-    else localStorage.removeItem("demandlab.activePlan");
+    if (chosenPlan) localState.setItem("demandlab.activePlan", chosenPlan);
+    else localState.removeItem("demandlab.activePlan");
   }, [chosenPlan]);
   const [jobRevision, setJobRevision] = useState(0);
   const [updates,setUpdates]=useState([]),[updateId,setUpdateId]=useState(null);
   const updateAttempt=useRef(null);
-  useEffect(()=>{if(updateId)localStorage.setItem('demandlab.forecastUpdate',updateId);else localStorage.removeItem('demandlab.forecastUpdate');},[updateId]);
+  useEffect(()=>{if(updateId)localState.setItem('demandlab.forecastUpdate',updateId);else localState.removeItem('demandlab.forecastUpdate');},[updateId]);
   const [dataView, setDataView] = useSmoothState(initial==='customers'?"customers":"files");
   const [decisionTarget, setDecisionTarget] = useState(null);
   const submitting = useRef(false);
   const navigate = (p, target = null) => {
     if(p==='new'){startNewForecast();return;}
     if(p==='assistant')p='today';
+    p=companyPage(p);
     if(p==='customers'){p='data';setDataView('customers');}
     if(p!=='demand')setForecastRequest(null);
     if(p==='today'&&!target?.update_id)setUpdateId(null);
@@ -504,18 +509,18 @@ function App({ access }) {
   };
   const startNewForecast=(datasetId='',method='recommended',customer='')=>{
     if(!canEdit)return;
-    try{if(typeof datasetId==='string'&&datasetId)sessionStorage.setItem(FORECAST_DRAFT_KEY,JSON.stringify({version:2,source:datasetId,step:1,methods:[method],customer,jobs:[]}));else if(readForecastDraft(sessionStorage)?.step===4)sessionStorage.removeItem(FORECAST_DRAFT_KEY);}catch{}
+    try{if(typeof datasetId==='string'&&datasetId)sessionState.setItem(FORECAST_DRAFT_KEY,JSON.stringify({version:2,source:datasetId,step:1,methods:[method],customer,jobs:[]}));else if(readForecastDraft(sessionState)?.step===4)sessionState.removeItem(FORECAST_DRAFT_KEY);}catch{}
     navigate('demand');
     setForecastBusy(false);
     setForecastRequest({id:crypto.randomUUID()});
   };
   const refresh = async () => {
     const [d, p, r, w, u] = await Promise.all([
-      api("/api/datasets"),
-      api("/api/plans"),
+      companyMode()&&!canEdit?Promise.resolve({datasets:[]}):api("/api/datasets"),
+      companyMode()?Promise.resolve({plans:[]}):api("/api/plans"),
       api("/api/run-list"),
       api("/api/workspace"),
-      api('/api/forecast-updates'),
+      companyMode()?Promise.resolve({updates:[]}):api('/api/forecast-updates'),
     ]);
     setDatasets(d.datasets);
     setPlans(p.plans);
@@ -528,7 +533,7 @@ function App({ access }) {
     (async () => {
       try {
         const { r } = await refresh();
-        const saved = localStorage.getItem("demandlab.activeRun");
+        const saved = localState.getItem("demandlab.activeRun");
         const key =
           r.runs.find((x) => x.run_id === saved)?.run_id ||
           r.runs.find((x) => !x.scenario_name)?.run_id;
@@ -542,7 +547,7 @@ function App({ access }) {
     writeWorkspaceLocation(history,location,initial,{replace:true,preserveSearch:true});
     if(initial==='customers'){setPage('data');writeWorkspaceLocation(history,location,'data',{replace:true});}
     const listener = () => {
-      const requested=workspaceRequest(location),destination=workspacePage(requested);
+      const requested=companyPage(workspaceRequest(location)),destination=workspacePage(requested);
       writeWorkspaceLocation(history,location,requested,{replace:true,preserveSearch:true});
       if(requested==='new'){
         setForecastRequest({id:crypto.randomUUID()});
@@ -562,7 +567,7 @@ function App({ access }) {
       setBusy("Opening forecast");
       const r = await api(`/api/runs/${id}`);
       setRun(r);
-      localStorage.setItem("demandlab.activeRun", id);
+      localState.setItem("demandlab.activeRun", id);
       setChosenPlan(null);
       setForecastTab("outlook");
       navigate(destination, target);
@@ -579,7 +584,7 @@ function App({ access }) {
       setBusy("Opening plan");
       const source = await api(`/api/runs/${plan.run_id}`);
       setRun(source);
-      localStorage.setItem("demandlab.activeRun", plan.run_id);
+      localState.setItem("demandlab.activeRun", plan.run_id);
       setChosenPlan(plan.id);
       setForecastTab("outlook");
       navigate(destination);
@@ -602,17 +607,19 @@ function App({ access }) {
       const payload = { dataset_id: id, ...opts };
       const key = JSON.stringify(payload);
       const pending = JSON.parse(
-        localStorage.getItem("demandlab.pendingRequests") || "{}",
+        localState.getItem("demandlab.pendingRequests") || "{}",
       );
       const request_id = pending[key] || crypto.randomUUID();
       pending[key] = request_id;
-      localStorage.setItem(
+      localState.setItem(
         "demandlab.pendingRequests",
         JSON.stringify(pending),
       );
-      const job = await api("/api/jobs", { ...payload, request_id });
+      const job = companyMode()?(await api('/api/v1/forecasts',{name:opts.forecast_name||'Forecast',
+        dataset_id:id,sales_input_id:opts.sales_input_id,methods:[opts.method||'recommended'],request_id})).jobs[0]
+        :await api("/api/jobs", { ...payload, request_id });
       delete pending[key];
-      localStorage.setItem(
+      localState.setItem(
         "demandlab.pendingRequests",
         JSON.stringify(pending),
       );
@@ -678,7 +685,7 @@ function App({ access }) {
     canReview,
     canAdmin,
     updates,
-    startUpdate,
+    startUpdate:companyMode()?null:startUpdate,
     resumeUpdate:id=>{setUpdateId(id);navigate('today',{update_id:id});},
   };
   return (
@@ -703,7 +710,7 @@ function App({ access }) {
             {access.user && (
               <div className="account-status">
                 <span>
-                  {access.user.name} · {label(access.user.role)}
+                  {access.user.name} · {uiText(label(access.user.role))}
                 </span>
                 <button
                   className="text-btn"
@@ -723,7 +730,7 @@ function App({ access }) {
           </header>
           <main id="workspace">
             <ErrorBox error={error} />
-            {!boot && !forecastRequest && !(page==='today'&&updateId) && (
+            {!boot && !forecastRequest && !(page==='today'&&updateId) && (!companyMode()||canEdit||canReview) && (
               <ForecastJobs
                 includeCompleted={page==='data'||page==='today'}
                 canEdit={canEdit}
@@ -829,7 +836,7 @@ function ForecastJobs({ revision, onFinished, onOpen, canEdit, includeCompleted=
     [worker, setWorker] = useState(true),
     [action, setAction] = useState("");
   const [dismissed, setDismissed] = useState(() =>
-    JSON.parse(localStorage.getItem("demandlab.dismissedJobs") || "[]"),
+    JSON.parse(localState.getItem("demandlab.dismissedJobs") || "[]"),
   );
   const finishRef = useRef(onFinished),
     seen = useRef(new Map());
@@ -868,7 +875,7 @@ function ForecastJobs({ revision, onFinished, onOpen, canEdit, includeCompleted=
   function dismiss(id) {
     const next = [...dismissed, id].slice(-200);
     setDismissed(next);
-    localStorage.setItem("demandlab.dismissedJobs", JSON.stringify(next));
+    localState.setItem("demandlab.dismissedJobs", JSON.stringify(next));
   }
   async function act(job, operation) {
     setAction(job.id);
@@ -1019,7 +1026,7 @@ function DataPage({
       />
       </>}>
       <ErrorBox error={error} />
-      {view === "customers"?<Customers api={api} ui={inventoryUi} canEdit={canEdit} embedded navigate={()=>setView('files')}/>:view === "orders"?<OrderBooks datasets={datasets} api={api} ui={inventoryUi} canEdit={canEdit}/>:view === "connections" ? (
+      {view === "customers"?<Customers api={api} ui={inventoryUi} canEdit={canEdit} embedded navigate={()=>setView('files')}/>:view === "orders"?<OrderBooks datasets={datasets} api={api} ui={inventoryUi} canEdit={canEdit}/>:view === "connections" && companyMode()?<LiveSources api={api} ui={inventoryUi} canAdmin={canAdmin}/>:view === "connections" ? (
         <FolderInputs
           api={api}
           ui={inventoryUi}
@@ -1047,7 +1054,7 @@ function DataPage({
           }}
         />
       ) : view === "external" ? (
-        <ExternalFactors canAdmin={canAdmin} canEdit={canEdit} run={run} refresh={refresh} runDataset={runDataset}/>
+        companyMode()?<CompanyFactors api={api} ui={inventoryUi} onConnections={()=>setView('connections')}/>:<ExternalFactors canAdmin={canAdmin} canEdit={canEdit} run={run} refresh={refresh} runDataset={runDataset}/>
       ) : view === "inventory" ? (
         <InventoryData
           ui={inventoryUi}
@@ -1057,7 +1064,7 @@ function DataPage({
           notify={notify}
         />
       ) : <SalesFiles datasets={visibleDatasets} search={search} onSearch={setSearch} ui={inventoryUi} date={date} fmt={fmt} onReview={loadSaved}
-        actions={canEdit&&<Button kind="primary" onClick={()=>{setSelected(null);setImporting(true);}}><Plus/>{pendingImport(localStorage.getItem('demandlab.importDraft')).exists?uiText('Resume import'):uiText('Import data')}</Button>}/>}
+        actions={canEdit&&<Button kind="primary" onClick={()=>{setSelected(null);setImporting(true);}}><Plus/>{pendingImport(localState.getItem('demandlab.importDraft')).exists?uiText('Resume import'):uiText('Import data')}</Button>}/>}
     </Page>
   );
 }
@@ -1107,7 +1114,7 @@ function ImportFlow({ initial, onCancel, onSaved, onRun, draftStorageKey, choose
   useEffect(() => {
     let draft;
     try {
-      draft = JSON.parse(localStorage.getItem(draftKey));
+      draft = JSON.parse(localState.getItem(draftKey));
     } catch {}
     if (draft) {
       (async () => {
@@ -1141,16 +1148,16 @@ function ImportFlow({ initial, onCancel, onSaved, onRun, draftStorageKey, choose
   }, []);
   useEffect(() => {
     if (restoreReady && unchanged) {
-      localStorage.removeItem(draftKey);
+      localState.removeItem(draftKey);
       return;
     }
     if (restoreReady)
-      localStorage.setItem(
+      localState.setItem(
         draftKey,
         JSON.stringify({
           save_request: (() => {
             try {
-              return JSON.parse(localStorage.getItem(draftKey) || "{}")
+              return JSON.parse(localState.getItem(draftKey) || "{}")
                 .save_request;
             } catch {
               return undefined;
@@ -1375,11 +1382,11 @@ function ImportFlow({ initial, onCancel, onSaved, onRun, draftStorageKey, choose
     let inputsSaved = false;
     try {
       const data = request();
-      const draft = JSON.parse(localStorage.getItem(draftKey) || "{}");
+      const draft = JSON.parse(localState.getItem(draftKey) || "{}");
       const attempt = saveAttempt(draft.save_request, data, () =>
         crypto.randomUUID(),
       );
-      localStorage.setItem(
+      localState.setItem(
         draftKey,
         JSON.stringify({ ...draft, save_request: attempt }),
       );
@@ -1388,7 +1395,7 @@ function ImportFlow({ initial, onCancel, onSaved, onRun, draftStorageKey, choose
         : await api("/api/datasets", { ...data, request_id: attempt.id });
       inputsSaved = true;
       if (run && onRun) await onRun(d.id);
-      localStorage.removeItem(draftKey);
+      localState.removeItem(draftKey);
       await onSaved(d);
     } catch (e) {
       setError(
@@ -1497,8 +1504,8 @@ function ImportFlow({ initial, onCancel, onSaved, onRun, draftStorageKey, choose
                   <h2>{uiText("What would you like to forecast?")}</h2>
                   <p>{uiText("Upload past sales by date, product and customer.")}</p>
                 </div>
-                <Button disabled={!!pending} onClick={loadSample}>
-                  <Flask size={17} />{uiText("Try sample")}</Button>
+                {!companyMode()&&<Button disabled={!!pending} onClick={loadSample}>
+                  <Flask size={17} />{uiText("Try sample")}</Button>}
               </div>
               <SourceCard
                 role="history"
@@ -2363,7 +2370,7 @@ function ForecastPage({
           />
         </div>
         <div className="row-actions">
-          <a className="btn secondary" href={`/api/export/${run.run_id}/xlsx`}>
+          <a className="btn secondary" href={apiLink(`/api/export/${run.run_id}/xlsx`)}>
             <DownloadSimple size={18} />{uiText("Export model estimate")}</a>
           <Button onClick={()=>navigate('demand')}>{uiText("Review demand & orders")}</Button>
         </div>
@@ -3258,7 +3265,7 @@ function PlansPage({
                 Create new version
               </Button>
             )}
-            <a className="btn secondary" href={`/api/plans/${plan.id}/export`}>
+            <a className="btn secondary" href={apiLink(`/api/plans/${plan.id}/export`)}>
               <DownloadSimple size={18} />
               Export plan
             </a>
@@ -3903,7 +3910,7 @@ function SupplyPage({
         {tab !== "inventory" && planId && approvedOp && (
           <a
             className="btn secondary"
-            href={`/api/plans/${planId}/export?include_supply=true`}
+            href={apiLink(`/api/plans/${planId}/export?include_supply=true`)}
           >
             <DownloadSimple size={18} />
             Export plan & supply
@@ -4152,8 +4159,10 @@ createRoot(document.getElementById("root")).render(
     api={api}
     onSession={(value) => {
       csrfToken = value?.csrf || "";
+      configureCompanyApi(value);
+      configureWorkspaceStorage(value);
     }}
   >
-    {(access) => <App access={access} />}
+    {(access) => <App key={workspaceContextKey(access)} access={access} />}
   </AccessGate></I18nextProvider>,
 );

@@ -84,6 +84,42 @@ class CompanyWorkspace:
         from .jobs import JobStore
         return self.store('jobs', lambda: JobStore(self.path('jobs.sqlite3'), self.runs))
 
+    @property
+    def journal(self):
+        from .ai_workspace import AIJournal
+        return self.store('journal', lambda: AIJournal(self.path('assistant.sqlite3')))
+
+    @property
+    def ai_ledger(self):
+        from .ai_provider import AICallLedger
+        return self.store('ai_ledger', lambda: AICallLedger(self.path('assistant.sqlite3')))
+
+    @property
+    def views(self):
+        from .forecast_views import ViewStore
+        return self.store('views', lambda: ViewStore(self.path('views.sqlite3')))
+
+    @property
+    def actuals(self):
+        from .actuals import ActualsStore
+        return self.store('actuals', lambda: ActualsStore(self.path('actuals.sqlite3'), self.datasets))
+
+    def save_site(self, values):
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+        try:
+            ZoneInfo(values['timezone'])
+        except (ZoneInfoNotFoundError, ValueError):
+            raise ValueError('Use a recognised time zone, such as Asia/Tehran.') from None
+        with self._store_lock:
+            value = {**self.site, **values}
+            path = self.path('site.json')
+            temp = self.path('site.tmp')
+            temp.write_text(json.dumps(value, ensure_ascii=False), encoding='utf-8')
+            temp.replace(path)
+            # Order starters use the current location, not a cached old profile.
+            self._stores.pop('order_books', None)
+            return value
+
     def load_run(self, identifier):
         if not isinstance(identifier, str) or len(identifier) not in {12,32} or any(
                 c not in '0123456789abcdef' for c in identifier):
@@ -138,5 +174,15 @@ class CompanyWorkspaces:
 
     def close(self):
         for workspace in self._workspaces.values():
-            if 'jobs' in workspace._stores:
-                workspace._stores['jobs'].close()
+            for store in workspace._stores.values():
+                if hasattr(store, 'close'):
+                    store.close()
+                elif hasattr(store, 'engine'):
+                    store.engine.dispose()
+
+    def refresh_sources(self):
+        if not self.root.exists():return
+        for path in self.root.iterdir():
+            if not path.is_dir() or path.is_symlink() or not COMPANY_ID.fullmatch(path.name):continue
+            if not (path/'live-sources.sqlite3').is_file():continue
+            self.for_principal({'company_id':path.name}).live_sources.tick()

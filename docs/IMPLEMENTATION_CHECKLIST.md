@@ -13,8 +13,15 @@
   See [company forecast delivery](COMPANY_FORECAST_DELIVERY.md).
   Latest verification: 709 backend tests passed, one optional integration skipped;
   243 interface tests passed. Public API now has 56 documented operations.
-- [ ] Company-scoped AI/context, views/settings and remaining frontend routing;
-  remaining public CRUD, ingestion connectors, notifications and provider acceptance.
+- [x] Core company-scoped assistant/conversations, personal views, settings,
+  actual-vs-forecast checks, external-source management and frontend routing.
+  Browser drafts/preferences are company/user-separated. Existing shared styles
+  and forecasting libraries are reused; see [context delivery](COMPANY_CONTEXT_DELIVERY.md).
+  Latest verification: 724 backend passed, one optional integration skipped;
+  249 interface tests and production build passed. Public API: 105 operations.
+- [ ] Company-scoped advanced assistant factor/scenario workflows, monthly
+  updates and recurring schedules; remaining public lifecycle operations,
+  ingestion connectors, notifications and deployment/provider acceptance.
 - [ ] Activate company authentication only after the business migration passes.
 
 See [full platform delivery checklist](PUBLIC_PLATFORM_DELIVERY.md),

@@ -17,11 +17,14 @@ packages; retain licences and attribution. No SAML or messaging commands in v1.
   - [x] Explicit workspace factory and isolated customer/product directory.
   - [x] Sales history/files, order books/reviews, factors, grouped forecasts,
         durable jobs, results/exports and independent release approvals.
-  - [ ] Personal AI context, views, actual-vs-forecast checks, schedules/settings
-        and the remaining frontend migration.
+  - [x] Personal AI context, views, actual-vs-forecast checks, settings and core
+        frontend migration; company/user-separated browser drafts.
+  - [ ] Advanced factor/scenario assistant actions and recurring monthly updates
+        with company-scoped scheduling; no shared-data fallback.
 - [ ] Public `/api/v1` and route-by-route permission/coverage inventory.
   - [x] Initial 21 v1 operations and source-derived full route inventory.
-  - [ ] Remaining useful business operations and matching frontend migration.
+  - [x] Core screen operations and matching frontend migration: 105 v1 operations.
+  - [ ] Remaining resource lifecycle, advanced automation and ingestion routes.
 - [x] Scoped personal and company API keys; revocation, rotation and expiry.
 - [ ] Useful CRUD for customers/products, inputs/orders, forecast lifecycle,
       views/conversations, settings, connections and schedules.
@@ -95,9 +98,15 @@ demo health confirmed; it was not restarted, reconfigured or populated with test
 
 ## Next delivery chunks
 
-1. Finish company-scoped personal AI context, views, actual-vs-forecast checks,
-   settings and frontend routing. The sales pipeline/engine API milestone is
-   delivered; prove the remaining first-use-to-export screens with two companies.
+Core context/screens milestone: [delivery and limits](COMPANY_CONTEXT_DELIVERY.md).
+Full backend 725 checks: 724 passed, one optional integration skipped. All 249
+frontend tests and production build passed. Two-company synthetic browser journey
+checked orders, grouped model results, exports, chats, settings and viewer access.
+
+1. Finish company-scoped advanced assistant factor/scenario actions, monthly
+   updates and recurring schedules. Core assistant/personal views, actual results,
+   settings, external-source management and first-use-to-export screens have moved
+   to company stores; see [context delivery](COMPANY_CONTEXT_DELIVERY.md).
 2. Public CRUD completion and ingestion: maintained SFTP/Google libraries,
    version-aware Odoo, safe HTTP; preview/validation, mapping and repeat-safe sync.
 3. Notifications and schedules: Slack/Teams/Telegram/eligible WhatsApp with

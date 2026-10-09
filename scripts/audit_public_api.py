@@ -14,6 +14,8 @@ def routes(source, filename):
             if isinstance(node.value.func, ast.Name) and node.value.func.id == 'APIRouter':
                 prefix = next((k.value.value for k in node.value.keywords
                     if k.arg == 'prefix' and isinstance(k.value, ast.Constant)), '')
+                # The assistant installer is mounted twice with explicit defaults.
+                if filename == 'app/ai_workspace.py':prefix='/api/ai'
                 for target in node.targets:
                     if isinstance(target, ast.Name): prefixes[target.id] = prefix
     found = []
@@ -24,13 +26,15 @@ def routes(source, filename):
                     and isinstance(call.func.value, ast.Name) and call.func.attr in METHODS
                     and call.args and isinstance(call.args[0], ast.Constant)
                     and isinstance(call.args[0].value, str)): continue
-            prefix = '/api/v1' if filename in {'app/platform_api.py','app/platform_sales_api.py'} else prefixes.get(call.func.value.id, '')
+            prefix = '/api/v1' if filename in {'app/platform_api.py','app/platform_sales_api.py','app/platform_workspace_api.py'} else prefixes.get(call.func.value.id, '')
             path = prefix + call.args[0].value
             if not path.startswith('/api/'): continue
             methods = [call.func.attr.upper()]
             if call.func.attr == 'api_route':
                 methods = next((ast.literal_eval(k.value) for k in call.keywords if k.arg == 'methods'), ['GET'])
             found.extend((method.upper(), path, filename, call.lineno) for method in methods)
+            if filename == 'app/ai_workspace.py':
+                found.extend((method.upper(),path.replace('/api/ai','/api/v1/ai',1),filename,call.lineno) for method in methods)
     return sorted(set(found), key=lambda row: (row[1], row[0], row[2]))
 
 
@@ -58,7 +62,7 @@ def markdown():
         f'{len(public)} implemented v1 operations. The rest of the useful business API is not delivered yet.', '',
         'New company authentication deliberately blocks unscoped legacy business routes. Existing local mode remains unchanged.', '',
         'The Better Auth identity service supplies library-managed login, Google callback, verification, recovery and factor endpoints behind `/api/login/*`. These are not business CRUD.', '',
-        'Delivered business resources: customers/products, sales sources/datasets, versioned orders/reviews, factor preparation, grouped forecasts/jobs/results/exports and independent releases. Pending: complete archive/revision lifecycle, live feeds/assumptions, actual-vs-forecast checks, personal chats/views, company settings/units, connections/ingestion runs and schedules. Immutable source evidence is never destructively overwritten.', '',
+        'Delivered business resources: customers/products, sales sources/datasets, versioned orders/reviews, factor preparation, grouped forecasts/jobs/results/exports, independent releases, personal chats/views, actual-vs-forecast checks, company settings/units and external factor connections. Pending: complete archive/revision lifecycle, advanced assistant scenario workflows, business-system connections/ingestion runs, schedules and notifications. Immutable source evidence is never destructively overwritten.', '',
         '| Method | Route | Delivery | Source |', '|---|---|---|---|']
     for method, path, file, line in records:
         lines.append(f'| {method} | `{path}` | {delivery(path)} | `{file}:{line}` |')

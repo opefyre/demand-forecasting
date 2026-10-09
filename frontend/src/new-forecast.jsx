@@ -1,3 +1,4 @@
+import {sessionState} from './workspace-storage.mjs';
 import React,{useEffect,useRef,useState} from 'react';
 import {useSmoothState} from './ui-motion.jsx';
 import {ArrowLeft,ArrowRight,CheckCircle,UploadSimple} from '@phosphor-icons/react';
@@ -6,11 +7,12 @@ import {FORECAST_CHOICES,forecastInputs,remainingMethods,readForecastDraft,FOREC
 import {ForecastFactors} from './forecast-factors.jsx';
 import {ForecastOrders} from './forecast-orders.jsx';
 import {Panel,Stack,Grid,Actions} from './ui-layout.jsx';
+import {companyMode} from './company-api.mjs';
 
 export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,openRun,navigate,setDataView,canEdit,embedded=false,onWorkingChange}){
   const {Button,Pick,Field,ErrorBox,Help}=ui;
   const sources=forecastInputs(datasets);
-  const [draft]=useState(()=>readForecastDraft(typeof sessionStorage==='undefined'?null:sessionStorage,sources.map(source=>source.id)));
+  const [draft]=useState(()=>readForecastDraft(typeof sessionState==='undefined'?null:sessionState,sources.map(source=>source.id)));
   const [importInitial,setImportInitial]=useState(null);
   const [source,setSource]=useState(draft?.source||''),[saved,setSaved]=useState(null),[step,setStep]=useSmoothState(draft?.step||0),[importing,setImporting]=useSmoothState(false);
   const [methods,setMethods]=useState(draft?.methods||['recommended']),[jobs,setJobs]=useState(draft?.jobs||[]),[busy,setBusy]=useState(false),[error,setError]=useState(null);
@@ -40,7 +42,7 @@ export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,
       setSaved(d);setSource(d.id);if(d.id!==dataset.id)setSalesInputId(null);await refresh();if(continueStep)setStep(2);
     }catch(e){setError(e);}finally{setBusy(false);}
   }
-  useEffect(()=>{try{sessionStorage.setItem(FORECAST_DRAFT_KEY,JSON.stringify({version:2,source,step,methods,salesInputId,customer,groupId,name,jobs:jobs.map(({id,method})=>({id,method}))}));}catch{}},[source,step,methods,jobs,salesInputId,customer,groupId,name]);
+  useEffect(()=>{try{sessionState.setItem(FORECAST_DRAFT_KEY,JSON.stringify({version:2,source,step,methods,salesInputId,customer,groupId,name,jobs:jobs.map(({id,method})=>({id,method}))}));}catch{}},[source,step,methods,jobs,salesInputId,customer,groupId,name]);
   useEffect(()=>{
     let live=true;
     const ready=jobs.filter(job=>job.state==='succeeded'&&job.run_id);
@@ -65,7 +67,11 @@ export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,
   async function start(){
     if(submitting.current||!canEdit||!dataset||!methods.length||!salesInputId)return;
     submitting.current=true;setBusy(true);setError(null);setStep(4);
-    try{for(const method of remainingMethods(methods,jobs)){
+    try{if(companyMode()){
+      const group=await api('/api/v1/forecasts',{name:name.trim(),dataset_id:dataset.id,
+        sales_input_id:salesInputId,methods,request_id:groupId});
+      setJobs(group.jobs.map(job=>({...job,method:job.payload.method})));
+    }else for(const method of remainingMethods(methods,jobs)){
       const job=await runDataset(dataset.id,{method,sales_input_id:salesInputId,forecast_group_id:groupId,forecast_name:name.trim()});
       if(!job)throw Error(uiText('The forecast could not start. Your data is still saved.'));
       setJobs(previous=>[...previous,{...job,method}]);

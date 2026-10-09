@@ -51,6 +51,26 @@ class ViewStore:
             db.commit()
         return dict(id=key,**view.model_dump())
 
+    def get(self,owner,key):
+        with closing(sqlite3.connect(self.path)) as db:
+            row=db.execute('SELECT payload FROM forecast_views WHERE id=? AND owner=?',(key,owner)).fetchone()
+        if not row:raise ValueError('Saved view not found.')
+        return dict(id=key,**json.loads(row[0]))
+
+    def update(self,owner,key,view):
+        with closing(sqlite3.connect(self.path,timeout=30)) as db:
+            changed=db.execute('UPDATE forecast_views SET payload=? WHERE id=? AND owner=?',(view.model_dump_json(),key,owner)).rowcount
+            if not changed:raise ValueError('Saved view not found.')
+            db.commit()
+        return dict(id=key,**view.model_dump())
+
+    def delete(self,owner,key):
+        with closing(sqlite3.connect(self.path,timeout=30)) as db:
+            changed=db.execute('DELETE FROM forecast_views WHERE id=? AND owner=?',(key,owner)).rowcount
+            if not changed:raise ValueError('Saved view not found.')
+            db.commit()
+        return {'deleted':True,'id':key}
+
 
 def install_view_routes(app,store,load_run,get_snapshot):
     def owner(request):

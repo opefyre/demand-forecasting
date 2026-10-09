@@ -462,9 +462,10 @@ class SourcePermission(BaseModel):
     reference: str = ''
 
 
-def install_live_sources(app, store, scheduler):
+def install_live_sources(app, store, scheduler, *, enabled=lambda: True):
     @app.on_event('startup')
     def schedules():
+        if not enabled():return
         scheduler.add_job(store.tick, 'interval', minutes=15, id='live-sources', replace_existing=True,
                           max_instances=1, coalesce=True, next_run_time=datetime.now(timezone.utc))
 

@@ -1,8 +1,10 @@
+import {apiLink} from './company-api.mjs';
+import {localState} from './workspace-storage.mjs';
 import {t as uiText} from './localization.mjs';
 import React, { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, UploadSimple } from "@phosphor-icons/react";
 
-export function ActualResults({ ui, api, run, plans, fmt, date, importNew }) {
+export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEdit=true, embedded=false }) {
   const { Button, Pick, Field, Table, ErrorBox, Help } = ui;
   const [saved, setSaved] = useState([]),
     [result, setResult] = useState(null),
@@ -52,7 +54,7 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew }) {
         if (live) setBusy(false);
       });
     try {
-      const draft = JSON.parse(localStorage.getItem(draftKey) || "null");
+      const draft = JSON.parse(localState.getItem(draftKey) || "null");
       if (draft) {
         setSource(draft.source);
         setPreview(draft.preview);
@@ -66,7 +68,7 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew }) {
   }, []);
   useEffect(() => {
     if (restored.current && source)
-      localStorage.setItem(draftKey, JSON.stringify({ source, preview, form }));
+      localState.setItem(draftKey, JSON.stringify({ source, preview, form }));
   }, [source, preview, form]);
   useEffect(() => {
     if (editing || result) top.current?.scrollIntoView({ block: "start" });
@@ -155,7 +157,7 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew }) {
       setEditing(false);
       setSource(null);
       setReview(null);
-      localStorage.removeItem(draftKey);
+      localState.removeItem(draftKey);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -329,7 +331,7 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew }) {
               <details className="help-details">
                 <summary>{uiText("Exact item IDs")}</summary>
                 <p className="muted">{run.items?.slice(0, 10).join(" · ")}</p>
-                <a className="text-link" href={`/api/export/${run.run_id}/csv`}>{uiText("Download forecast with item IDs")}</a>
+                <a className="text-link" href={apiLink(`/api/export/${run.run_id}/csv`)}>{uiText("Download forecast with item IDs")}</a>
               </details>
             </>
           ) : (
@@ -440,12 +442,12 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew }) {
     );
   return (
     <section className="actual-results" ref={top}>
-      <div className="section-heading">
-        <div>
+      <div className={embedded ? 'ui-actions' : 'section-heading'}>
+        {!embedded&&<div>
           <h2>{uiText("Actual results")}</h2>
           <p>{uiText("Compare this forecast with completed sales or demand.")}</p>
-        </div>
-        <Button
+        </div>}
+        {canEdit&&<Button
           kind="primary"
           disabled={busy}
           onClick={() => {
@@ -456,7 +458,7 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew }) {
         >
           {source ? uiText("Resume actuals import") : uiText("Add actual results")}
           <ArrowRight size={16} />
-        </Button>
+        </Button>}
       </div>
       <ErrorBox error={error} />
       {saved.length > 0 && (
@@ -605,7 +607,7 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew }) {
             ))}
             <a
               className="text-link"
-              href={`/api/actual-results/${result.id}/export`}
+              href={apiLink(`/api/actual-results/${result.id}/export`)}
             >{uiText("Download compared rows")}</a>
             <p>
               {result.source.name} · {result.source.sheet || "Table"}{uiText("· closed through")}{date(result.closed_through, true)}{' '}{uiText("· reviewed by")}{" "}

@@ -5,6 +5,11 @@ remaining business screens and connection management still need migration before
 company mode can be enabled. Legacy business routes continue to fail closed in
 company mode; existing local mode is unchanged.
 
+Follow-up: core assistant/screens and external-source management are now migrated;
+see [context delivery](COMPANY_CONTEXT_DELIVERY.md). Advanced monthly/scenario
+automation and deployment acceptance are still open. The scope below records
+the earlier backend milestone, not the complete current delivery.
+
 ## What is implemented
 
 - Separate company stores for sales files/datasets, customer directory, order
@@ -77,7 +82,7 @@ Final test counts are recorded in [the delivery checklist](PUBLIC_PLATFORM_DELIV
 
 ## Next substantial work
 
-Finish company-scoped assistant/conversations, views, settings, actual-vs-forecast
-checks and frontend routing. Then complete remaining useful resource lifecycle
-operations and SFTP/Odoo/Sheets/HTTP ingestion, notifications and schedules.
+Finish company-scoped advanced assistant/scenario workflows and monthly schedules.
+Then complete remaining useful resource lifecycle operations and
+SFTP/Odoo/Sheets/HTTP ingestion and notifications.
 Google/mail/provider setup and deployment acceptance remain separate final gates.

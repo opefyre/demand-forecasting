@@ -32,7 +32,7 @@ export function SettingsWorkspace({
           ["workspace", "Workspace"],
           ["units", "Product units"],
           ["ai", "AI settings"],
-          ["schedules", "Schedules"],
+          ...(!companyAccess?[["schedules", "Schedules"]]:[]),
           ...(companyAccess ? [["people", "People"]] : [["access", "Access"]]),
         ]
       : []),

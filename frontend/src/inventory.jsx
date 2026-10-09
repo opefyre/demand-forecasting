@@ -1,3 +1,4 @@
+import {localState} from './workspace-storage.mjs';
 import React, { useEffect, useRef, useState } from "react";
 import { ReceiptEditor } from "./receipts";
 import {
@@ -29,7 +30,7 @@ const QUALITY = [
 const draftKey = "demandlab.inventoryDraft";
 function draft() {
   try {
-    return JSON.parse(localStorage.getItem(draftKey) || "null");
+    return JSON.parse(localState.getItem(draftKey) || "null");
   } catch {
     return null;
   }
@@ -61,7 +62,7 @@ export function InventoryData({ ui, api, fmt, date, notify }) {
   }, []);
   useEffect(() => {
     if (source)
-      localStorage.setItem(draftKey, JSON.stringify({ source, preview, form }));
+      localState.setItem(draftKey, JSON.stringify({ source, preview, form }));
   }, [source, preview, form]);
   useEffect(() => {
     let live = true;
@@ -169,7 +170,7 @@ export function InventoryData({ ui, api, fmt, date, notify }) {
     setError("");
     try {
       const s = await api("/api/inventory", form);
-      localStorage.removeItem(draftKey);
+      localState.removeItem(draftKey);
       saved.current = null;
       setSource(null);
       setPreview(null);
