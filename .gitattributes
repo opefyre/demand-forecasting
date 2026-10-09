@@ -1,0 +1,2 @@
+# Generated bundles can contain whitespace inside library template literals.
+app/static/client/assets/* linguist-generated=true whitespace=-blank-at-eol

@@ -30,6 +30,8 @@ class SecurityConfig:
     client_secret: str = ''
     session_secret: str = ''
     members_path: Path | None = None
+    auth_service_url: str = ''
+    auth_bridge_secret: str = ''
 
     @classmethod
     def from_env(cls):
@@ -40,13 +42,19 @@ class SecurityConfig:
             client_id=os.getenv('DEMANDLAB_OIDC_CLIENT_ID', ''),
             client_secret=os.getenv('DEMANDLAB_OIDC_CLIENT_SECRET', ''),
             session_secret=os.getenv('DEMANDLAB_SESSION_SECRET', ''),
-            members_path=Path(os.environ['DEMANDLAB_MEMBERS_FILE']) if os.getenv('DEMANDLAB_MEMBERS_FILE') else None)
+            members_path=Path(os.environ['DEMANDLAB_MEMBERS_FILE']) if os.getenv('DEMANDLAB_MEMBERS_FILE') else None,
+            auth_service_url=os.getenv('DEMANDLAB_AUTH_SERVICE_URL', 'http://127.0.0.1:8011'),
+            auth_bridge_secret=os.getenv('DEMANDLAB_AUTH_BRIDGE_SECRET', ''))
         config.validate()
         return config
 
     def validate(self):
-        if self.mode not in {'local', 'oidc'}:
-            raise ValueError('DEMANDLAB_AUTH_MODE must be local or oidc.')
+        if self.mode not in {'local', 'oidc', 'better_auth'}:
+            raise ValueError('DEMANDLAB_AUTH_MODE must be local, oidc or better_auth.')
+        if self.mode == 'better_auth':
+            from .platform_identity import IdentityServiceConfig
+            IdentityServiceConfig(self.origin, self.auth_service_url, self.auth_bridge_secret).validate()
+            return
         if self.mode == 'local':
             if self.issuer or self.client_id or self.client_secret:
                 raise ValueError('OIDC settings cannot be silently ignored in local mode.')
@@ -103,8 +111,13 @@ class AccessControl:
     def __init__(self, config, data_dir):
         config.validate()
         self.config = config
+        self.data_dir = data_dir
         self.store = LoginStore(data_dir/'identity.sqlite3') if config.mode == 'oidc' else None
         self.oauth = OAuth()
+        self.identity_service = None
+        if config.mode == 'better_auth':
+            from .platform_identity import IdentityService, IdentityServiceConfig
+            self.identity_service = IdentityService(IdentityServiceConfig(config.origin, config.auth_service_url, config.auth_bridge_secret))
         if config.mode == 'oidc':
             self.oauth.register('company', client_id=config.client_id, client_secret=config.client_secret,
                 server_metadata_url=config.issuer.rstrip('/')+'/.well-known/openid-configuration',
@@ -144,6 +157,8 @@ class AccessMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         protected = path.startswith('/api/') or path in {'/docs','/redoc','/openapi.json'}
         request.state.principal = None
+        if config.mode == 'better_auth':
+            return await self.platform_dispatch(request, call_next, protected)
         if config.mode == 'local':
             # No authenticated identity is asserted in local evaluation mode.
             if protected and request.method in UNSAFE and request.headers.get('origin'):
@@ -173,6 +188,36 @@ class AccessMiddleware(BaseHTTPMiddleware):
         if protected: response.headers['Cache-Control'] = 'no-store'
         return response
 
+    async def platform_dispatch(self, request, call_next, protected):
+        service, config = self.access.identity_service, self.access.config
+        parsed = urlsplit(str(request.url))
+        if f'{parsed.scheme}://{parsed.netloc}' != config.origin:
+            return JSONResponse({'detail':'Use the configured application address.'}, status_code=400)
+        path = request.url.path
+        public = path.startswith('/api/login/') or path in {'/api/auth/session','/api/auth/providers','/api/health'}
+        if protected and not path.startswith('/api/login/'):
+            try:
+                request.state.principal = await service.identity(request)
+            except HTTPException as error:
+                if not public or error.status_code not in {401,403}:
+                    return JSONResponse({'detail':error.detail}, status_code=error.status_code)
+        if protected and not public:
+            who = request.state.principal
+            if who['mfa_required']:
+                return JSONResponse({'detail':'Verify two-factor authentication first.'}, status_code=403)
+            if request.method in UNSAFE and who['auth_kind'] == 'session':
+                expected = service.csrf(who)
+                received = request.headers.get('x-demandlab-csrf', '')
+                if (request.headers.get('origin') != config.origin or not received or not secrets.compare_digest(received, expected)):
+                    return JSONResponse({'detail':'Refresh the page before making changes.'}, status_code=403)
+            # Legacy stores are global. Never expose them under new company
+            # authentication until each route has been moved to scoped storage.
+            if not path.startswith('/api/v1/'):
+                return JSONResponse({'detail':'This route has not been migrated to company-scoped access.'}, status_code=503)
+        response = await call_next(request)
+        if protected: response.headers['Cache-Control'] = 'no-store'
+        return response
+
 
 def install_access(app, access):
     app.state.access = access
@@ -183,8 +228,25 @@ def install_access(app, access):
 
     @app.get('/api/auth/session')
     def session(request: Request):
+        if access.config.mode == 'better_auth':
+            who = request.state.principal
+            return {'mode':'better_auth', 'user':{k:v for k,v in who.items() if k not in {'session_id','key_id'}} if who else None,
+                'csrf':access.identity_service.csrf(who) if who else None}
         return {'mode':access.config.mode, 'user':request.state.principal,
                 'csrf':request.session.get('csrf') if request.state.principal else None}
+
+    if access.config.mode == 'better_auth':
+        from .platform_api import create_platform_api
+        from .company_workspace import CompanyWorkspaces
+        app.mount('/api/v1', create_platform_api(access.identity_service, CompanyWorkspaces(access.data_dir/'companies')))
+
+        @app.api_route('/api/login/{path:path}', methods=['GET','POST'], include_in_schema=False)
+        async def login_proxy(request: Request):
+            return await access.identity_service.proxy(request)
+
+        @app.get('/api/auth/providers')
+        async def providers():
+            return await access.identity_service.call('config', {})
 
     @app.get('/api/auth/login')
     async def login(request: Request):

@@ -1,5 +1,20 @@
 # DemandLab — implementation and acceptance checklist
 
+## 9 October — public platform expansion (in progress)
+
+- [x] Better Auth access foundation, four roles, session-specific admin 2FA,
+  invitations, suspension and session revocation; scoped/rotatable API keys.
+- [x] Company-scoped customer/product CRUD and 21 initial v1 API operations.
+- [x] Shared English/Persian People/API access/sign-in components and isolated
+  browser checks. Full backend: 694 passed, one optional integration skipped;
+  frontend: 243 passed; identity: 21 passed including actual PostgreSQL/HTTP tests.
+- [ ] Company-scoped forecasting/jobs/AI, remaining public CRUD, ingestion
+  connectors, notifications and production-provider acceptance.
+- [ ] Activate company authentication only after the business migration passes.
+
+See [full platform delivery checklist](PUBLIC_PLATFORM_DELIVERY.md),
+[API coverage](PUBLIC_API_COVERAGE.md) and [auth setup](AUTH_PLATFORM_SETUP.md).
+
 ## 9 October — Data tab interiors (follow-up)
 
 - [x] One shared collection toolbar/body/table contract across Your files, Customers, Orders, Factors and Connections.

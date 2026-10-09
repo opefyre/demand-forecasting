@@ -1,0 +1,30 @@
+{
+  "name": "demandlab-auth",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --import tsx src/server.ts",
+    "check": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts",
+    "test:integration": "node --import tsx --test test/identity.integration.test.ts",
+    "migrate": "node --import tsx src/migrate.ts",
+    "bootstrap": "node --import tsx src/bootstrap.ts"
+  },
+  "dependencies": {
+    "better-auth": "1.7.7",
+    "@better-auth/api-key": "1.7.7",
+    "hono": "4.13.13",
+    "@hono/node-server": "2.1.4",
+    "pg": "^8.16.3",
+    "nodemailer": "10.0.16"
+  },
+  "devDependencies": {
+    "@better-auth/utils": "0.4.2",
+    "typescript": "^5.9.3",
+    "tsx": "^4.20.6",
+    "@types/node": "^22.19.0",
+    "@types/pg": "^8.15.6",
+    "@types/nodemailer": "^7.0.4"
+  }
+}

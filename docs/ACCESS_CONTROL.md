@@ -1,5 +1,9 @@
 # Company access and plan approval
 
+New platform work: see [Better Auth setup and current limits](AUTH_PLATFORM_SETUP.md)
+and [delivery checklist](PUBLIC_PLATFORM_DELIVERY.md). The material below describes
+the retained single-workspace OIDC mode, not the new company-scoped platform.
+
 Status: implemented foundation, 21 September 2026. The running localhost preview
 remains **local evaluation**, not an authenticated company deployment.
 

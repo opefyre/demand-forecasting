@@ -10,6 +10,11 @@ See the [current checklist](docs/IMPLEMENTATION_CHECKLIST.md),
 [pilot and operating guide](docs/RELEASE_PILOT.md).
 Client workbook analysis and private demo outputs are kept outside the public repository.
 
+Public-platform work: [delivery status](docs/PUBLIC_PLATFORM_DELIVERY.md),
+[auth setup](docs/AUTH_PLATFORM_SETUP.md), [API coverage](docs/PUBLIC_API_COVERAGE.md).
+The new company-auth mode is not enabled in the local demo; business migration
+and connector delivery are still in progress.
+
 ## Start
 
 Run `./scripts/setup_mac.sh` once, then `./scripts/start_mac.sh`.

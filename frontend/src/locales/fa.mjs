@@ -2,7 +2,9 @@
 import {faWorkflows} from './fa-workflows.mjs';
 import {faInterface} from './fa-interface.mjs';
 import {faCompletion} from './fa-completion.mjs';
+import {faPlatform} from './fa-platform.mjs';
 export const fa={
+  ...faPlatform,
   'Exchange-rate quotes':'نرخ‌های ارز',
   'Monthly price index':'شاخص قیمت ماهانه',
   'Monthly market data':'داده‌های ماهانهٔ بازار',

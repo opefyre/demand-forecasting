@@ -451,8 +451,9 @@ function App({ access }) {
     access.mode === "local" || ["planner", "admin"].includes(access.user?.role);
   const canReview =
     access.mode === "local" ||
-    ["reviewer", "admin"].includes(access.user?.role);
+    ["reviewer", "approver", "admin"].includes(access.user?.role);
   const canAdmin = access.mode === "local" || access.user?.role === "admin";
+  const canSettings = canAdmin || access.mode === 'better_auth';
   const initial = workspaceRequest(location);
   const [page, setPage] = useSmoothState(workspacePage(initial));
   const [forecastRequest,setForecastRequest]=useState(initial==='new'?{id:'legacy-new'}:null);
@@ -685,7 +686,7 @@ function App({ access }) {
       <div className="app-shell" data-sidebar-collapsed={sidebarCollapsed}>
         <AppSidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} page={page} onNavigate={navigate}
           items={nav.filter(([p])=>p!=='data'||canEdit)} secondary={[
-            ['help','Help',Question],['plans','Approvals',Stack],...(canAdmin?[['settings','Settings',GearSix]]:[])]}/>
+            ['help','Help',Question],['plans','Approvals',Stack],...(canSettings?[['settings','Settings',GearSix]]:[])]}/>
         <div className="main">
           <header className="topbar">
             <LanguageSwitch/>
@@ -708,7 +709,7 @@ function App({ access }) {
                   className="text-btn"
                   onClick={async () => {
                     try {
-                      await api("/api/auth/logout", {});
+                      await api(access.mode==='better_auth'?'/api/login/sign-out':"/api/auth/logout", {});
                       window.dispatchEvent(
                         new Event("demandlab:session-expired"),
                       );
@@ -766,7 +767,7 @@ function App({ access }) {
               <Customers {...context} api={api} ui={inventoryUi} />
             ) : page === "help" ? (
               <HelpPage {...context}/>
-            ) : page === "settings" && canAdmin ? (
+            ) : page === "settings" && canSettings ? (
               <SettingsWorkspace {...context} api={api} ui={inventoryUi} fmt={fmt} date={date}/>
             ) : (
               <ForecastPage
@@ -790,7 +791,7 @@ function App({ access }) {
             ...nav.filter(([p]) => p !== "data" || canEdit),
             ["help", "Help", Question],
             ["plans", "Approvals", Stack],
-            ...(canAdmin ? [["settings", "Settings", GearSix]] : []),
+            ...(canSettings ? [["settings", "Settings", GearSix]] : []),
           ].map(([p, n, Icon]) => (
             <button
               key={p}

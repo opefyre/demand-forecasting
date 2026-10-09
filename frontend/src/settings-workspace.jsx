@@ -6,6 +6,7 @@ import { UnitSettings } from "./units.jsx";
 import { AISettings } from "./ai-settings.jsx";
 import { RecurringForecasts } from "./recurring-forecasts.jsx";
 import { Page, PageTabs, Panel, Stack, Grid, Actions } from "./ui-layout.jsx";
+import { PeopleSettings, ApiAccessSettings } from "./access-management.jsx";
 
 export function SettingsWorkspace({
   workspace,
@@ -19,19 +20,27 @@ export function SettingsWorkspace({
   runs = [],
   run,
   datasets = [],
-  canAdmin,
+  canAdmin = access.mode === "local" || access.user?.role === "admin",
   resumeUpdate,
   navigate,
 }) {
   const { Button, Field, ErrorBox, Pick } = ui;
+  const companyAccess = access.mode === "better_auth";
   const sections = [
-    ["workspace", "Workspace"],
-    ["units", "Product units"],
-    ["ai", "AI settings"],
-    ["schedules", "Schedules"],
-    ["access", "Access"],
+    ...(canAdmin
+      ? [
+          ["workspace", "Workspace"],
+          ["units", "Product units"],
+          ["ai", "AI settings"],
+          ["schedules", "Schedules"],
+          ...(companyAccess ? [["people", "People"]] : [["access", "Access"]]),
+        ]
+      : []),
+    ...(companyAccess ? [["api-access", "API access"]] : []),
   ];
-  const [section, setSection] = useSmoothState("workspace");
+  const [section, setSection] = useSmoothState(
+    canAdmin ? "workspace" : "api-access",
+  );
   const [site, setSite] = useState(workspace?.site || {}),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(null);
@@ -71,6 +80,18 @@ export function SettingsWorkspace({
     >
       <div className="ui-content-column">
         <Stack>
+          {section === "people" && canAdmin && (
+            <PeopleSettings api={api} ui={ui} access={access} />
+          )}
+          {section === "api-access" && companyAccess && (
+            <ApiAccessSettings
+              api={api}
+              ui={ui}
+              canAdmin={canAdmin}
+              date={date}
+              access={access}
+            />
+          )}
           {section === "workspace" && (
             <>
               <Panel title={uiText("Workspace")}>
