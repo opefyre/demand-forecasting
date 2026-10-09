@@ -7,6 +7,7 @@ import { AISettings } from "./ai-settings.jsx";
 import { RecurringForecasts } from "./recurring-forecasts.jsx";
 import { Page, PageTabs, Panel, Stack, Grid, Actions } from "./ui-layout.jsx";
 import { PeopleSettings, ApiAccessSettings } from "./access-management.jsx";
+import { NotificationSettings } from './notification-settings.jsx';
 
 export function SettingsWorkspace({
   workspace,
@@ -33,6 +34,7 @@ export function SettingsWorkspace({
           ["units", "Product units"],
           ["ai", "AI settings"],
           ["schedules", "Schedules"],
+          ...(companyAccess ? [["notifications","Notifications"]] : []),
           ...(companyAccess ? [["people", "People"]] : [["access", "Access"]]),
         ]
       : []),
@@ -83,6 +85,7 @@ export function SettingsWorkspace({
           {section === "people" && canAdmin && (
             <PeopleSettings api={api} ui={ui} access={access} />
           )}
+          {section === "notifications" && canAdmin && companyAccess && <NotificationSettings api={api} ui={ui}/>}
           {section === "api-access" && companyAccess && (
             <ApiAccessSettings
               api={api}

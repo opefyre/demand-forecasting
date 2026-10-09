@@ -27,6 +27,7 @@ def routes(source, filename):
                     and call.args and isinstance(call.args[0], ast.Constant)
                     and isinstance(call.args[0].value, str)): continue
             prefix = '/api/v1' if filename in {'app/platform_api.py','app/platform_sales_api.py','app/platform_workspace_api.py','app/platform_workflow_api.py','app/platform_connections_api.py','app/platform_lifecycle_api.py'} else prefixes.get(call.func.value.id, '')
+            if filename=='app/platform_notifications_api.py':prefix='/api/v1'+prefixes.get(call.func.value.id,'')
             path = prefix + call.args[0].value
             if not path.startswith('/api/'): continue
             methods = [call.func.attr.upper()]
@@ -59,10 +60,10 @@ def markdown():
     public = [row for row in records if row[1].startswith('/api/v1/')]
     lines = ['# Public API coverage', '',
         'Generated from source decorators by `scripts/audit_public_api.py`; no application stores are opened.', '',
-        f'{len(public)} implemented v1 operations. The rest of the useful business API is not delivered yet.', '',
+        f'{len(public)} implemented v1 operations. Deployment acceptance and live provider verification remain open.', '',
         'New company authentication deliberately blocks unscoped legacy business routes. Existing local mode remains unchanged.', '',
         'The Better Auth identity service supplies library-managed login, Google callback, verification, recovery and factor endpoints behind `/api/login/*`. These are not business CRUD.', '',
-        'Delivered business resources: customers/products, sales sources/datasets, versioned orders/reviews, factor preparation and comparisons, grouped forecasts/jobs/results/exports, independent releases, personal chats/views, advanced assistant scenarios, monthly updates, administrator recurring drafts, actual-vs-forecast checks, company settings/units, external factors, read-only HTTPS/SFTP/Google Sheets inputs, Odoo 18/19 customers/orders, reviewed ingestion receipts, permission-checked scheduled captures and company-scoped resource naming/archive/restore/revisions. Lifecycle routes accept sources, datasets, forecasts and runs; grouped methods share one metadata record. Pending: notifications and deployment acceptance. Immutable source evidence is never destructively overwritten.', '',
+        'Delivered business resources: customers/products, sales sources/datasets, versioned orders/reviews, factor preparation and comparisons, grouped forecasts/jobs/results/exports, independent releases, personal chats/views, advanced assistant scenarios, monthly updates, administrator recurring drafts, actual-vs-forecast checks, company settings/units, external factors, read-only HTTPS/SFTP/Google Sheets inputs, Odoo 18/19 customers/orders, reviewed ingestion receipts, permission-checked scheduled captures, resource naming/archive/restore/revisions, administrator notification destinations and delivery history. Notification routes require an interactive administrator session, not an API key. Lifecycle routes accept sources, datasets, forecasts and runs; grouped methods share one metadata record. Pending: deployment acceptance and live provider accounts. Immutable source evidence is never destructively overwritten.', '',
         '| Method | Route | Delivery | Source |', '|---|---|---|---|']
     for method, path, file, line in records:
         lines.append(f'| {method} | `{path}` | {delivery(path)} | `{file}:{line}` |')

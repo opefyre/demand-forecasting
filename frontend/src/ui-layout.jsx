@@ -1,6 +1,7 @@
 import React,{useRef,useLayoutEffect} from "react";
-import { t as uiText } from "./localization.mjs";
-import { MagnifyingGlass } from "@phosphor-icons/react";
+import { t as uiText,interfaceDirection } from "./localization.mjs";
+import { MagnifyingGlass,DotsThree } from "@phosphor-icons/react";
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 
 // Data collections share the same toolbar, surface, and spacing. Only their
 // controls and records vary; a tab cannot supply a competing page layout.
@@ -61,6 +62,15 @@ export function useMenuHandoff(){
       trigger?.focus();queueMicrotask(action);
     },
   };
+}
+export function ActionMenu({name,items,disabled=false}){
+  const trigger=useRef(null),handoff=useMenuHandoff();
+  return <DropdownMenu.Root modal={false} dir={interfaceDirection()}>
+    <DropdownMenu.Trigger asChild><button ref={trigger} type="button" className="btn secondary" disabled={disabled} aria-label={uiText('Item options for {{name}}',{name})} title={uiText('Item options')}><DotsThree aria-hidden="true"/></button></DropdownMenu.Trigger>
+    <DropdownMenu.Portal><DropdownMenu.Content className="ui-menu" align="end" collisionPadding={12} onCloseAutoFocus={handoff.close}>
+      {items.map(([label,action])=><DropdownMenu.Item key={label} className="ui-menu-item" onSelect={()=>handoff.select(trigger.current,action)}>{uiText(label)}</DropdownMenu.Item>)}
+    </DropdownMenu.Content></DropdownMenu.Portal>
+  </DropdownMenu.Root>;
 }
 export function PageTabs({
   value,

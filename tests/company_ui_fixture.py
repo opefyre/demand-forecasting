@@ -14,9 +14,33 @@ from tests.test_company_context import ALL,VIEW
 from app.company_jobs import execute_company_job
 
 
-def run():
+def run(*,notifications=False):
     import uvicorn
     fixture=PublicSalesTests();fixture.setUp()
+    if notifications:
+        from types import SimpleNamespace
+        from app.platform_api import create_platform_api
+        from app.notifications import Notifications
+        from app.company_context import personal_owner
+        from tests.test_notifications import MemoryVault,Sender,body
+        fixture.kind='session'
+        class IdentityFixture:
+            config=SimpleNamespace(origin='http://127.0.0.1:8013')
+            async def call(self,operation,values):
+                if operation=='schedules/authorize':return {'allowed':True}
+                return {'members':[],'keys':[],'invitations':[]}
+        fixture.app.router.routes=[r for r in fixture.app.router.routes if getattr(r,'path',None)!='/api/v1']
+        fixture.api=create_platform_api(IdentityFixture(),fixture.workspaces,dispatcher=lambda ws,key:fixture.dispatched.append((ws.company_id,key)))
+        fixture.app.mount('/api/v1',fixture.api)
+        for company in ('tehran_a','tehran_b'):
+            w=fixture.workspaces.for_principal({'company_id':company})
+            sender=Sender();store=Notifications(w.path('notifications.sqlite3'),vault=MemoryVault(),sender=sender)
+            w._stores['notifications']=store
+            owner=personal_owner({'company_id':company,'issuer':'https://company.test','subject':'admin_'+company})
+            destination=store.save(body(enabled=True,events=['forecast_ready','inputs_ready']),owner)
+            for state in ('accepted','rejected','unknown'):
+                sender.state=state;store.queue(destination['id'],'test','fixture-'+state,owner,version=1);store.drain(lambda _:True,'http://127.0.0.1:8013')
+            sender.state='accepted'
     root=Path(__file__).resolve().parents[1]
     for company,multiplier in [('tehran_a',1),('tehran_b',2)]:
         fixture.company=company
@@ -100,4 +124,6 @@ def run():
     finally:fixture.tearDown()
 
 
-if __name__=='__main__':run()
+if __name__=='__main__':
+    import sys
+    run(notifications='--notifications' in sys.argv)

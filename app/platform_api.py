@@ -181,6 +181,8 @@ def create_platform_api(service, workspaces=None, dispatcher=None):
     install_platform_connections(api, workspaces,service)
     from .platform_lifecycle_api import install_platform_lifecycle
     install_platform_lifecycle(api,workspaces)
+    from .platform_notifications_api import install_platform_notifications
+    install_platform_notifications(api,workspaces,service)
     from .company_context import install_company_assistant
     install_company_assistant(api, workspaces, dispatcher)
 
@@ -202,7 +204,7 @@ def create_platform_api(service, workspaces=None, dispatcher=None):
                 'BrowserSession':{'type':'apiKey','in':'cookie','name':('__Secure-' if secure_cookie else '')+'better-auth.session_token','description':'Verified interactive session; mutations also require X-DemandLab-CSRF.'}}
             for path, methods in value['paths'].items():
                 for method, details in methods.items():
-                    access_only = path.startswith(('/api-keys','/access-options','/members','/invitations','/audit-events')) or path == '/connections/external-sources/servix/credential'
+                    access_only = path.startswith(('/api-keys','/access-options','/members','/invitations','/audit-events','/notifications')) or path == '/connections/external-sources/servix/credential'
                     details['security'] = [{'BrowserSession':[]}] if access_only else [{'ApiKey':[]},{'BrowserSession':[]}]
                     if method in {'post','put','patch','delete'}:
                         details.setdefault('parameters', []).append({'name':'X-DemandLab-CSRF','in':'header','required':False,

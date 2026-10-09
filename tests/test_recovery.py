@@ -31,6 +31,30 @@ class RecoveryTests(unittest.TestCase):
             for statement in statements: db.execute(statement)
             db.commit()
 
+    def test_company_notifications_restore_paused_without_replaying_outbound_work(self):
+        from app.notifications import Notifications
+        from tests.test_notifications import MemoryVault,Sender,body
+        originals={}
+        for company in ('tehran_a','tehran_b'):
+            folder=self.root/'data/companies'/company;folder.mkdir(parents=True)
+            store=Notifications(folder/'notifications.sqlite3',vault=MemoryVault(),sender=Sender())
+            row=store.save(body(enabled=True,events=['forecast_ready']),'synthetic-owner')
+            accepted=store.queue(row['id'],'test','accepted','synthetic-owner');store.drain(lambda _:True,'https://company.test')
+            queued=store.queue(row['id'],'test','queued','synthetic-owner')
+            sending=store.queue(row['id'],'test','sending','synthetic-owner')
+            with store.db() as db:
+                record=json.loads(db.execute('SELECT record FROM deliveries WHERE id=?',(sending['id'],)).fetchone()[0]);record.update(state='sending',started_at=1)
+                db.execute('UPDATE deliveries SET record=? WHERE id=?',(json.dumps(record),sending['id']))
+            originals[company]=(row,store.delivery(accepted['id']),queued,sending)
+        backup(self.root,self.archive);destination=self.parent/'notification-restore';restore(self.archive,destination)
+        for company,(row,accepted,queued,sending) in originals.items():
+            sender=Sender();store=Notifications(destination/'data/companies'/company/'notifications.sqlite3',vault=MemoryVault(),sender=sender)
+            self.assertFalse(store.get(row['id'])['enabled']);self.assertEqual(store.get(row['id'])['version'],2)
+            self.assertEqual(store.delivery(accepted['id']),accepted)
+            self.assertEqual(store.delivery(queued['id'])['state'],'cancelled')
+            self.assertEqual(store.delivery(sending['id'])['state'],'unknown')
+            self.assertEqual(store.drain(lambda _:True,'https://company.test'),[]);self.assertEqual(sender.calls,[])
+
     def test_roundtrip_and_runtime_sanitization(self):
         self.database('plans.sqlite3', ['CREATE TABLE plans(id TEXT,payload TEXT)', "INSERT INTO plans VALUES ('P1','unchanged')"])
         self.database('identity.sqlite3', ['CREATE TABLE login_sessions(token_hash TEXT)', "INSERT INTO login_sessions VALUES ('old')"])

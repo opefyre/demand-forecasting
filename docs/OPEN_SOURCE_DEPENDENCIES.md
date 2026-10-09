@@ -13,6 +13,7 @@ licences if code is vendored. Pin and audit dependencies before each release.
 | detect-secrets | https://github.com/Yelp/detect-secrets | Apache-2.0 | Pre-push secret scanning |
 | Paramiko 5.0.0 | https://github.com/paramiko/paramiko | LGPL-2.1 | SSH/SFTP client and host-key verification; installed dependency, not vendored |
 | google-auth 2.61.0 | https://github.com/googleapis/google-auth-library-python | Apache-2.0 | Official service-account authentication for read-only Sheets; installed dependency, not vendored |
+| Apprise 2.0.1 | https://github.com/caronc/apprise | BSD-2-Clause | Slack, Telegram, WhatsApp adapters and Teams Workflows card formatting; installed dependency, not vendored |
 
 Existing FastAPI, Pydantic, SQLAlchemy, Huey, APScheduler, Authlib, Radix, Phosphor,
 i18next, forecasting and chart libraries remain in use. No custom password hashing,
@@ -38,6 +39,11 @@ protocol is implemented. Odoo uses its documented read-only JSON-RPC (18) and JS
 (19) APIs through httpx, with version-specific Sales fields; no Odoo server code is
 copied. Existing APScheduler supplies recurring captures. No new scheduling engine.
 
-Next connector dependencies: official provider APIs/SDKs for notifications. Odoo-specific mappings
+Notifications reuse Apprise in a single-use child process and existing pinned
+httpx transport. No SDK files are modified. Teams card formatting is reused with
+the current webhook URL; no custom message/card format or scheduling engine.
+See [notification delivery and limits](COMPANY_NOTIFICATIONS_DELIVERY.md).
+
+Odoo-specific mappings
 must respect the API version and installed modules; do not copy an AGPL framework
 into the application without explicitly reviewing the distribution obligations.

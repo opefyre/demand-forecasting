@@ -9,6 +9,7 @@ import shutil
 import sqlite3
 import stat
 import tempfile
+import time
 import zipfile
 
 from .workspace_lock import WorkspaceLease
@@ -171,6 +172,19 @@ def sanitize_restore(stage):
                     state.update(status='failed', error='Refresh interrupted by recovery. Review the connection before retrying.')
                 db.execute('UPDATE sources SET state=? WHERE id=?', (json.dumps(state), key))
         changes.append('Live external-source refresh paused; cached observation dates remain unchanged.')
+    # A restored outbox must never resume outbound consent or uncertain sends.
+    for notifications in (stage/'data').rglob('notifications.sqlite3'):
+        with closing(sqlite3.connect(notifications)) as db,db:
+            for key,raw in db.execute('SELECT id,config FROM destinations').fetchall():
+                config=json.loads(raw);config['enabled']=False
+                db.execute('UPDATE destinations SET config=?,version=version+1,since=? WHERE id=?',(json.dumps(config),time.time(),key))
+            for key,raw in db.execute('SELECT id,record FROM deliveries').fetchall():
+                record=json.loads(raw)
+                if record['state'] not in {'queued','sending'}:continue
+                record.update(state='unknown' if record['state']=='sending' else 'cancelled',finished_at=time.time(),
+                    message='Delivery is uncertain. Check the destination before retrying.' if record['state']=='sending' else 'Connection settings or access changed.')
+                db.execute('UPDATE deliveries SET record=? WHERE id=?',(json.dumps(record),key))
+        changes.append(f'{notifications.relative_to(stage)}: notifications paused; queued sends cancelled and in-flight sends marked uncertain.')
     return changes
 
 

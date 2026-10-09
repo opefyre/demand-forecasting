@@ -23,6 +23,7 @@ def install(app):
         self.assertIn(('GET','/api/ai/conversations'), {(m,p) for m,p,_,_ in rows})
         self.assertIn(('GET','/api/v1/ai/conversations'), {(m,p) for m,p,_,_ in rows})
         self.assertIn(('GET','/api/v1/workspace'), {(m,p) for m,p,_,_ in rows})
+        self.assertIn(('POST','/api/v1/notifications/destinations/{destination_id}/test'), {(m,p) for m,p,_,_ in rows})
         self.assertIn('Pending', delivery('/api/run-saved'))
         self.assertIn('Out of', delivery('/api/inventory'))
         self.assertIn('Implemented', delivery('/api/v1/api-keys'))

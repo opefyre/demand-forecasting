@@ -2,13 +2,13 @@
 
 Generated from source decorators by `scripts/audit_public_api.py`; no application stores are opened.
 
-150 implemented v1 operations. The rest of the useful business API is not delivered yet.
+161 implemented v1 operations. Deployment acceptance and live provider verification remain open.
 
 New company authentication deliberately blocks unscoped legacy business routes. Existing local mode remains unchanged.
 
 The Better Auth identity service supplies library-managed login, Google callback, verification, recovery and factor endpoints behind `/api/login/*`. These are not business CRUD.
 
-Delivered business resources: customers/products, sales sources/datasets, versioned orders/reviews, factor preparation and comparisons, grouped forecasts/jobs/results/exports, independent releases, personal chats/views, advanced assistant scenarios, monthly updates, administrator recurring drafts, actual-vs-forecast checks, company settings/units, external factors, read-only HTTPS/SFTP/Google Sheets inputs, Odoo 18/19 customers/orders, reviewed ingestion receipts, permission-checked scheduled captures and company-scoped resource naming/archive/restore/revisions. Lifecycle routes accept sources, datasets, forecasts and runs; grouped methods share one metadata record. Pending: notifications and deployment acceptance. Immutable source evidence is never destructively overwritten.
+Delivered business resources: customers/products, sales sources/datasets, versioned orders/reviews, factor preparation and comparisons, grouped forecasts/jobs/results/exports, independent releases, personal chats/views, advanced assistant scenarios, monthly updates, administrator recurring drafts, actual-vs-forecast checks, company settings/units, external factors, read-only HTTPS/SFTP/Google Sheets inputs, Odoo 18/19 customers/orders, reviewed ingestion receipts, permission-checked scheduled captures, resource naming/archive/restore/revisions, administrator notification destinations and delivery history. Notification routes require an interactive administrator session, not an API key. Lifecycle routes accept sources, datasets, forecasts and runs; grouped methods share one metadata record. Pending: deployment acceptance and live provider accounts. Immutable source evidence is never destructively overwritten.
 
 | Method | Route | Delivery | Source |
 |---|---|---|---|
@@ -271,6 +271,17 @@ Delivered business resources: customers/products, sales sources/datasets, versio
 | DELETE | `/api/v1/members/{member_id}` | Implemented; company-scoped | `app/platform_api.py:162` |
 | PATCH | `/api/v1/members/{member_id}` | Implemented; company-scoped | `app/platform_api.py:153` |
 | POST | `/api/v1/members/{member_id}/revoke-sessions` | Implemented; company-scoped | `app/platform_api.py:166` |
+| POST | `/api/v1/notifications/check` | Implemented; company-scoped | `app/platform_notifications_api.py:105` |
+| GET | `/api/v1/notifications/deliveries` | Implemented; company-scoped | `app/platform_notifications_api.py:85` |
+| GET | `/api/v1/notifications/deliveries/{delivery_id}` | Implemented; company-scoped | `app/platform_notifications_api.py:91` |
+| POST | `/api/v1/notifications/deliveries/{delivery_id}/retry` | Implemented; company-scoped | `app/platform_notifications_api.py:96` |
+| GET | `/api/v1/notifications/destinations` | Implemented; company-scoped | `app/platform_notifications_api.py:46` |
+| POST | `/api/v1/notifications/destinations` | Implemented; company-scoped | `app/platform_notifications_api.py:51` |
+| DELETE | `/api/v1/notifications/destinations/{destination_id}` | Implemented; company-scoped | `app/platform_notifications_api.py:66` |
+| GET | `/api/v1/notifications/destinations/{destination_id}` | Implemented; company-scoped | `app/platform_notifications_api.py:56` |
+| PUT | `/api/v1/notifications/destinations/{destination_id}` | Implemented; company-scoped | `app/platform_notifications_api.py:61` |
+| POST | `/api/v1/notifications/destinations/{destination_id}/restore` | Implemented; company-scoped | `app/platform_notifications_api.py:71` |
+| POST | `/api/v1/notifications/destinations/{destination_id}/test` | Implemented; company-scoped | `app/platform_notifications_api.py:76` |
 | GET | `/api/v1/order-snapshots/{snapshot_id}` | Implemented; company-scoped | `app/platform_sales_api.py:221` |
 | GET | `/api/v1/order-snapshots/{snapshot_id}/demand` | Implemented; company-scoped | `app/platform_workspace_api.py:238` |
 | GET | `/api/v1/order-snapshots/{snapshot_id}/export` | Implemented; company-scoped | `app/platform_workspace_api.py:265` |

@@ -33,6 +33,11 @@ class CompanyWorkspace:
         return self.store('lifecycle',lambda:ResourceLifecycle(self.path('resource-metadata.sqlite3')))
 
     @property
+    def notifications(self):
+        from .notifications import Notifications
+        return self.store('notifications',lambda:Notifications(self.path('notifications.sqlite3')))
+
+    @property
     def customers(self):
         return self.store('customers', lambda: CustomerStore(self.path('customers.sqlite3')))
 

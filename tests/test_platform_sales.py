@@ -40,7 +40,7 @@ class PublicSalesTests(unittest.TestCase):
             # Identity bridge/CSRF is separately exercised by test_platform_access.
             request.state.principal = {'company_id':self.company,'issuer':'https://company.test',
                 'subject':self.subject,'role':self.role,'permissions':self.permissions,
-                'mfa_required':False,'auth_kind':'api_key'}
+                'mfa_required':False,'auth_kind':getattr(self,'kind','api_key')}
             return await next(request)
         self.api = create_platform_api(None, self.workspaces,
             dispatcher=lambda ws, key: self.dispatched.append((ws.company_id,key)))

@@ -17,9 +17,11 @@ Advanced assistant scenarios, monthly updates and recurring drafts are delivered
 see [company workflows](COMPANY_WORKFLOWS_DELIVERY.md).
 Read-only HTTPS/SFTP history/future-input connections now capture immutable inputs
 and hand off to reviewed mapping: see [company connections](COMPANY_CONNECTIONS_DELIVERY.md).
-Next: connected customer/orders, Odoo/Google Sheets, safe recurring input pulls
-and remaining resource lifecycle; then notifications and deployment/provider
-acceptance. No production or inventory-execution scope.
+Connected customers/orders, Odoo/Google Sheets, recurring captures and resource
+lifecycle are delivered. Administrator notifications and delivery history are now
+implemented: see [notification delivery](COMPANY_NOTIFICATIONS_DELIVERY.md).
+Next: deployment/provider acceptance, production identity/mail and secret storage,
+company backup/restore and role-based walkthrough. No production or inventory scope.
 
 ## Earlier delivery history
 

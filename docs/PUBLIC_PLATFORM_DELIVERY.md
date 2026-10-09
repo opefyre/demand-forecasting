@@ -28,7 +28,8 @@ packages; retain licences and attribution. No SAML or messaging commands in v1.
   - [x] Read-only input connection lifecycle/captures/review: 140 v1 operations.
   - [x] Connected customers/orders, provider adapters and scheduled captures: 145 v1 operations.
   - [x] Resource naming, archive/restore and recorded revisions: 150 v1 operations.
-  - [ ] Remaining notification routes and deployment acceptance.
+  - [x] Administrator notification destinations and delivery history: 161 v1 operations.
+  - [ ] Deployment acceptance and published deployment API documentation.
 - [x] Scoped personal and company API keys; revocation, rotation and expiry.
 - [ ] Useful CRUD for customers/products, inputs/orders, forecast lifecycle,
       views/conversations, settings, connections and schedules.
@@ -38,11 +39,12 @@ packages; retain licences and attribution. No SAML or messaging commands in v1.
   - [x] Reviewed mapping, immutable receipts/revisions and repeat-safe fetch/accept.
   - [x] Connected customer/order review, Odoo, Sheets and permission-checked recurring input pulls.
   - [ ] Live client-account verification and deployment activation; adapters are synthetic-tested only.
-- [ ] Slack, Teams Workflows, Telegram and eligible WhatsApp notifications.
+- [x] Slack, Teams Workflows, Telegram and eligible WhatsApp notification implementation.
+  - [ ] Real account/template eligibility and provider delivery verification.
 - [ ] Unified English/Persian management UI using the existing design framework.
   - [x] People, API access and sign-in components; no new page-specific styles.
   - [x] Company-scoped recurring forecast management, shared components and translations.
-  - [ ] Business connections and notification management.
+  - [x] Business connections and notification management.
     - [x] Business input connections share the existing collection/dialog framework and Persian catalogue.
 - [ ] Cross-company, role, key, ingestion, migration and end-to-end acceptance.
 - [ ] Publish tested commits to the existing GitHub repository.
@@ -119,9 +121,7 @@ Company-scoped scenarios, monthly updates and recurring drafts are implemented.
 Full backend: 735 checks, 734 passed, one optional integration skipped. Frontend:
 249 passed. Production build and identity-service checks passed. No paid AI call.
 
-1. Notifications: Slack/Teams/Telegram/eligible WhatsApp with
-   admin-only connection setup, delivery history and explicit outbound consent.
-2. Deployment acceptance: Google/mail credentials, real provider setup,
+1. Deployment acceptance: Google/mail credentials, real provider setup,
    backup/restore, role-based browser walkthrough and published API documentation.
 
 Input-connections milestone: [delivery, setup and limits](COMPANY_CONNECTIONS_DELIVERY.md).
@@ -157,3 +157,16 @@ Verification: backend 794 checks (793 passed, one optional integration skipped),
 then 39 focused checks after the final retry-job safeguard; all 260 interface
 checks and the production build passed. Browser acceptance covered reversible
 archive, explicit revisions, Persian/mobile controls and separate company names.
+
+Notifications milestone: [workflow, security and provider limits](COMPANY_NOTIFICATIONS_DELIVERY.md).
+Administrator-controlled destinations, explicit consent, five business events,
+company-specific outbox/history, safe manual retries and archive/restore are
+implemented using Apprise and existing framework/transport/scheduling components.
+API keys and non-administrator roles cannot access messaging controls/history.
+Real provider accounts and company-mode activation remain deployment gates.
+
+Verification: full backend suite 821 checks (820 passed, one optional integration
+skipped), followed by 54 focused checks after final recovery/permission safeguards;
+all 264 frontend checks and the production build passed. Synthetic browser checks
+covered explicit send consent, linked retry history, archive/restore staying
+paused, company isolation, restricted navigation and Persian mobile dialogs.
