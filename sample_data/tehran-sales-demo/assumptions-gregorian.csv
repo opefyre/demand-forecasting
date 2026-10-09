@@ -1,0 +1,217 @@
+date,series,customer,sku,product_name,category,unit,scenario_usd_irr,scenario_cpi_yoy,selling_price_index,promotion_index,payment_days,import_delay_days,disruption_index
+2026-10-01,Mehr Packaging/KRAFT-120,Mehr Packaging,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1149639,36.79,235.447,0.35,30,7.14,0.06
+2026-11-01,Mehr Packaging/KRAFT-120,Mehr Packaging,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1181644,35.72,239.685,0.04,30,6.24,0.06
+2026-12-01,Mehr Packaging/KRAFT-120,Mehr Packaging,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1215089,34.74,243.999,0.04,30,5.54,0.06
+2027-01-01,Mehr Packaging/KRAFT-120,Mehr Packaging,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1249561,33.88,248.391,0.04,30,5.12,0.06
+2027-02-01,Mehr Packaging/KRAFT-120,Mehr Packaging,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1284602,33.19,252.863,0.04,30,5.0,0.06
+2027-03-01,Mehr Packaging/KRAFT-120,Mehr Packaging,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1319731,32.7,257.414,0.04,30,5.22,0.06
+2027-04-01,Mehr Packaging/KRAFT-120,Mehr Packaging,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1354480,32.43,262.047,0.04,30,5.75,0.06
+2027-05-01,Mehr Packaging/KRAFT-120,Mehr Packaging,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1388424,32.4,266.764,0.04,30,6.52,0.06
+2027-06-01,Mehr Packaging/KRAFT-120,Mehr Packaging,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1421210,32.6,271.566,0.35,30,7.45,0.06
+2027-07-01,Mehr Packaging/KRAFT-120,Mehr Packaging,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1452585,33.04,276.454,0.04,30,8.45,0.06
+2027-08-01,Mehr Packaging/KRAFT-120,Mehr Packaging,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1482414,33.7,281.43,0.04,30,9.4,0.06
+2027-09-01,Mehr Packaging/KRAFT-120,Mehr Packaging,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1510702,34.56,286.496,0.04,30,10.19,0.06
+2026-10-01,Mehr Packaging/BOARD-300,Mehr Packaging,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1149639,36.79,244.865,0.04,30,7.14,0.06
+2026-11-01,Mehr Packaging/BOARD-300,Mehr Packaging,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1181644,35.72,249.273,0.04,30,6.24,0.06
+2026-12-01,Mehr Packaging/BOARD-300,Mehr Packaging,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1215089,34.74,253.759,0.04,30,5.54,0.06
+2027-01-01,Mehr Packaging/BOARD-300,Mehr Packaging,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1249561,33.88,258.327,0.04,30,5.12,0.06
+2027-02-01,Mehr Packaging/BOARD-300,Mehr Packaging,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1284602,33.19,262.977,0.04,30,5.0,0.06
+2027-03-01,Mehr Packaging/BOARD-300,Mehr Packaging,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1319731,32.7,267.711,0.04,30,5.22,0.06
+2027-04-01,Mehr Packaging/BOARD-300,Mehr Packaging,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1354480,32.43,272.529,0.04,30,5.75,0.06
+2027-05-01,Mehr Packaging/BOARD-300,Mehr Packaging,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1388424,32.4,277.435,0.35,30,6.52,0.06
+2027-06-01,Mehr Packaging/BOARD-300,Mehr Packaging,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1421210,32.6,282.429,0.04,30,7.45,0.06
+2027-07-01,Mehr Packaging/BOARD-300,Mehr Packaging,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1452585,33.04,287.512,0.04,30,8.45,0.06
+2027-08-01,Mehr Packaging/BOARD-300,Mehr Packaging,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1482414,33.7,292.688,0.04,30,9.4,0.06
+2027-09-01,Mehr Packaging/BOARD-300,Mehr Packaging,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1510702,34.56,297.956,0.04,30,10.19,0.06
+2026-10-01,Mehr Packaging/FOOD-110,Mehr Packaging,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1149639,36.79,254.283,0.04,30,7.14,0.06
+2026-11-01,Mehr Packaging/FOOD-110,Mehr Packaging,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1181644,35.72,258.86,0.04,30,6.24,0.06
+2026-12-01,Mehr Packaging/FOOD-110,Mehr Packaging,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1215089,34.74,263.519,0.04,30,5.54,0.06
+2027-01-01,Mehr Packaging/FOOD-110,Mehr Packaging,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1249561,33.88,268.263,0.04,30,5.12,0.06
+2027-02-01,Mehr Packaging/FOOD-110,Mehr Packaging,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1284602,33.19,273.092,0.04,30,5.0,0.06
+2027-03-01,Mehr Packaging/FOOD-110,Mehr Packaging,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1319731,32.7,278.007,0.04,30,5.22,0.06
+2027-04-01,Mehr Packaging/FOOD-110,Mehr Packaging,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1354480,32.43,283.011,0.35,30,5.75,0.06
+2027-05-01,Mehr Packaging/FOOD-110,Mehr Packaging,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1388424,32.4,288.105,0.04,30,6.52,0.06
+2027-06-01,Mehr Packaging/FOOD-110,Mehr Packaging,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1421210,32.6,293.291,0.04,30,7.45,0.06
+2027-07-01,Mehr Packaging/FOOD-110,Mehr Packaging,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1452585,33.04,298.571,0.04,30,8.45,0.06
+2027-08-01,Mehr Packaging/FOOD-110,Mehr Packaging,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1482414,33.7,303.945,0.04,30,9.4,0.06
+2027-09-01,Mehr Packaging/FOOD-110,Mehr Packaging,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1510702,34.56,309.416,0.04,30,10.19,0.06
+2026-10-01,Mehr Packaging/SPECIAL-090,Mehr Packaging,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1149639,36.79,263.701,0.04,30,7.14,0.06
+2026-11-01,Mehr Packaging/SPECIAL-090,Mehr Packaging,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1181644,35.72,268.447,0.04,30,6.24,0.06
+2026-12-01,Mehr Packaging/SPECIAL-090,Mehr Packaging,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1215089,34.74,273.279,0.04,30,5.54,0.06
+2027-01-01,Mehr Packaging/SPECIAL-090,Mehr Packaging,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1249561,33.88,278.198,0.04,30,5.12,0.06
+2027-02-01,Mehr Packaging/SPECIAL-090,Mehr Packaging,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1284602,33.19,283.206,0.04,30,5.0,0.06
+2027-03-01,Mehr Packaging/SPECIAL-090,Mehr Packaging,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1319731,32.7,288.304,0.35,30,5.22,0.06
+2027-04-01,Mehr Packaging/SPECIAL-090,Mehr Packaging,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1354480,32.43,293.493,0.04,30,5.75,0.06
+2027-05-01,Mehr Packaging/SPECIAL-090,Mehr Packaging,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1388424,32.4,298.776,0.04,30,6.52,0.06
+2027-06-01,Mehr Packaging/SPECIAL-090,Mehr Packaging,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1421210,32.6,304.154,0.04,30,7.45,0.06
+2027-07-01,Mehr Packaging/SPECIAL-090,Mehr Packaging,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1452585,33.04,309.629,0.04,30,8.45,0.06
+2027-08-01,Mehr Packaging/SPECIAL-090,Mehr Packaging,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1482414,33.7,315.202,0.04,30,9.4,0.06
+2027-09-01,Mehr Packaging/SPECIAL-090,Mehr Packaging,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1510702,34.56,320.876,0.04,30,10.19,0.06
+2026-10-01,Simin Foods/KRAFT-120,Simin Foods,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1149639,36.79,235.447,0.04,40,7.14,0.06
+2026-11-01,Simin Foods/KRAFT-120,Simin Foods,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1181644,35.72,239.685,0.04,40,6.24,0.06
+2026-12-01,Simin Foods/KRAFT-120,Simin Foods,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1215089,34.74,243.999,0.04,40,5.54,0.06
+2027-01-01,Simin Foods/KRAFT-120,Simin Foods,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1249561,33.88,248.391,0.04,40,5.12,0.06
+2027-02-01,Simin Foods/KRAFT-120,Simin Foods,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1284602,33.19,252.863,0.04,40,5.0,0.06
+2027-03-01,Simin Foods/KRAFT-120,Simin Foods,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1319731,32.7,257.414,0.04,40,5.22,0.06
+2027-04-01,Simin Foods/KRAFT-120,Simin Foods,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1354480,32.43,262.047,0.04,40,5.75,0.06
+2027-05-01,Simin Foods/KRAFT-120,Simin Foods,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1388424,32.4,266.764,0.35,40,6.52,0.06
+2027-06-01,Simin Foods/KRAFT-120,Simin Foods,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1421210,32.6,271.566,0.04,40,7.45,0.06
+2027-07-01,Simin Foods/KRAFT-120,Simin Foods,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1452585,33.04,276.454,0.04,40,8.45,0.06
+2027-08-01,Simin Foods/KRAFT-120,Simin Foods,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1482414,33.7,281.43,0.04,40,9.4,0.06
+2027-09-01,Simin Foods/KRAFT-120,Simin Foods,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1510702,34.56,286.496,0.04,40,10.19,0.06
+2026-10-01,Simin Foods/BOARD-300,Simin Foods,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1149639,36.79,244.865,0.04,40,7.14,0.06
+2026-11-01,Simin Foods/BOARD-300,Simin Foods,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1181644,35.72,249.273,0.04,40,6.24,0.06
+2026-12-01,Simin Foods/BOARD-300,Simin Foods,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1215089,34.74,253.759,0.04,40,5.54,0.06
+2027-01-01,Simin Foods/BOARD-300,Simin Foods,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1249561,33.88,258.327,0.04,40,5.12,0.06
+2027-02-01,Simin Foods/BOARD-300,Simin Foods,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1284602,33.19,262.977,0.04,40,5.0,0.06
+2027-03-01,Simin Foods/BOARD-300,Simin Foods,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1319731,32.7,267.711,0.04,40,5.22,0.06
+2027-04-01,Simin Foods/BOARD-300,Simin Foods,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1354480,32.43,272.529,0.35,40,5.75,0.06
+2027-05-01,Simin Foods/BOARD-300,Simin Foods,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1388424,32.4,277.435,0.04,40,6.52,0.06
+2027-06-01,Simin Foods/BOARD-300,Simin Foods,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1421210,32.6,282.429,0.04,40,7.45,0.06
+2027-07-01,Simin Foods/BOARD-300,Simin Foods,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1452585,33.04,287.512,0.04,40,8.45,0.06
+2027-08-01,Simin Foods/BOARD-300,Simin Foods,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1482414,33.7,292.688,0.04,40,9.4,0.06
+2027-09-01,Simin Foods/BOARD-300,Simin Foods,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1510702,34.56,297.956,0.04,40,10.19,0.06
+2026-10-01,Simin Foods/FOOD-110,Simin Foods,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1149639,36.79,254.283,0.04,40,7.14,0.06
+2026-11-01,Simin Foods/FOOD-110,Simin Foods,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1181644,35.72,258.86,0.04,40,6.24,0.06
+2026-12-01,Simin Foods/FOOD-110,Simin Foods,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1215089,34.74,263.519,0.04,40,5.54,0.06
+2027-01-01,Simin Foods/FOOD-110,Simin Foods,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1249561,33.88,268.263,0.04,40,5.12,0.06
+2027-02-01,Simin Foods/FOOD-110,Simin Foods,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1284602,33.19,273.092,0.04,40,5.0,0.06
+2027-03-01,Simin Foods/FOOD-110,Simin Foods,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1319731,32.7,278.007,0.35,40,5.22,0.06
+2027-04-01,Simin Foods/FOOD-110,Simin Foods,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1354480,32.43,283.011,0.04,40,5.75,0.06
+2027-05-01,Simin Foods/FOOD-110,Simin Foods,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1388424,32.4,288.105,0.04,40,6.52,0.06
+2027-06-01,Simin Foods/FOOD-110,Simin Foods,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1421210,32.6,293.291,0.04,40,7.45,0.06
+2027-07-01,Simin Foods/FOOD-110,Simin Foods,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1452585,33.04,298.571,0.04,40,8.45,0.06
+2027-08-01,Simin Foods/FOOD-110,Simin Foods,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1482414,33.7,303.945,0.04,40,9.4,0.06
+2027-09-01,Simin Foods/FOOD-110,Simin Foods,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1510702,34.56,309.416,0.04,40,10.19,0.06
+2026-10-01,Simin Foods/SPECIAL-090,Simin Foods,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1149639,36.79,263.701,0.04,40,7.14,0.06
+2026-11-01,Simin Foods/SPECIAL-090,Simin Foods,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1181644,35.72,268.447,0.04,40,6.24,0.06
+2026-12-01,Simin Foods/SPECIAL-090,Simin Foods,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1215089,34.74,273.279,0.04,40,5.54,0.06
+2027-01-01,Simin Foods/SPECIAL-090,Simin Foods,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1249561,33.88,278.198,0.04,40,5.12,0.06
+2027-02-01,Simin Foods/SPECIAL-090,Simin Foods,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1284602,33.19,283.206,0.35,40,5.0,0.06
+2027-03-01,Simin Foods/SPECIAL-090,Simin Foods,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1319731,32.7,288.304,0.04,40,5.22,0.06
+2027-04-01,Simin Foods/SPECIAL-090,Simin Foods,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1354480,32.43,293.493,0.04,40,5.75,0.06
+2027-05-01,Simin Foods/SPECIAL-090,Simin Foods,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1388424,32.4,298.776,0.04,40,6.52,0.06
+2027-06-01,Simin Foods/SPECIAL-090,Simin Foods,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1421210,32.6,304.154,0.04,40,7.45,0.06
+2027-07-01,Simin Foods/SPECIAL-090,Simin Foods,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1452585,33.04,309.629,0.04,40,8.45,0.06
+2027-08-01,Simin Foods/SPECIAL-090,Simin Foods,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1482414,33.7,315.202,0.04,40,9.4,0.06
+2027-09-01,Simin Foods/SPECIAL-090,Simin Foods,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1510702,34.56,320.876,0.04,40,10.19,0.06
+2026-10-01,Aftab Printing/KRAFT-120,Aftab Printing,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1149639,36.79,235.447,0.04,50,7.14,0.06
+2026-11-01,Aftab Printing/KRAFT-120,Aftab Printing,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1181644,35.72,239.685,0.04,50,6.24,0.06
+2026-12-01,Aftab Printing/KRAFT-120,Aftab Printing,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1215089,34.74,243.999,0.04,50,5.54,0.06
+2027-01-01,Aftab Printing/KRAFT-120,Aftab Printing,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1249561,33.88,248.391,0.04,50,5.12,0.06
+2027-02-01,Aftab Printing/KRAFT-120,Aftab Printing,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1284602,33.19,252.863,0.04,50,5.0,0.06
+2027-03-01,Aftab Printing/KRAFT-120,Aftab Printing,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1319731,32.7,257.414,0.04,50,5.22,0.06
+2027-04-01,Aftab Printing/KRAFT-120,Aftab Printing,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1354480,32.43,262.047,0.35,50,5.75,0.06
+2027-05-01,Aftab Printing/KRAFT-120,Aftab Printing,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1388424,32.4,266.764,0.04,50,6.52,0.06
+2027-06-01,Aftab Printing/KRAFT-120,Aftab Printing,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1421210,32.6,271.566,0.04,50,7.45,0.06
+2027-07-01,Aftab Printing/KRAFT-120,Aftab Printing,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1452585,33.04,276.454,0.04,50,8.45,0.06
+2027-08-01,Aftab Printing/KRAFT-120,Aftab Printing,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1482414,33.7,281.43,0.04,50,9.4,0.06
+2027-09-01,Aftab Printing/KRAFT-120,Aftab Printing,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1510702,34.56,286.496,0.04,50,10.19,0.06
+2026-10-01,Aftab Printing/BOARD-300,Aftab Printing,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1149639,36.79,244.865,0.04,50,7.14,0.06
+2026-11-01,Aftab Printing/BOARD-300,Aftab Printing,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1181644,35.72,249.273,0.04,50,6.24,0.06
+2026-12-01,Aftab Printing/BOARD-300,Aftab Printing,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1215089,34.74,253.759,0.04,50,5.54,0.06
+2027-01-01,Aftab Printing/BOARD-300,Aftab Printing,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1249561,33.88,258.327,0.04,50,5.12,0.06
+2027-02-01,Aftab Printing/BOARD-300,Aftab Printing,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1284602,33.19,262.977,0.04,50,5.0,0.06
+2027-03-01,Aftab Printing/BOARD-300,Aftab Printing,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1319731,32.7,267.711,0.35,50,5.22,0.06
+2027-04-01,Aftab Printing/BOARD-300,Aftab Printing,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1354480,32.43,272.529,0.04,50,5.75,0.06
+2027-05-01,Aftab Printing/BOARD-300,Aftab Printing,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1388424,32.4,277.435,0.04,50,6.52,0.06
+2027-06-01,Aftab Printing/BOARD-300,Aftab Printing,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1421210,32.6,282.429,0.04,50,7.45,0.06
+2027-07-01,Aftab Printing/BOARD-300,Aftab Printing,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1452585,33.04,287.512,0.04,50,8.45,0.06
+2027-08-01,Aftab Printing/BOARD-300,Aftab Printing,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1482414,33.7,292.688,0.04,50,9.4,0.06
+2027-09-01,Aftab Printing/BOARD-300,Aftab Printing,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1510702,34.56,297.956,0.04,50,10.19,0.06
+2026-10-01,Aftab Printing/FOOD-110,Aftab Printing,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1149639,36.79,254.283,0.04,50,7.14,0.06
+2026-11-01,Aftab Printing/FOOD-110,Aftab Printing,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1181644,35.72,258.86,0.04,50,6.24,0.06
+2026-12-01,Aftab Printing/FOOD-110,Aftab Printing,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1215089,34.74,263.519,0.04,50,5.54,0.06
+2027-01-01,Aftab Printing/FOOD-110,Aftab Printing,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1249561,33.88,268.263,0.04,50,5.12,0.06
+2027-02-01,Aftab Printing/FOOD-110,Aftab Printing,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1284602,33.19,273.092,0.35,50,5.0,0.06
+2027-03-01,Aftab Printing/FOOD-110,Aftab Printing,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1319731,32.7,278.007,0.04,50,5.22,0.06
+2027-04-01,Aftab Printing/FOOD-110,Aftab Printing,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1354480,32.43,283.011,0.04,50,5.75,0.06
+2027-05-01,Aftab Printing/FOOD-110,Aftab Printing,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1388424,32.4,288.105,0.04,50,6.52,0.06
+2027-06-01,Aftab Printing/FOOD-110,Aftab Printing,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1421210,32.6,293.291,0.04,50,7.45,0.06
+2027-07-01,Aftab Printing/FOOD-110,Aftab Printing,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1452585,33.04,298.571,0.04,50,8.45,0.06
+2027-08-01,Aftab Printing/FOOD-110,Aftab Printing,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1482414,33.7,303.945,0.04,50,9.4,0.06
+2027-09-01,Aftab Printing/FOOD-110,Aftab Printing,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1510702,34.56,309.416,0.04,50,10.19,0.06
+2026-10-01,Aftab Printing/SPECIAL-090,Aftab Printing,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1149639,36.79,263.701,0.04,50,7.14,0.06
+2026-11-01,Aftab Printing/SPECIAL-090,Aftab Printing,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1181644,35.72,268.447,0.04,50,6.24,0.06
+2026-12-01,Aftab Printing/SPECIAL-090,Aftab Printing,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1215089,34.74,273.279,0.04,50,5.54,0.06
+2027-01-01,Aftab Printing/SPECIAL-090,Aftab Printing,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1249561,33.88,278.198,0.35,50,5.12,0.06
+2027-02-01,Aftab Printing/SPECIAL-090,Aftab Printing,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1284602,33.19,283.206,0.04,50,5.0,0.06
+2027-03-01,Aftab Printing/SPECIAL-090,Aftab Printing,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1319731,32.7,288.304,0.04,50,5.22,0.06
+2027-04-01,Aftab Printing/SPECIAL-090,Aftab Printing,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1354480,32.43,293.493,0.04,50,5.75,0.06
+2027-05-01,Aftab Printing/SPECIAL-090,Aftab Printing,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1388424,32.4,298.776,0.04,50,6.52,0.06
+2027-06-01,Aftab Printing/SPECIAL-090,Aftab Printing,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1421210,32.6,304.154,0.04,50,7.45,0.06
+2027-07-01,Aftab Printing/SPECIAL-090,Aftab Printing,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1452585,33.04,309.629,0.04,50,8.45,0.06
+2027-08-01,Aftab Printing/SPECIAL-090,Aftab Printing,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1482414,33.7,315.202,0.04,50,9.4,0.06
+2027-09-01,Aftab Printing/SPECIAL-090,Aftab Printing,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1510702,34.56,320.876,0.35,50,10.19,0.06
+2026-10-01,Caspian Export/KRAFT-120,Caspian Export,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1149639,36.79,235.447,0.04,60,7.14,0.06
+2026-11-01,Caspian Export/KRAFT-120,Caspian Export,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1181644,35.72,239.685,0.04,60,6.24,0.06
+2026-12-01,Caspian Export/KRAFT-120,Caspian Export,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1215089,34.74,243.999,0.04,60,5.54,0.06
+2027-01-01,Caspian Export/KRAFT-120,Caspian Export,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1249561,33.88,248.391,0.04,60,5.12,0.06
+2027-02-01,Caspian Export/KRAFT-120,Caspian Export,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1284602,33.19,252.863,0.04,60,5.0,0.06
+2027-03-01,Caspian Export/KRAFT-120,Caspian Export,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1319731,32.7,257.414,0.35,60,5.22,0.06
+2027-04-01,Caspian Export/KRAFT-120,Caspian Export,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1354480,32.43,262.047,0.04,60,5.75,0.06
+2027-05-01,Caspian Export/KRAFT-120,Caspian Export,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1388424,32.4,266.764,0.04,60,6.52,0.06
+2027-06-01,Caspian Export/KRAFT-120,Caspian Export,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1421210,32.6,271.566,0.04,60,7.45,0.06
+2027-07-01,Caspian Export/KRAFT-120,Caspian Export,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1452585,33.04,276.454,0.04,60,8.45,0.06
+2027-08-01,Caspian Export/KRAFT-120,Caspian Export,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1482414,33.7,281.43,0.04,60,9.4,0.06
+2027-09-01,Caspian Export/KRAFT-120,Caspian Export,KRAFT-120,Kraft liner 120 gsm,Packaging paper,tonnes,1510702,34.56,286.496,0.04,60,10.19,0.06
+2026-10-01,Caspian Export/BOARD-300,Caspian Export,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1149639,36.79,244.865,0.04,60,7.14,0.06
+2026-11-01,Caspian Export/BOARD-300,Caspian Export,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1181644,35.72,249.273,0.04,60,6.24,0.06
+2026-12-01,Caspian Export/BOARD-300,Caspian Export,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1215089,34.74,253.759,0.04,60,5.54,0.06
+2027-01-01,Caspian Export/BOARD-300,Caspian Export,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1249561,33.88,258.327,0.04,60,5.12,0.06
+2027-02-01,Caspian Export/BOARD-300,Caspian Export,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1284602,33.19,262.977,0.35,60,5.0,0.06
+2027-03-01,Caspian Export/BOARD-300,Caspian Export,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1319731,32.7,267.711,0.04,60,5.22,0.06
+2027-04-01,Caspian Export/BOARD-300,Caspian Export,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1354480,32.43,272.529,0.04,60,5.75,0.06
+2027-05-01,Caspian Export/BOARD-300,Caspian Export,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1388424,32.4,277.435,0.04,60,6.52,0.06
+2027-06-01,Caspian Export/BOARD-300,Caspian Export,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1421210,32.6,282.429,0.04,60,7.45,0.06
+2027-07-01,Caspian Export/BOARD-300,Caspian Export,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1452585,33.04,287.512,0.04,60,8.45,0.06
+2027-08-01,Caspian Export/BOARD-300,Caspian Export,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1482414,33.7,292.688,0.04,60,9.4,0.06
+2027-09-01,Caspian Export/BOARD-300,Caspian Export,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1510702,34.56,297.956,0.04,60,10.19,0.06
+2026-10-01,Caspian Export/FOOD-110,Caspian Export,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1149639,36.79,254.283,0.04,60,7.14,0.06
+2026-11-01,Caspian Export/FOOD-110,Caspian Export,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1181644,35.72,258.86,0.04,60,6.24,0.06
+2026-12-01,Caspian Export/FOOD-110,Caspian Export,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1215089,34.74,263.519,0.04,60,5.54,0.06
+2027-01-01,Caspian Export/FOOD-110,Caspian Export,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1249561,33.88,268.263,0.35,60,5.12,0.06
+2027-02-01,Caspian Export/FOOD-110,Caspian Export,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1284602,33.19,273.092,0.04,60,5.0,0.06
+2027-03-01,Caspian Export/FOOD-110,Caspian Export,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1319731,32.7,278.007,0.04,60,5.22,0.06
+2027-04-01,Caspian Export/FOOD-110,Caspian Export,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1354480,32.43,283.011,0.04,60,5.75,0.06
+2027-05-01,Caspian Export/FOOD-110,Caspian Export,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1388424,32.4,288.105,0.04,60,6.52,0.06
+2027-06-01,Caspian Export/FOOD-110,Caspian Export,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1421210,32.6,293.291,0.04,60,7.45,0.06
+2027-07-01,Caspian Export/FOOD-110,Caspian Export,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1452585,33.04,298.571,0.04,60,8.45,0.06
+2027-08-01,Caspian Export/FOOD-110,Caspian Export,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1482414,33.7,303.945,0.04,60,9.4,0.06
+2027-09-01,Caspian Export/FOOD-110,Caspian Export,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1510702,34.56,309.416,0.35,60,10.19,0.06
+2026-10-01,Caspian Export/SPECIAL-090,Caspian Export,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1149639,36.79,263.701,0.04,60,7.14,0.06
+2026-11-01,Caspian Export/SPECIAL-090,Caspian Export,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1181644,35.72,268.447,0.04,60,6.24,0.06
+2026-12-01,Caspian Export/SPECIAL-090,Caspian Export,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1215089,34.74,273.279,0.35,60,5.54,0.06
+2027-01-01,Caspian Export/SPECIAL-090,Caspian Export,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1249561,33.88,278.198,0.04,60,5.12,0.06
+2027-02-01,Caspian Export/SPECIAL-090,Caspian Export,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1284602,33.19,283.206,0.04,60,5.0,0.06
+2027-03-01,Caspian Export/SPECIAL-090,Caspian Export,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1319731,32.7,288.304,0.04,60,5.22,0.06
+2027-04-01,Caspian Export/SPECIAL-090,Caspian Export,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1354480,32.43,293.493,0.04,60,5.75,0.06
+2027-05-01,Caspian Export/SPECIAL-090,Caspian Export,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1388424,32.4,298.776,0.04,60,6.52,0.06
+2027-06-01,Caspian Export/SPECIAL-090,Caspian Export,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1421210,32.6,304.154,0.04,60,7.45,0.06
+2027-07-01,Caspian Export/SPECIAL-090,Caspian Export,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1452585,33.04,309.629,0.04,60,8.45,0.06
+2027-08-01,Caspian Export/SPECIAL-090,Caspian Export,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1482414,33.7,315.202,0.35,60,9.4,0.06
+2027-09-01,Caspian Export/SPECIAL-090,Caspian Export,SPECIAL-090,Specialty label paper 90 gsm,Packaging paper,tonnes,1510702,34.56,320.876,0.04,60,10.19,0.06
+2026-10-01,Negin Retail/BOARD-300,Negin Retail,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1149639,36.79,244.865,0.04,70,7.14,0.06
+2026-11-01,Negin Retail/BOARD-300,Negin Retail,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1181644,35.72,249.273,0.04,70,6.24,0.06
+2026-12-01,Negin Retail/BOARD-300,Negin Retail,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1215089,34.74,253.759,0.04,70,5.54,0.06
+2027-01-01,Negin Retail/BOARD-300,Negin Retail,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1249561,33.88,258.327,0.35,70,5.12,0.06
+2027-02-01,Negin Retail/BOARD-300,Negin Retail,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1284602,33.19,262.977,0.04,70,5.0,0.06
+2027-03-01,Negin Retail/BOARD-300,Negin Retail,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1319731,32.7,267.711,0.04,70,5.22,0.06
+2027-04-01,Negin Retail/BOARD-300,Negin Retail,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1354480,32.43,272.529,0.04,70,5.75,0.06
+2027-05-01,Negin Retail/BOARD-300,Negin Retail,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1388424,32.4,277.435,0.04,70,6.52,0.06
+2027-06-01,Negin Retail/BOARD-300,Negin Retail,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1421210,32.6,282.429,0.04,70,7.45,0.06
+2027-07-01,Negin Retail/BOARD-300,Negin Retail,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1452585,33.04,287.512,0.04,70,8.45,0.06
+2027-08-01,Negin Retail/BOARD-300,Negin Retail,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1482414,33.7,292.688,0.04,70,9.4,0.06
+2027-09-01,Negin Retail/BOARD-300,Negin Retail,BOARD-300,Folding board 300 gsm,Packaging paper,tonnes,1510702,34.56,297.956,0.35,70,10.19,0.06
+2026-10-01,Negin Retail/FOOD-110,Negin Retail,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1149639,36.79,254.283,0.04,70,7.14,0.06
+2026-11-01,Negin Retail/FOOD-110,Negin Retail,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1181644,35.72,258.86,0.04,70,6.24,0.06
+2026-12-01,Negin Retail/FOOD-110,Negin Retail,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1215089,34.74,263.519,0.35,70,5.54,0.06
+2027-01-01,Negin Retail/FOOD-110,Negin Retail,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1249561,33.88,268.263,0.04,70,5.12,0.06
+2027-02-01,Negin Retail/FOOD-110,Negin Retail,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1284602,33.19,273.092,0.04,70,5.0,0.06
+2027-03-01,Negin Retail/FOOD-110,Negin Retail,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1319731,32.7,278.007,0.04,70,5.22,0.06
+2027-04-01,Negin Retail/FOOD-110,Negin Retail,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1354480,32.43,283.011,0.04,70,5.75,0.06
+2027-05-01,Negin Retail/FOOD-110,Negin Retail,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1388424,32.4,288.105,0.04,70,6.52,0.06
+2027-06-01,Negin Retail/FOOD-110,Negin Retail,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1421210,32.6,293.291,0.04,70,7.45,0.06
+2027-07-01,Negin Retail/FOOD-110,Negin Retail,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1452585,33.04,298.571,0.04,70,8.45,0.06
+2027-08-01,Negin Retail/FOOD-110,Negin Retail,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1482414,33.7,303.945,0.35,70,9.4,0.06
+2027-09-01,Negin Retail/FOOD-110,Negin Retail,FOOD-110,Food packaging paper 110 gsm,Packaging paper,tonnes,1510702,34.56,309.416,0.04,70,10.19,0.06

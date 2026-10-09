@@ -1,0 +1,18 @@
+.language-switch{order:10;flex:none;margin-inline-start:auto;border:0;background:transparent;color:var(--color-6bde3878);font:inherit;font-size:var(--type-13);font-weight:var(--weight-284b7e6d);padding:var(--space-bb81fe74);border-radius:var(--radius-eb4ebe48);cursor:pointer;}
+.language-switch:hover{background:var(--layout-c16620a2);}
+.language-switch:focus-visible{outline:var(--layout-359c552e);outline-offset:var(--layout-ac33ff91);}
+html[lang="fa"]{font-family:var(--font-family-fa);}
+html[lang="fa"] h1,html[lang="fa"] h2,html[lang="fa"] .brand{letter-spacing:var(--layout-317b32c1);}
+html[dir="rtl"] .sidebar{left:auto;right:0;}
+html[dir="rtl"] :is(.nav-link,.home-text-link,.saved-view-list>button,.help-start button,.ai-source-list button){text-align:start;}
+html[dir="rtl"] :is(.demand-workspace table tbody th,.table-scroll th,.table-scroll td){text-align:start;}
+html[dir="rtl"] :is(.demand-context-actions,.view-toolbar .home-text-link,.account-status,summary:after){margin-left:0;margin-right:auto;}
+html[dir="rtl"] :is(.back-link,.home-text-link,.home-hero-actions .btn) svg:last-child{transform:scaleX(-1);}
+/* Chart time increases left-to-right in both interfaces; RTL labels remain Persian. */
+:is(.demand-chart,.forecast-chart,.scenario-chart,.recharts-wrapper){direction:ltr;}
+html[dir="rtl"] .recharts-tooltip-wrapper{direction:rtl;}
+/* Codes, dates and numeric entries retain their exact input convention. */
+:is(input[type="number"],input[type="date"],.input-suffix input){direction:ltr;unicode-bidi:isolate;}
+.table-scroll :is(td,th){unicode-bidi:plaintext;}
+html[dir="rtl"] .select-control{direction:rtl;text-align:start;}
+@media(max-width:600px){.language-switch{padding:var(--space-5e3d0e96);}}

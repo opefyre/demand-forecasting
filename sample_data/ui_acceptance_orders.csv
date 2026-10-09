@@ -1,0 +1,4 @@
+reference,customer,sku,unit,due_date,ordered,fulfilled,cancelled,status
+UI-SAMPLE-001,Lumen Creative Group,COA-135-70X100,tonnes,2026-09-28,200,20,10,confirmed
+UI-SAMPLE-002,PrintWorks Iberia,COA-135-70X100,tonnes,2026-09-28,25,0,0,confirmed
+UI-SAMPLE-003,ColorPress Studio,COA-170-70X100,tonnes,2026-09-28,50,0,50,cancelled

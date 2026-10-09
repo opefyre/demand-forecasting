@@ -53,8 +53,9 @@ class OperationsAndGovernanceTests(unittest.TestCase):
 
     def test_fva_keeps_statistical_baseline_untouched(self):
         actuals = pd.DataFrame([{"item_id": "SKU-1 · Domestic", "timestamp": "2026-09-01", "actual": 120.0}])
-        plans = [{"id": "p1", "run_id": "test-run", "status": "published", "overrides": [{"item_id": "SKU-1 · Domestic", "period": "2026-09-01", "value": 118.0}]}]
-        result = forecast_value_add(self.run, plans, actuals)
+        self.run.update(unit='tonnes', source_classification='synthetic_sample', issued_at='2026-08-01T00:00:00+00:00')
+        plans = [{"id": "p1", "name": "Test", "updated_at": "2026-08-02", "run_id": "test-run", "status": "published", "history": [{"status": "approved", "at": "2026-08-02T00:00:00+00:00"}], "overrides": [{"item_id": "SKU-1 · Domestic", "period": "2026-09-01", "value": 118.0}]}]
+        result = forecast_value_add(self.run, plans, actuals, plan_id='p1', unit='tonnes', closed_through='2026-09-30', classification='synthetic_sample')
         self.assertGreater(result["fva_points"], 0)
         self.assertAlmostEqual(self.run["forecast_rows"][0]["baseline_mean"], 100.0)
 

@@ -10,7 +10,49 @@ from app.operations import calculate_operations
 from app.scenarios import quantity_scenario
 
 
+def save_retry_in_process(args):
+    root, source, settings = args
+    return DatasetStore(Path(root)).save('Retry', {'history':source},settings,
+        accept_warnings=True,request_id='same-client-request')
+
+
 class SavedWorkflowTests(unittest.TestCase):
+    def test_save_request_retries_across_processes_and_rejects_changed_payload(self):
+        import multiprocessing
+        with tempfile.TemporaryDirectory() as folder:
+            store=DatasetStore(Path(folder))
+            source=store.upload('history.csv',b'date,qty\n2025-01-01,10\n2025-02-01,20\n2025-03-01,30\n2025-04-01,40\n2025-05-01,50\n2025-06-01,60\n','history')
+            settings={'date_col':'date','target_col':'qty','frequency':'monthly','horizon':1,'unit':'units'}
+            with multiprocessing.get_context('spawn').Pool(2) as pool:
+                rows=pool.map(save_retry_in_process,[(folder,source['id'],settings)]*2)
+            self.assertEqual(rows[0],rows[1])
+            self.assertEqual(len(store.list()),1)
+            self.assertEqual(save_retry_in_process((folder,source['id'],settings)),rows[0])
+            self.assertFalse(list(Path(folder).glob('.dataset-*')))
+            with self.assertRaisesRegex(ValueError,'different inputs'):
+                store.save('Changed',{'history':source['id']},settings,accept_warnings=True,request_id='same-client-request')
+
+    def test_replacement_dataset_keeps_parent_and_source_unchanged(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = DatasetStore(Path(folder))
+            original = b'date,qty\n2025-01-01,10\n2025-02-01,20\n2025-03-01,30\n2025-04-01,40\n2025-05-01,50\n2025-06-01,60\n'
+            old = store.upload('history.csv', original, 'history')
+            settings = {'date_col':'date', 'target_col':'qty', 'frequency':'monthly', 'horizon':3, 'unit':'units'}
+            parent = store.save('History', {'history':old['id']}, settings, accept_warnings=True)
+            updated = store.upload('history.csv', original+b'2025-07-01,70\n', 'history')
+            child = store.save('History updated', {'history':updated['id']}, settings,
+                               accept_warnings=True, parent_dataset_id=parent['id'])
+            reopened = DatasetStore(Path(folder))
+            self.assertEqual(reopened.get(parent['id']), parent)
+            self.assertEqual(reopened.source(old['id'])[1], original)
+            self.assertEqual(child['parent_dataset_id'], parent['id'])
+            self.assertEqual(child['replaced_sources'], ['history'])
+            self.assertEqual(child['review']['forecast_start'], '2025-08-01')
+            self.assertEqual(parent['review']['forecast_start'], '2025-07-01')
+            with self.assertRaisesRegex(ValueError, 'not found'):
+                store.save('Missing parent', {'history':updated['id']}, settings,
+                           accept_warnings=True, parent_dataset_id='0'*32)
+
     def test_scenario_preserves_chosen_forecast_and_history(self):
         row={'timestamp':'2026-09-01','mean':100.,'p50':100.,'p10':80.,'p90':120.}
         base={'run_id':'base','run_settings':{},'series':{'A':{'forecast':[row],'history':[{'target':90}]}},'forecast_rows':[dict(row,item_id='A')]}
@@ -21,6 +63,7 @@ class SavedWorkflowTests(unittest.TestCase):
             self.assertEqual(base['series']['A']['forecast'][0]['mean'],100)
             self.assertEqual(result['series']['A']['history'],base['series']['A']['history'])
             self.assertFalse(result['scenario']['refitted'])
+            self.assertIn('issued_at', result)
 
     def test_midmonth_observations_are_not_discarded(self):
         frame = pd.DataFrame({'date':pd.date_range('2025-01-01', periods=6, freq='MS')+pd.Timedelta(days=14),'qty':[10,20,30,40,50,60]})
@@ -38,6 +81,9 @@ class SavedWorkflowTests(unittest.TestCase):
             self.assertEqual(reopened.get(dataset['id'])['sources']['history'],source['id'])
             self.assertEqual(reopened.inspect(dataset['sources'],settings)['forecast_start'],'2025-07-01')
             self.assertIn(b'2025-01-15',reopened.source(source['id'])[1])
+            (Path(folder) / (source['id'] + '.bin')).write_bytes(b'date,qty\n2025-01-15,999\n')
+            with self.assertRaisesRegex(ValueError, 'changed since import'):
+                reopened.source(source['id'])
 
     def test_invalid_quantities_block_review(self):
         with tempfile.TemporaryDirectory() as folder:

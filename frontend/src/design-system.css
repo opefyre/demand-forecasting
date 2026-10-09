@@ -1,0 +1,10 @@
+/* Only this entry point is imported by application components. Cascade is explicit. */
+@import './tokens.css';
+@import './workspace.css';
+@import './sales-workspace.css';
+@import './home.css';
+@import './monthly-refresh.css';
+@import './request-recovery.css';
+@import './localization.css';
+@import './interface.css';
+@import './ui-framework.css';

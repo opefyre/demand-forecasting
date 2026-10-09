@@ -1,0 +1,8 @@
+.request-recovery{align-items:flex-start}
+.request-recovery-copy{min-width:0;flex:1;overflow-wrap:anywhere}
+.request-recovery-copy p{margin:var(--space-00f8b727);line-height:var(--layout-9f29a130)}
+.request-recovery-copy details{margin-top:var(--space-1)}
+.request-recovery-copy summary{cursor:pointer;font-size:var(--type-13)}
+.request-recovery-copy ul{margin:var(--space-a7ad29a8);padding-inline-start:var(--space-5)}
+.request-recovery-copy .request-original{white-space:pre-wrap;font-size:var(--type-13)}
+.request-reload{display:inline-flex;align-items:center;gap:var(--space-1);margin-top:var(--space-2)}

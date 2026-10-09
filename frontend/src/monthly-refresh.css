@@ -1,0 +1,203 @@
+.forecast-update {
+  max-width: var(--layout-b039fb63);
+  margin: 0 auto;
+  display: grid;
+  gap: var(--space-5);
+}
+.forecast-update .page-heading {
+  margin-bottom: 0;
+}
+.update-progress {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+.update-progress li {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  color: var(--color-90f6b7ad);
+  font-size: var(--type-14);
+}
+.update-progress li > span {
+  display: flex;
+  width: var(--layout-c80bfee3);
+  height: var(--layout-c80bfee3);
+  align-items: center;
+  justify-content: center;
+  background: var(--layout-a1f10745);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.update-progress li[aria-current="step"] {
+  color: var(--color-ink);
+  font-weight: var(--weight-284b7e6d);
+}
+.update-progress li[aria-current="step"] > span {
+  background: var(--color-ink);
+  color: var(--color-018fa96a);
+}
+.update-step {
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-8) !important;
+}
+.update-step > h2,
+.update-step > p {
+  margin: 0;
+}
+.update-step > p {
+  max-width: var(--layout-4f41fc2a);
+  color: var(--color-90f6b7ad);
+}
+.update-settings {
+  display: grid;
+  grid-template-columns: var(--layout-a8106fc7);
+  gap: var(--space-5);
+}
+.update-input-summary {
+  display: grid;
+  gap: var(--space-2);
+  background: var(--layout-e14186f0);
+  border-radius: var(--radius-7769e817);
+  padding: var(--space-4);
+  color: var(--color-90f6b7ad);
+}
+.update-input-summary strong {
+  color: var(--color-c6baf535);
+}
+.update-input-summary .demand-actions {
+  margin-top: var(--space-1);
+}
+.update-source {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-1);
+  padding: var(--space-d9ef223b);
+}
+.update-source small {
+  grid-column: 1/-1;
+  overflow-wrap: anywhere;
+  color: var(--color-90f6b7ad);
+}
+.update-live {
+  margin: 0;
+}
+.update-live > summary {
+  cursor: pointer;
+}
+.update-live[open] > summary {
+  margin-bottom: var(--space-3);
+}
+.update-change-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.update-change-summary span {
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--type-13);
+  color: var(--color-90f6b7ad);
+}
+.update-change-summary strong {
+  color: var(--color-c6baf535);
+  font-size: var(--type-20);
+}
+.update-comparison {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.update-comparison p {
+  margin: 0;
+}
+.update-comparison > * {
+  min-width: 0;
+}
+.update-comparison .table-scroll {
+  max-height: var(--layout-99699e25);
+  overflow: auto;
+}
+.update-comparison th {
+  position: sticky;
+  top: 0;
+  background: var(--color-surface);
+  z-index: 1;
+}
+.update-comparison td small {
+  display: block;
+  font-size: var(--type-13);
+  color: var(--color-90f6b7ad);
+  margin-top: var(--space-74761400);
+}
+.update-comparison .compact-toolbar {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.update-comparison .compact-toolbar > input {
+  flex: 1;
+  min-width: var(--layout-a6e7588e);
+}
+.update-exports {
+  display: grid;
+  gap: var(--space-3);
+  background: var(--layout-e14186f0);
+  padding: var(--space-5);
+  border-radius: var(--radius-7769e817);
+}
+.update-exports h3,
+.update-exports p {
+  margin: 0;
+}
+.update-recheck {
+  justify-self: start;
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+.update-secondary {
+  margin-top: 0 !important;
+}
+@media (max-width: 640px) {
+  .forecast-update {
+    gap: var(--space-4);
+  }
+  .update-step {
+    padding: var(--space-5) !important;
+    gap: var(--space-4);
+  }
+  .update-progress {
+    gap: var(--space-1);
+  }
+  .update-progress li {
+    flex-direction: column;
+    gap: var(--space-1);
+    font-size: var(--type-13);
+  }
+  .update-progress li > span {
+    width: var(--layout-5c953e76);
+    height: var(--layout-5c953e76);
+  }
+  .update-settings {
+    grid-template-columns: 1fr;
+  }
+  .update-source {
+    grid-template-columns: 1fr;
+  }
+  .update-comparison .compact-toolbar > * {
+    width: 100%;
+  }
+  .update-exports {
+    padding: var(--space-4);
+  }
+  .update-change-summary strong {
+    font-size: var(--type-18);
+  }
+}

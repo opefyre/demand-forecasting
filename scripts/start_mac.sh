@@ -9,7 +9,7 @@ fi
 source .venv/bin/activate
 python - <<'PY'
 try:
-    import fastapi, uvicorn, sklearn
+    import fastapi, uvicorn, sklearn, statsforecast, huey, sqlalchemy, pint
 except Exception as exc:
     raise SystemExit("The setup is incomplete: " + str(exc) + "\nRun ./scripts/setup_mac.sh again.")
 PY

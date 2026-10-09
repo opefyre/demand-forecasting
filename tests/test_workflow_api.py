@@ -38,8 +38,12 @@ class WorkflowApiTests(unittest.TestCase):
         check=self.client.post('/api/datasets/validate',json=body)
         self.assertEqual(check.status_code,200,check.text)
         self.assertTrue(all(r['target']==20 for r in check.json()['preview']))
+        self.assertTrue(any('not mapped' in w for w in check.json()['warnings']))
+        self.assertEqual(self.client.post('/api/datasets',json=body).status_code,400)
+        body['accept_warnings']=True
         saved=self.client.post('/api/datasets',json=body)
         self.assertEqual(saved.status_code,200,saved.text)
+        self.assertEqual(saved.json()['review']['warnings'],check.json()['warnings'])
         self.assertEqual(self.client.get('/api/sources/'+source['id']).json()['sheet'],'Chosen')
         self.assertEqual(self.client.get('/api/datasets').json()['datasets'][0]['id'],saved.json()['id'])
 

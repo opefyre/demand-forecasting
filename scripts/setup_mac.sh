@@ -56,12 +56,14 @@ fi
 echo
 echo "Checking installation..."
 python - <<'PY'
-import fastapi, uvicorn, pandas, numpy, sklearn, openpyxl, statsmodels
+import fastapi, uvicorn, pandas, numpy, sklearn, openpyxl, statsmodels, statsforecast, huey, pint
 print("  FastAPI:", fastapi.__version__)
 print("  pandas:", pandas.__version__)
 print("  NumPy:", numpy.__version__)
 print("  scikit-learn:", sklearn.__version__)
 print("  statsmodels:", statsmodels.__version__)
+print("  StatsForecast:", statsforecast.__version__)
+print("  Huey:", huey.__version__)
 try:
     import lightgbm
     print("  LightGBM:", lightgbm.__version__)

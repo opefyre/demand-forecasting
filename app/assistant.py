@@ -86,8 +86,9 @@ def answer_planning_question(question: str, run: dict, plans: list[dict], monito
         answer = "No line exceeds the watch threshold in the uploaded capacity calendar." if not rows else "Capacity exceptions: " + "; ".join(f"{row['production_line']} in {row['period']} at {row['utilisation_pct']:.1f}%" for row in rows) + "."
         citations = ["Current run · Capacity Plan"]
     elif any(word in lower for word in ["accur", "model", "method", "retrain", "drift"]):
-        champ = monitoring.get("champion") or {}
-        answer = f"Validation WAPE is {float(metrics.get('wape_pct') or 0):.1f}% with {metrics.get('evidence_level', 'limited')} evidence. The current champion is {champ.get('model', run.get('best_model', 'not available'))}. Retraining is {'recommended' if monitoring.get('retrain', {}).get('recommended') else 'not currently triggered'}: {' '.join(monitoring.get('retrain', {}).get('reasons', []))}"
+        error = metrics.get('wape_pct')
+        error_text = f'{error:.1f}%' if error is not None else 'not available'
+        answer = f"Historical forecast error is {error_text} with {metrics.get('evidence_level', 'limited')} evidence. This run uses {run.get('best_model', 'an unrecorded method')}. {' '.join(monitoring.get('retrain', {}).get('reasons', []))}"
         citations = ["Current run · Rolling validation", "Performance · Champion/challenger monitor"]
     elif any(word in lower for word in ["factor", "driver", "why", "explain"]):
         drivers = run.get("drivers", [])[:5]

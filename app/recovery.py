@@ -1,0 +1,202 @@
+"""Offline, checksummed state backups; restore only into a new staging directory."""
+from datetime import datetime, timezone
+from contextlib import closing
+import hashlib
+import json
+import os
+from pathlib import Path, PurePosixPath
+import shutil
+import sqlite3
+import stat
+import tempfile
+import zipfile
+
+from .workspace_lock import WorkspaceLease
+
+
+FORMAT = 'demandlab-state-v1'
+MAX_BYTES = 20 * 1024**3
+MAX_FILES = 100_000
+
+
+def digest(path):
+    with path.open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def files(root):
+    for folder in ('data', 'runs'):
+        base = root / folder
+        if base.is_symlink(): raise ValueError('State folders must not be symbolic links.')
+        if not base.exists(): continue
+        for path in sorted(base.rglob('*')):
+            if path.is_symlink(): raise ValueError(f'Symbolic links are not supported: {path.relative_to(root)}')
+            if path.is_dir(): continue
+            if not stat.S_ISREG(path.stat().st_mode): raise ValueError('State contains a non-regular file.')
+            # SQLite online-backup API folds journals into a standalone database.
+            if path.name.endswith(('-wal', '-shm', '-journal')): continue
+            yield path
+
+
+def check_database(path):
+    with closing(sqlite3.connect(f'{path.as_uri()}?mode=ro', uri=True)) as db:
+        result = db.execute('PRAGMA integrity_check').fetchall()
+        if result != [('ok',)]: raise ValueError(f'Database integrity check failed: {path.name}')
+
+
+def backup(root, destination):
+    root, destination = Path(root).resolve(), Path(destination).absolute()
+    if destination.exists() or destination.is_symlink(): raise ValueError('Backup destination already exists; choose a new file.')
+    if not destination.parent.is_dir(): raise ValueError('Backup parent directory must exist.')
+    for folder in ('data', 'runs'):
+        if destination.resolve().is_relative_to(root / folder): raise ValueError('Keep backups outside live data and runs folders.')
+    with WorkspaceLease(root, exclusive=True), tempfile.TemporaryDirectory(prefix='demandlab-backup-') as temporary:
+        stage = Path(temporary)
+        records = []
+        for source in files(root):
+            relative = source.relative_to(root).as_posix()
+            target = stage / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with source.open('rb') as stream: is_database = stream.read(16) == b'SQLite format 3\x00'
+            if is_database:
+                with closing(sqlite3.connect(f'{source.as_uri()}?mode=ro', uri=True)) as src, closing(sqlite3.connect(target)) as dst:
+                    src.backup(dst)
+                check_database(target)
+            else:
+                shutil.copyfile(source, target)
+            records.append(dict(path=relative, size=target.stat().st_size, sha256=digest(target), sqlite=is_database))
+        if not records: raise ValueError('No saved workspace data found.')
+        if len(records) > MAX_FILES or sum(r['size'] for r in records) > MAX_BYTES:
+            raise ValueError('Workspace exceeds the supported backup size.')
+        manifest = dict(format=FORMAT, created_at=datetime.now(timezone.utc).isoformat(),
+                        original_root=str(root), files=records,
+                        requirements_sha256=digest(root / 'requirements.txt') if (root / 'requirements.txt').exists() else None,
+                        exclusions=['application code and environment', 'external import folders', 'in-progress .forecast-work'],
+                        restore_policy='Disable schedules, invalidate logins and clear queued work; retain completed business records.')
+        # Private file in destination filesystem, published atomically without overwriting.
+        with tempfile.NamedTemporaryFile(prefix='.demandlab-', dir=destination.parent, delete=False) as handle:
+            pending = Path(handle.name)
+        try:
+            with zipfile.ZipFile(pending, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr('manifest.json', json.dumps(manifest, ensure_ascii=False, indent=2))
+                for row in records: archive.write(stage / row['path'], row['path'])
+            with pending.open('rb') as stream: os.fsync(stream.fileno())
+            os.link(pending, destination)
+        finally:
+            pending.unlink(missing_ok=True)
+        return dict(path=str(destination), files=len(records), bytes=sum(r['size'] for r in records), sha256=digest(destination))
+
+
+def verified_archive(archive):
+    entries = archive.infolist()
+    if len(entries) > MAX_FILES + 1 or sum(e.file_size for e in entries) > MAX_BYTES:
+        raise ValueError('Backup exceeds supported restore limits.')
+    names = [entry.filename for entry in entries]
+    if len(names) != len(set(names)) or 'manifest.json' not in names:
+        raise ValueError('Backup has duplicate entries or no manifest.')
+    if archive.getinfo('manifest.json').file_size > 32 * 1024**2:
+        raise ValueError('Backup manifest is too large.')
+    manifest = json.loads(archive.read('manifest.json'))
+    if manifest.get('format') != FORMAT or not isinstance(manifest.get('files'), list):
+        raise ValueError('Unsupported backup format.')
+    expected = {'manifest.json'}
+    for row in manifest['files']:
+        name = row['path']
+        path = PurePosixPath(name)
+        if (not name or path.is_absolute() or '..' in path.parts or '\\' in name or ':' in name
+                or path.parts[0] not in ('data', 'runs') or path.as_posix() != name or len(path.parts) < 2
+                or name in expected):
+            raise ValueError('Unsafe or duplicate backup path.')
+        expected.add(name)
+        if name not in names: raise ValueError('Backup file is missing.')
+        entry = archive.getinfo(name)
+        mode = entry.external_attr >> 16
+        if entry.is_dir() or stat.S_ISLNK(mode) or (stat.S_IFMT(mode) not in (0, stat.S_IFREG)):
+            raise ValueError('Only regular backup files are accepted.')
+        if entry.file_size != row['size']: raise ValueError('Backup file size does not match its manifest.')
+    if expected != set(names): raise ValueError('Backup contains unlisted files.')
+    return manifest
+
+
+def sanitize_restore(stage):
+    """No replayed jobs, live sessions or automatic integrations after recovery."""
+    changes = []
+    identity = stage / 'data/identity.sqlite3'
+    if identity.exists():
+        with closing(sqlite3.connect(identity)) as db:
+            with db: db.execute('DELETE FROM login_sessions')
+        changes.append('All restored sign-in sessions invalidated.')
+    # Queue delivery is transient; job history is retained below.
+    queue = stage / 'data/queue.sqlite3'
+    if queue.exists():
+        queue.unlink()
+        changes.append('Transient task queue removed; no queued work will auto-run.')
+    jobs = stage / 'data/jobs.sqlite3'
+    if jobs.exists():
+        with closing(sqlite3.connect(jobs)) as db, db:
+            db.execute("UPDATE forecast_jobs SET state='interrupted', message='Restored from backup; review and retry manually.', owner=NULL, heartbeat_at=NULL WHERE state IN ('queued','running','publishing')")
+            db.execute('DELETE FROM worker_health')
+        changes.append('Active jobs marked interrupted and worker leases cleared.')
+    integrations = stage / 'data/integrations.json'
+    if integrations.exists():
+        data = json.loads(integrations.read_text())
+        for config in data.get('connectors', []): config['enabled'] = False
+        integrations.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+        changes.append('Integration schedules disabled; review paths and credentials before enabling.')
+    # All three adapters share FolderInputs' schema. Restore must not leave newer
+    # order/factor schedules running simply because the original backup tool
+    # predates them. Keep accepted records and mappings, not execution authority.
+    for name in ('folder-inputs.sqlite3', 'order-folders.sqlite3', 'factor-folders.sqlite3'):
+        folders = stage / 'data' / name
+        if folders.exists():
+            with closing(sqlite3.connect(folders)) as db, db:
+                for key, raw in db.execute('SELECT id,config FROM folder_inputs').fetchall():
+                    config = json.loads(raw); config['enabled'] = False
+                    if 'auto_draft' in config: config['auto_draft'] = False
+                    db.execute('UPDATE folder_inputs SET config=? WHERE id=?', (json.dumps(config), key))
+            changes.append(f'{name}: schedules and automatic drafts disabled; review paths before enabling.')
+    recurring = stage / 'data/recurring-forecasts.sqlite3'
+    if recurring.exists():
+        with closing(sqlite3.connect(recurring)) as db, db:
+            for key, raw in db.execute('SELECT id,payload FROM recurring_forecasts').fetchall():
+                config = json.loads(raw); config['enabled'] = False
+                db.execute('UPDATE recurring_forecasts SET payload=? WHERE id=?', (json.dumps(config), key))
+        changes.append('Monthly forecast schedules paused; confirm settings and access before enabling.')
+    sources = stage / 'data/live-sources.sqlite3'
+    if sources.exists():
+        with closing(sqlite3.connect(sources)) as db, db:
+            for key, raw in db.execute('SELECT id,state FROM sources').fetchall():
+                state = json.loads(raw); state['enabled'] = False
+                if state.get('status') in {'queued', 'refreshing'}:
+                    state.update(status='failed', error='Refresh interrupted by recovery. Review the connection before retrying.')
+                db.execute('UPDATE sources SET state=? WHERE id=?', (json.dumps(state), key))
+        changes.append('Live external-source refresh paused; cached observation dates remain unchanged.')
+    return changes
+
+
+def restore(source, destination):
+    source, destination = Path(source).resolve(), Path(destination).absolute()
+    if destination.exists() or destination.is_symlink(): raise ValueError('Restore only into a new directory; existing data will not be overwritten.')
+    if not destination.parent.is_dir(): raise ValueError('Restore parent directory must exist.')
+    # Reserve destination exclusively. On failure leave it with an explicit marker;
+    # never recursively delete a path that another process may have touched.
+    destination.mkdir(mode=0o700)
+    marker = destination / 'RESTORE_INCOMPLETE'
+    marker.write_text('Do not start the application from this incomplete restore.\n')
+    with WorkspaceLease(destination, exclusive=True), zipfile.ZipFile(source) as archive:
+        manifest = verified_archive(archive)
+        for row in manifest['files']:
+            target = destination / row['path']
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with archive.open(row['path']) as src, target.open('xb') as dst:
+                shutil.copyfileobj(src, dst)
+            target.chmod(0o600)
+            if digest(target) != row['sha256']: raise ValueError(f'Backup checksum failed: {row["path"]}')
+            if row.get('sqlite'): check_database(target)
+        changes = sanitize_restore(destination)
+        report = dict(format=FORMAT, restored_at=datetime.now(timezone.utc).isoformat(),
+                      archive_sha256=digest(source), verified_files=len(manifest['files']), changes=changes,
+                      original_root=manifest.get('original_root'), requirements_sha256=manifest.get('requirements_sha256'))
+        (destination / 'restore-report.json').write_text(json.dumps(report, indent=2))
+        marker.unlink()
+        return report

@@ -1,0 +1,5 @@
+reference,customer,sku,unit,due_date,ordered,fulfilled,cancelled,status
+DEMO-PAIR-A1,Demo customer 001,0001,tonnes,2026-10-08,12,2,0,confirmed
+DEMO-PAIR-A2,Demo customer 001,0002,tonnes,2026-10-15,90,10,0,confirmed
+DEMO-PAIR-B1,Demo customer 002,0001,tonnes,2026-10-20,3,0,0,confirmed
+DEMO-PAIR-B2-CANCELLED,Demo customer 002,0002,tonnes,2026-10-20,50,0,50,cancelled

@@ -1,0 +1,4 @@
+SKU,Quantity,Unit,Status,Pallet,Order
+COA-ART-135,2000,tonnes,Usable,DEMO-001,DEMO-A
+COA-ART-135,250,tonnes,Hold,DEMO-002,DEMO-A
+PKG-KRAFT-120,50,tonnes,Usable,DEMO-003,DEMO-B

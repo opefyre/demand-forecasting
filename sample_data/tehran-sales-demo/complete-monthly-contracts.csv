@@ -1,0 +1,5 @@
+customer,sku,unit,period,quantity,owner,reason,valid_until
+Caspian Export,KRAFT-120,tonnes,2026-10-01,52.872,Demo sales planner,"Fictional customer confirms this is the entire October monthly contract, not an additional order.",2026-11-08
+Caspian Export,BOARD-300,tonnes,2026-10-01,36.97,Demo sales planner,"Fictional customer confirms this is the entire October monthly contract, not an additional order.",2026-11-08
+Caspian Export,FOOD-110,tonnes,2026-10-01,27.926,Demo sales planner,"Fictional customer confirms this is the entire October monthly contract, not an additional order.",2026-11-08
+Caspian Export,SPECIAL-090,tonnes,2026-10-01,12.33,Demo sales planner,"Fictional customer confirms this is the entire October monthly contract, not an additional order.",2026-11-08

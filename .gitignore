@@ -5,5 +5,27 @@ runs/*
 !runs/.gitkeep
 node_modules/
 data/
+.forecast-work/
 Sales Forecast-2026.xlsx
 .DS_Store
+.workspace.lock
+.recovery/
+.env
+.env.local
+secrets/
+.vite/
+outputs/
+docs/screenshots/
+docs/CLIENT_WORKBOOK_FINDINGS.md
+*.xlsx
+*.xls
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+*.log
+auth-service/dist/
+auth-service/coverage/
+auth-service/.env*
+!auth-service/.env.example
+RESTORE_INCOMPLETE

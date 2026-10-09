@@ -1,14 +1,24 @@
 # DemandLab
 
-A local forecasting workspace for manufacturing demand, consumption and sales. The core workflow has been rebuilt; this is **not yet a production multi-user SaaS**. The previous completion claim was withdrawn. See [the corrective checklist](docs/UX_REBUILD.md).
+Sales/demand forecasting for a Tehran manufacturing site, with reusable workflows
+for other industries. History, relevant external factors and current customer
+orders become a monthly demand forecast. Production, inventory and MRP execution
+are not part of this product; their planning systems receive the exports.
+
+This is a working local app, not a certified production multi-user SaaS.
+See the [current checklist](docs/IMPLEMENTATION_CHECKLIST.md),
+[pilot and operating guide](docs/RELEASE_PILOT.md).
+Client workbook analysis and private demo outputs are kept outside the public repository.
 
 ## Start
 
-Run `./scripts/setup_mac.sh` once, then `./scripts/start_mac.sh`. Open http://127.0.0.1:8010.
+Run `./scripts/setup_mac.sh` once, then `./scripts/start_mac.sh`.
+Open http://127.0.0.1:8010. The launcher keeps the listener on this computer and
+starts the forecast worker. Do not expose local evaluation mode to other users.
 
-The built React interface is included under `app/static/client`. To rebuild after interface changes:
+The React build is included under `app/static/client`. To rebuild:
 
-```bash
+```sh
 cd frontend
 npm ci
 npm run build
@@ -16,49 +26,109 @@ npm run build
 
 ## Everyday workflow
 
-1. **Data → Import data**: upload actual history. CSV, TSV, JSON and Excel are supported. For Excel, choose the worksheet.
-2. **Match columns**: choose the date, quantity and item identifier. The preview shows values from your file.
-3. **Forecast settings**: choose units, interval, horizon and method. Extra factors are optional and need historical and future values.
-4. **Review**: dates, quantities and future coverage are checked before saving. Any automatic data adjustments require acknowledgment.
-5. **Forecast**: inspect the connected actual/forecast chart. Methods and Accuracy contain the model comparisons and historical test results. A saved dataset can be rerun without re-uploading.
-6. **Scenarios**: create an explicitly named percentage change to the current forecast. This preserves the original forecast and does not refit a different model.
-7. **Plans**: save a draft, record reasoned changes, review, approve and publish. Approved/published quantities cannot be changed in place.
-8. **Supply**: inspect material requirements and capacity when a monthly, tonne-based operations workbook is supplied.
+1. **Home → Add sales history**: import CSV, TSV, JSON or Excel, choose the sheet,
+   match date, customer, SKU and quantity, then review. Declare units, what sales
+   means, and whether totals use Persian or Gregorian months.
+2. **Customers**: maintain the customer/product list, including customers with
+   no current orders. Optional exposure settings suggest relevant factor sources.
+3. **Calculate**: choose a method and horizon, or let the app compare tested
+   methods. Calculations run in a durable background queue; navigate, cancel or
+   review a stopped attempt without overwriting the original forecast.
+4. **Factors**: connect sources in Data and review their history, freshness,
+   coverage, permissions and future assumptions. Different customer/product
+   scenarios can use different factors. Missing data is not zero.
+5. **Forecast → Orders**: review the current complete order book, or apply reviewed
+   changes using stable order-line references. Include fulfilled and cancelled
+   quantities, delivery dates and customers without orders.
+6. **Review demand**: filter customer, SKU and month; inspect charts, trends,
+   tables, monthly grids and order coverage. Save useful views.
+7. **Export demand**: download Excel, CSV or JSON. Export remaining expectation
+   if the receiver already has orders; otherwise export open orders plus remaining
+   expectation. Fulfilled quantities are excluded. Draft downloads are distinct
+   from independently approved company planning releases.
 
-Files, selected worksheets and mappings are saved on this computer under `data/datasets`. Unfinished imports also preserve their progress in the browser. Saved datasets are immutable snapshots; changed settings create a new version.
+Monthly updates guide history → calculation → factors → orders → changes → export.
+Optional **Home → Monthly draft settings** prepares a baseline on a chosen
+Persian/Gregorian day, on Tehran time. Only reviewed inputs are used; factors,
+orders and approval still require review. Automation runs only while the server
+is running. Help explains these flows in the app.
 
-## Required data
+Assistant accepts plain-language requests and uses existing calculation,
+import-review and export services. Different model roles handle queries, data
+review and decisions. Confirm proposed changes and any sharing with OpenAI.
+AI does not replace numerical calculations or invent missing sales/factors.
 
-Minimum history: a date and nonnegative actual quantity in a consistent unit. An item column produces separate forecasts. At least six periods per item are needed; substantially more history is needed for meaningful seasonal evaluation.
+## Inputs and quantities
 
-Actual sales are not automatically unconstrained demand: stockouts, lost sales and missing periods require business interpretation. Net returns should be handled explicitly before importing a nonnegative demand target.
+Historical actuals need dated quantities in one consistent unit. Separate customer
+and SKU mappings are needed for customer/product demand. At least six periods are
+required per series; longer history is needed for meaningful annual-seasonality
+testing. The client sales workbook has only seven actual months; this does not
+establish annual seasonality or operational accuracy.
 
-Extra factors must be columns in the historical data. Future files supply corresponding values for the forecast horizon. The default blocks incomplete future values; explicitly repeating the latest value or using a historical middle value are available assumptions. The app does not discover future macroeconomic conditions.
+Sales, shipments, invoices and unconstrained demand are not interchangeable.
+Review returns, missing periods and stockout effects. Monthly totals cannot be
+redistributed into another calendar; dated transactions can be grouped into either.
 
-Production workbooks use the named sheets and columns in `sample_data/iran_operations_master.xlsx`. The BOM specifies quantity per tonne, so the forecast must use tonnes. Material proposals account for previous proposed orders without repeatedly ordering the same deficit. They are recommendations, not actual purchase orders. Capacity uses the available tonnes supplied in the file; downtime is contextual, not automatically deducted again.
+At customer/SKU/unit/month level:
 
-## Iran and external data
+`remaining expectation = max(0, calculated forecast − fulfilled − open confirmed orders)`
 
-Settings save the installation's site name, province and time zone. The reference profile is Qazvin, Iran. These labels do not fetch location-specific factors.
+Partial orders consume part of the estimate; orders above the estimate are retained.
+An explicitly reviewed complete commitment can replace the full-month expectation.
+Missing history, unknown/stale order books, mismatches and overdue open orders
+block planning exports rather than inventing a value.
 
-The Iran sample contains synthetic history, future assumptions, holidays and production data. It is a test fixture, **not a live economic feed**. Supply actual values from approved Iranian, regional or global sources through imports.
+## Live external information
 
-Connection diagnostics only test availability. They do not yet synchronise forecast-ready datasets. Source ingestion, field mapping, freshness and provenance need further implementation before connections can be called operational integrations.
+Data → Factors manages existing Iranian/global adapters, including Servix reference
+FX, World Bank context, commodities, supply pressure, regional shipping, weather
+and permission-gated Iranian CPI. Exact scope and limitations are in
+[live sources](docs/LIVE_EXTERNAL_CONNECTIONS.md) and
+[regional factors](docs/REGIONAL_LIVE_FACTORS.md).
+Not every provider has complete, fresh, permission-cleared monthly history.
+A quote is not an agreed factory FX basis; annual inflation is not monthly inflation.
+No feed predicts future war, FX or inflation: future values remain explicit assumptions.
+
+Factor selection uses numerical evidence and separate test periods.
+Where publication-time evidence is unavailable, scenarios are labelled what-if
+and unsupported accuracy scores are suppressed. Connecting a factor does not
+guarantee that it improves accuracy.
 
 ## Open-source foundation
 
-The interface uses React, Radix UI dialogs/selects/tooltips, Phosphor Icons, Recharts and locally served Instrument Sans/Vazirmatn fonts. Vite builds the client.
+React, Radix UI, Phosphor Icons, Recharts, Vite, Instrument Sans and Vazirmatn;
+StatsForecast, pandas, NumPy, scikit-learn, optional LightGBM, openpyxl, holidays
+and persiantools; Huey, APScheduler and SQLite; Authlib and OpenAI Agents SDK.
+Application code coordinates these tools and the sales workflow.
 
-Forecasting and data handling reuse pandas, NumPy, statsmodels, scikit-learn, optional LightGBM, openpyxl, holidays and persiantools. Supported methods include seasonal naive, ETS, ARIMA, Theta, Croston, TSB, Ridge and tree-based learners. The application handles orchestration and business workflow.
+Methods include recent/weighted averages, seasonal reuse, Holt, Holt-Winters,
+AutoETS, AutoARIMA, Theta, Croston variants, TSB, Ridge, Elastic Net and tree-based
+learners. Eligibility depends on history, frequency and profile; an unavailable
+chosen method is not silently replaced. See [methods](docs/FORECAST_METHODS.md).
 
-## Verification and remaining work
+## Operation and verification
 
-```bash
-.venv/bin/python -m unittest discover -s tests -v
+Secrets remain server-side under the ignored `secrets/` folder or existing secure
+credential storage. `run.py` loads `secrets/.env.local`; shell settings take precedence.
+Never place keys in frontend code or chat. Company deployment requires OIDC/HTTPS,
+real-account role acceptance and independent demand-release approval.
+Local demo approval is not company approval.
+
+```sh
+.venv/bin/python -m unittest discover -s tests
+cd frontend
+node --test src/*.test.mjs
 ```
 
-On September 16, 27 tests passed, covering existing forecasting checks plus saved-source persistence, selected Excel worksheets, invalid-input rejection, monthly date alignment, material netting and exact quantity scenarios. Browser checks exercised a saved sample forecast, method rerun after refresh, a 10% scenario, responsive layouts and help/dialog controls.
+Repeat the isolated, no-AI/no-provider synthetic pilot from the project root:
 
-Sample baseline `0a92b9d6b63c`: 720 rows, 12 items, 12-month horizon, 5.23% historical WAPE, 432 held-out predictions over three windows. Selected AutoETS run `7409b082a757`: 5.34% historical WAPE. These synthetic results are not a promise of live operational accuracy.
+```sh
+.venv/bin/python scripts/verify_release_pilot.py --destination outputs/new-pilot
+```
 
-Still required for deployment: multi-user identity and permissions, production storage/backups, queued/cancellable jobs, operational connector ingestion, like-for-like monitoring, causal/relationship modelling, and validation with the site's real data. Local plan history is not authenticated approval enforcement. Product-relationship records and deterministic assistant responses are not presented as working AI modelling in the new interface.
+Choose a new output directory every time. It checks real imports/models/jobs,
+customer-level order accounting, six exports and backup/restore without replacing
+client records. Synthetic correctness and machine timings do not prove client
+accuracy or company deployment readiness. Current evidence and remaining gates
+are recorded in [the pilot guide](docs/RELEASE_PILOT.md).

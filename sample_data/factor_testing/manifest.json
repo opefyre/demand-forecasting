@@ -1,0 +1,60 @@
+{
+  "classification": "synthetic_sample",
+  "geography": "Tehran-inspired synthetic customer names",
+  "unit": "tonnes",
+  "calendar": "gregorian",
+  "quantity_meaning": "generated_customer_demand",
+  "factor_meaning": "generated_IRR_per_USD_and_unrelated_index_not_market_data",
+  "future_policy": "last_historical_value_is_an_explicit_synthetic_assumption",
+  "warning": "Realistic-scale artificial scenarios, not client or live-market facts. Withheld actuals are not inputs.",
+  "cases": [
+    {
+      "case": "useful_signal",
+      "history_rows": 336,
+      "months": 84,
+      "total_tonnes": 59475.03,
+      "forecast_months": 6,
+      "seed": 7301
+    },
+    {
+      "case": "irrelevant_factors",
+      "history_rows": 336,
+      "months": 84,
+      "total_tonnes": 43605.88,
+      "forecast_months": 6,
+      "seed": 7301
+    },
+    {
+      "case": "mixed_customers",
+      "history_rows": 336,
+      "months": 84,
+      "total_tonnes": 51540.36,
+      "forecast_months": 6,
+      "seed": 7301
+    },
+    {
+      "case": "changed_relationship",
+      "history_rows": 336,
+      "months": 84,
+      "total_tonnes": 55470.26,
+      "forecast_months": 6,
+      "seed": 7301
+    },
+    {
+      "case": "sparse_demand",
+      "history_rows": 336,
+      "months": 84,
+      "total_tonnes": 12334.52,
+      "forecast_months": 6,
+      "seed": 7301
+    },
+    {
+      "case": "short_history",
+      "history_rows": 96,
+      "months": 24,
+      "total_tonnes": 12274.31,
+      "forecast_months": 6,
+      "seed": 7301
+    }
+  ]
+}
