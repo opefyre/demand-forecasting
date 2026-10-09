@@ -72,8 +72,9 @@ def backup(root, destination):
         manifest = dict(format=FORMAT, created_at=datetime.now(timezone.utc).isoformat(),
                         original_root=str(root), files=records,
                         requirements_sha256=digest(root / 'requirements.txt') if (root / 'requirements.txt').exists() else None,
-                        exclusions=['application code and environment', 'external import folders', 'in-progress .forecast-work'],
-                        restore_policy='Disable schedules, invalidate logins and clear queued work; retain completed business records.')
+                        exclusions=['application code and environment', 'external import folders', 'in-progress .forecast-work',
+                                    'Better Auth PostgreSQL identity database', 'Keychain and other external secret vaults'],
+                        restore_policy='Disable schedules, invalidate local logins and assistant proposals and clear queued work; retain completed business records. Restore PostgreSQL identity separately and revoke sessions/keys before cutover.')
         # Private file in destination filesystem, published atomically without overwriting.
         with tempfile.NamedTemporaryFile(prefix='.demandlab-', dir=destination.parent, delete=False) as handle:
             pending = Path(handle.name)
@@ -120,25 +121,42 @@ def verified_archive(archive):
 
 
 def sanitize_restore(stage):
+    """Sanitize runtime stores only, never uploaded files with similar names."""
+    roots = [stage / 'data']
+    companies = stage / 'data/companies'
+    if companies.exists():
+        from .platform_identity import COMPANY_ID
+        for folder in sorted(companies.iterdir()):
+            if not folder.is_dir(): continue
+            if not COMPANY_ID.fullmatch(folder.name):
+                raise ValueError('Invalid restored company storage directory.')
+            roots.append(folder)
+    changes = []
+    for root in roots:
+        changes.extend(sanitize_runtime(root, stage))
+    return changes
+
+
+def sanitize_runtime(root, stage):
     """No replayed jobs, live sessions or automatic integrations after recovery."""
     changes = []
-    identity = stage / 'data/identity.sqlite3'
+    identity = root / 'identity.sqlite3'
     if identity.exists():
         with closing(sqlite3.connect(identity)) as db:
             with db: db.execute('DELETE FROM login_sessions')
         changes.append('All restored sign-in sessions invalidated.')
     # Queue delivery is transient; job history is retained below.
-    queue = stage / 'data/queue.sqlite3'
+    queue = root / 'queue.sqlite3'
     if queue.exists():
         queue.unlink()
         changes.append('Transient task queue removed; no queued work will auto-run.')
-    jobs = stage / 'data/jobs.sqlite3'
+    jobs = root / 'jobs.sqlite3'
     if jobs.exists():
         with closing(sqlite3.connect(jobs)) as db, db:
             db.execute("UPDATE forecast_jobs SET state='interrupted', message='Restored from backup; review and retry manually.', owner=NULL, heartbeat_at=NULL WHERE state IN ('queued','running','publishing')")
             db.execute('DELETE FROM worker_health')
         changes.append('Active jobs marked interrupted and worker leases cleared.')
-    integrations = stage / 'data/integrations.json'
+    integrations = root / 'integrations.json'
     if integrations.exists():
         data = json.loads(integrations.read_text())
         for config in data.get('connectors', []): config['enabled'] = False
@@ -148,7 +166,7 @@ def sanitize_restore(stage):
     # order/factor schedules running simply because the original backup tool
     # predates them. Keep accepted records and mappings, not execution authority.
     for name in ('folder-inputs.sqlite3', 'order-folders.sqlite3', 'factor-folders.sqlite3'):
-        folders = stage / 'data' / name
+        folders = root / name
         if folders.exists():
             with closing(sqlite3.connect(folders)) as db, db:
                 for key, raw in db.execute('SELECT id,config FROM folder_inputs').fetchall():
@@ -156,14 +174,26 @@ def sanitize_restore(stage):
                     if 'auto_draft' in config: config['auto_draft'] = False
                     db.execute('UPDATE folder_inputs SET config=? WHERE id=?', (json.dumps(config), key))
             changes.append(f'{name}: schedules and automatic drafts disabled; review paths before enabling.')
-    recurring = stage / 'data/recurring-forecasts.sqlite3'
-    if recurring.exists():
-        with closing(sqlite3.connect(recurring)) as db, db:
-            for key, raw in db.execute('SELECT id,payload FROM recurring_forecasts').fetchall():
-                config = json.loads(raw); config['enabled'] = False
-                db.execute('UPDATE recurring_forecasts SET payload=? WHERE id=?', (json.dumps(config), key))
-        changes.append('Monthly forecast schedules paused; confirm settings and access before enabling.')
-    sources = stage / 'data/live-sources.sqlite3'
+    for name in ('recurring-forecasts.sqlite3', 'recurring.sqlite3'):
+        recurring = root / name
+        if recurring.exists():
+            with closing(sqlite3.connect(recurring)) as db, db:
+                for key, raw in db.execute('SELECT id,payload FROM recurring_forecasts').fetchall():
+                    config = json.loads(raw); config['enabled'] = False
+                    db.execute('UPDATE recurring_forecasts SET payload=? WHERE id=?', (json.dumps(config), key))
+            changes.append('Monthly forecast schedules paused; confirm settings and access before enabling.')
+    connections = root / 'connections.sqlite3'
+    if connections.exists():
+        with closing(sqlite3.connect(connections)) as db, db:
+            for key, raw in db.execute('SELECT connection_id,payload FROM input_schedules').fetchall():
+                schedule = json.loads(raw)
+                schedule.update(enabled=False, version=schedule['version']+1,
+                                last_status='Schedule paused after recovery. Review connection settings and access.',
+                                last_started=None)
+                db.execute('UPDATE input_schedules SET payload=? WHERE connection_id=?', (json.dumps(schedule), key))
+            db.execute("UPDATE pulls SET state='failed',message='Fetch interrupted by recovery. Review and retry manually.' WHERE state='fetching'")
+        changes.append('Connected input schedules paused and in-progress fetches stopped; accepted evidence retained.')
+    sources = root / 'live-sources.sqlite3'
     if sources.exists():
         with closing(sqlite3.connect(sources)) as db, db:
             for key, raw in db.execute('SELECT id,state FROM sources').fetchall():
@@ -172,8 +202,20 @@ def sanitize_restore(stage):
                     state.update(status='failed', error='Refresh interrupted by recovery. Review the connection before retrying.')
                 db.execute('UPDATE sources SET state=? WHERE id=?', (json.dumps(state), key))
         changes.append('Live external-source refresh paused; cached observation dates remain unchanged.')
+    for name in ('assistant.sqlite3', 'ai-workspace.sqlite3'):
+        journal = root / name
+        if journal.exists():
+            with closing(sqlite3.connect(journal)) as db, db:
+                # The shared assistant database may contain only the call ledger.
+                if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='ai_turns'").fetchone(): continue
+                for key, raw in db.execute('SELECT id,payload FROM ai_turns').fetchall():
+                    payload = json.loads(raw)
+                    payload['recovery_action_revoked'] = True
+                    db.execute('UPDATE ai_turns SET payload=? WHERE id=?', (json.dumps(payload), key))
+            changes.append('Previous assistant proposals revoked; conversations and completed action receipts retained.')
     # A restored outbox must never resume outbound consent or uncertain sends.
-    for notifications in (stage/'data').rglob('notifications.sqlite3'):
+    notifications = root / 'notifications.sqlite3'
+    if notifications.exists():
         with closing(sqlite3.connect(notifications)) as db,db:
             for key,raw in db.execute('SELECT id,config FROM destinations').fetchall():
                 config=json.loads(raw);config['enabled']=False
@@ -184,8 +226,8 @@ def sanitize_restore(stage):
                 record.update(state='unknown' if record['state']=='sending' else 'cancelled',finished_at=time.time(),
                     message='Delivery is uncertain. Check the destination before retrying.' if record['state']=='sending' else 'Connection settings or access changed.')
                 db.execute('UPDATE deliveries SET record=? WHERE id=?',(json.dumps(record),key))
-        changes.append(f'{notifications.relative_to(stage)}: notifications paused; queued sends cancelled and in-flight sends marked uncertain.')
-    return changes
+        changes.append('Notifications paused; queued sends cancelled and in-flight sends marked uncertain.')
+    return [f'{root.relative_to(stage)}: {change}' for change in changes]
 
 
 def restore(source, destination):

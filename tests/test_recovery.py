@@ -89,6 +89,105 @@ class RecoveryTests(unittest.TestCase):
         self.assertTrue((self.root / 'data/queue.sqlite3').exists())
         self.assertFalse((destination / 'RESTORE_INCOMPLETE').exists())
 
+    def test_company_runtime_restore_preserves_evidence_but_not_execution_authority(self):
+        from app.company_workspace import CompanyWorkspaces
+        from app.ai_workspace import AIJournal
+        from app.business_connections import BusinessConnections, ConnectionInput
+        from app.connection_schedules import ImportSchedule, configure, tick
+        from app.customers import Customer
+        from tests.test_sales_demand import fixture
+        from tests.test_notifications import MemoryVault
+        workspaces = CompanyWorkspaces(self.root / 'data/companies')
+        evidence = {}
+        try:
+            for company in ('tehran_a', 'tehran_b'):
+                ws = workspaces.for_principal({'company_id': company})
+                ws.customers.save([Customer(customer=company,products=[{'sku':'P','unit':'tonnes'}])])
+                run, inputs = fixture(); run['run_id'] = 'a'*12 if company=='tehran_a' else 'b'*12
+                inputs['run_id'] = run['run_id']
+                run_folder=ws.runs/run['run_id'];run_folder.mkdir()
+                (run_folder/'result.json').write_text(json.dumps(run))
+                saved=ws.sales.save(inputs,run,'restore-'+company,company)
+                store = BusinessConnections(ws.path('connections.sqlite3'), ws.datasets, vault=MemoryVault())
+                connection = store.save(ConnectionInput(name=company, provider='http', role='sales_customers',
+                    url='https://erp.example/export', filename='customers.csv', confirmed_read_access=True))
+                schedule = configure(store, connection['id'], ImportSchedule(connection_version=1,
+                    enabled=True, confirmed=True), company)
+                with store.db() as db:
+                    db.execute('INSERT INTO pulls VALUES(?,?,?,?,?,?,?,?)',
+                               ('active', connection['id'], 'req-active', 1, 'fetching', 1, 'Fetching inputs…', None))
+                    db.execute('INSERT INTO pulls VALUES(?,?,?,?,?,?,?,?)',
+                               ('done', connection['id'], 'req-done', 1, 'ready', 1, 'Ready to review', None))
+                    db.execute('INSERT INTO import_acceptance VALUES(?,?)', ('accepted', '{"id":"original"}'))
+                active = [ws.jobs.create({'company': company}, state, state) for state in ('queued','running','publishing','succeeded')]
+                with ws.jobs.engine.begin() as db:
+                    for job in active:
+                        db.exec_driver_sql('UPDATE forecast_jobs SET state=?,owner=?,heartbeat_at=? WHERE id=?',
+                                          (job['name'], 'worker', 1, job['id']))
+                recurring = ws.path('recurring.sqlite3')
+                with closing(sqlite3.connect(recurring)) as db, db:
+                    db.execute('CREATE TABLE recurring_forecasts(id TEXT,actor TEXT,payload TEXT)')
+                    db.execute('INSERT INTO recurring_forecasts VALUES(?,?,?)', ('monthly', company, '{"enabled":true,"run_id":"original"}'))
+                    db.execute('CREATE TABLE recurring_cycles(id TEXT,payload TEXT)')
+                    db.execute('INSERT INTO recurring_cycles VALUES(?,?)', ('cycle','{"state":"review","update_id":"kept"}'))
+                with closing(sqlite3.connect(ws.path('live-sources.sqlite3'))) as db, db:
+                    db.execute('CREATE TABLE sources(id TEXT,state TEXT)')
+                    db.execute('INSERT INTO sources VALUES(?,?)', ('cpi','{"enabled":true,"status":"refreshing","last_success":"2026-09-30"}'))
+                turn = ws.journal.put(company, {'question':'Prepare a forecast', 'answer':company,
+                    'run_id':None, 'snapshot_id':None, 'dataset_id':None, 'actions':[{'type':'forecast'}],
+                    'results':{'0':{'run_id':'completed'}}})
+                with closing(sqlite3.connect(ws.path('assistant.sqlite3'))) as db:
+                    created = db.execute('SELECT created FROM ai_turns WHERE id=?',(turn,)).fetchone()[0]
+                evidence[company] = (connection, schedule, active, turn, created, saved, run)
+            # An uploaded file with a runtime filename must remain byte-for-byte unchanged.
+            upload = self.root / 'data/companies/tehran_a/datasets/notifications.sqlite3'
+            upload.write_bytes(b'opaque uploaded source')
+            backup(self.root, self.archive)
+            target = self.parent / 'company-restore'; report = restore(self.archive, target)
+            self.assertEqual((target / upload.relative_to(self.root)).read_bytes(), upload.read_bytes())
+            restored = CompanyWorkspaces(target / 'data/companies')
+            try:
+                for company, (connection, schedule, active, turn, created, saved, run) in evidence.items():
+                    ws = restored.for_principal({'company_id':company})
+                    store = ws.connections
+                    current = store.get(connection['id'])
+                    self.assertFalse(current['schedule']['enabled'])
+                    self.assertEqual(current['schedule']['version'],schedule['version']+1)
+                    self.assertEqual(current['version'],connection['version'])
+                    self.assertEqual(tick(store,lambda _:True,now=10**15),[])
+                    self.assertEqual(store.acceptance('accepted'),{'id':'original'})
+                    self.assertEqual({p['id']:p['state'] for p in current['pulls']},{'active':'failed','done':'ready'})
+                    self.assertEqual([ws.jobs.get(j['id'])['state'] for j in active],['interrupted']*3+['succeeded'])
+                    self.assertEqual(ws.jobs.queued(),[])
+                    self.assertEqual(ws.sales.get(saved['id']),saved)
+                    self.assertEqual(ws.load_run(run['run_id']),run)
+                    self.assertEqual(ws.customers.list(),workspaces.for_principal({'company_id':company}).customers.list())
+                    with closing(sqlite3.connect(ws.path('recurring.sqlite3'))) as db:
+                        self.assertEqual(json.loads(db.execute('SELECT payload FROM recurring_forecasts').fetchone()[0]),{'enabled':False,'run_id':'original'})
+                        self.assertEqual(db.execute('SELECT payload FROM recurring_cycles').fetchone()[0],'{"state":"review","update_id":"kept"}')
+                    with closing(sqlite3.connect(ws.path('live-sources.sqlite3'))) as db:
+                        state=json.loads(db.execute('SELECT state FROM sources').fetchone()[0])
+                        self.assertFalse(state['enabled']); self.assertEqual(state['status'],'failed')
+                        self.assertEqual(state['last_success'],'2026-09-30')
+                    with self.assertRaisesRegex(ValueError,'expired'): ws.journal.get(turn,company)
+                    turns=ws.journal.conversation(turn,company,None,None,display=True)
+                    self.assertTrue(turns[0]['actions_expired']); self.assertEqual(turns[0]['answer'],company)
+                    self.assertEqual(turns[0]['results'],{'0':{'run_id':'completed'}})
+                    self.assertEqual(ws.journal._read(turn,company)[0],created)
+                    self.assertFalse(workspaces.for_principal({'company_id':company}).journal.get(turn,company).get('recovery_action_revoked'))
+                    self.assertTrue(any(f'data/companies/{company}' in c for c in report['changes']))
+            finally: restored.close()
+        finally: workspaces.close()
+
+    def test_call_ledger_only_company_restore(self):
+        folder=self.root/'data/companies/tehran_a';folder.mkdir(parents=True)
+        with closing(sqlite3.connect(folder/'assistant.sqlite3')) as db,db:
+            db.execute('CREATE TABLE ai_calls(id TEXT,state TEXT)')
+            db.execute("INSERT INTO ai_calls VALUES('kept','complete')")
+        backup(self.root,self.archive);target=self.parent/'ledger-restore';restore(self.archive,target)
+        with closing(sqlite3.connect(target/'data/companies/tehran_a/assistant.sqlite3')) as db:
+            self.assertEqual(db.execute('SELECT * FROM ai_calls').fetchall(),[('kept','complete')])
+
     def test_process_lock_prevents_backup_and_app_start(self):
         code = 'from app.workspace_lock import WorkspaceLease; import sys; WorkspaceLease(sys.argv[1])'
         with WorkspaceLease(self.root):
@@ -118,7 +217,9 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(CustomerStore(restored/'data/customers.sqlite3').list(),customer_store.list())
         self.assertEqual(DemandStore(restored/'data/sales-demand.sqlite3').get(snapshot['id']),snapshot)
         self.assertEqual(ViewStore(restored/'data/sales-demand.sqlite3').list('local',run['run_id']),[view])
-        self.assertEqual(AIJournal(restored/'data/ai-workspace.sqlite3').get(turn,'local')['answer'],'Saved evidence')
+        restored_journal=AIJournal(restored/'data/ai-workspace.sqlite3')
+        self.assertEqual(restored_journal._read(turn,'local')[1]['answer'],'Saved evidence')
+        with self.assertRaisesRegex(ValueError,'expired'): restored_journal.get(turn,'local')
 
     def test_never_overwrites_or_backs_up_inside_live_state(self):
         backup(self.root, self.archive)

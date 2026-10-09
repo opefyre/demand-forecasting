@@ -147,7 +147,7 @@ class AIJournal:
     def get(self, key, actor):
         created, payload = self._read(key, actor)
         if isinstance(payload.get('question'),str) and isinstance(payload.get('answer'),str) and self.chat_state(key,actor)['status']!='active': raise ValueError('Restore this chat before taking actions.')
-        if time.time() - created > 3600:
+        if payload.get('recovery_action_revoked') or time.time() - created > 3600:
             raise ValueError('This action expired. Ask the assistant to prepare it again.')
         return payload
 
@@ -167,7 +167,7 @@ class AIJournal:
                 raise ValueError('This conversation uses another forecast or order version. Start a new chat.')
             if not isinstance(turn.get('question'), str) or not isinstance(turn.get('answer'), str):
                 raise ValueError('This turn has no conversation to resume. Start a new chat.')
-            turns.append({**turn, 'id': key, 'actions_expired': time.time() - created > 3600})
+            turns.append({**turn, 'id': key, 'actions_expired': bool(turn.get('recovery_action_revoked')) or time.time() - created > 3600})
             key = turn.get('previous_turn_id')
         return list(reversed(turns))
 

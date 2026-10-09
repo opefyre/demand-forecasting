@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node --import tsx src/server.ts",
     "check": "tsc --noEmit",
+    "preflight": "node --import tsx src/preflight.ts",
     "test": "node --import tsx --test test/*.test.ts",
     "test:integration": "node --import tsx --test test/identity.integration.test.ts",
     "migrate": "node --import tsx src/migrate.ts",

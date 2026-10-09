@@ -1,5 +1,18 @@
 # Local state backup and recovery
 
+10 October company-mode hardening: every company runtime store is sanitized, not
+only the original local stores. Connected import schedules and recurring drafts
+pause; active company jobs/fetches stop; live source refresh pauses. Notifications
+stay paused, queued deliveries cancel and uncertain sends remain uncertain.
+Old assistant proposals expire without altering message timestamps or completed
+receipts. Uploaded files are never treated as runtime databases by filename.
+Company customer records, sales snapshots and completed results remain unchanged.
+
+This archive does **not** include Better Auth's PostgreSQL database or external
+Keychain/secret-vault credentials. Recover those separately before company-mode
+activation. See DEPLOYMENT_ACCEPTANCE.md; local session invalidation does not
+invalidate PostgreSQL sessions or API keys.
+
 7 October hardening: recovery also pauses order/factor folder schedules, live
 external-source refresh and recurring monthly forecasts; history auto-drafts are
 disabled. Interrupted external refresh becomes failed without changing observation

@@ -1,9 +1,9 @@
 # Authentication and public API foundation
 
 Status: tested foundation, not yet a complete authenticated forecasting deployment.
-Company sales/forecast/jobs and core assistant/screens now use separate stores.
-Advanced scenario/monthly automation remains blocked in company mode until
-migrated. Keep the demo in local mode pending deployment acceptance.
+Company sales/forecast/jobs, assistant scenarios, monthly updates, recurring
+forecasts, connected inputs and notifications now use separate stores.
+Keep the demo in local mode pending deployment acceptance.
 Do not expose local evaluation mode to the internet.
 
 ## What is available
@@ -74,9 +74,9 @@ values after use. No HTTP route can enable this exception. Existing installation
 are rejected. Owner must verify email and set up an authenticator normally.
 
 `npm start` listens on loopback only. Do **not** set the Python application's
-`DEMANDLAB_AUTH_MODE=better_auth` on the existing demo yet: nonmigrated business
-routes deliberately return 503. Activation is a later acceptance step, not a
-shortcut around company isolation.
+`DEMANDLAB_AUTH_MODE=better_auth` on the existing demo yet. Useful business routes
+have migrated; unscoped legacy routes remain blocked deliberately. Activation
+requires deployment acceptance, not just changing this setting.
 
 ## Public callers
 
@@ -105,4 +105,21 @@ clicking it never changes actual access. Frontend tests also check shared layout
 safe errors, viewer restrictions and Persian labels. Full company-scoped sales,
 jobs and core AI context are additionally covered by company-store tests and the
 disposable browser fixture in COMPANY_CONTEXT_DELIVERY.md. Advanced monthly
-automation, Google/mail and real provider/deployment acceptance remain open.
+automation is implemented. Google/mail and real provider/deployment acceptance
+remain open.
+
+## Read-only deployment check
+
+Run `npm run preflight` from `auth-service`. For a separate local company test,
+use `npm run preflight -- --local`. It reuses the service configuration checks
+without opening a database, sending email or contacting providers. It prints no
+credentials. Invalid configuration returns a nonzero exit status; successful
+configuration is explicitly **not** a verified deployment.
+
+The shared secret file must be a regular, owner-owned, owner-only file on
+macOS/Linux; symlinks are refused. PostgreSQL URLs, SMTP ports and paired mail/
+Google credentials are checked. The supplied identity service must remain at
+`http://127.0.0.1:8011`, behind the Python entry point.
+
+See [deployment acceptance](DEPLOYMENT_ACCEPTANCE.md) for the remaining real-account
+checks and separate identity-database recovery.

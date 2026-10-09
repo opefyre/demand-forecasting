@@ -47,6 +47,9 @@ packages; retain licences and attribution. No SAML or messaging commands in v1.
   - [x] Business connections and notification management.
     - [x] Business input connections share the existing collection/dialog framework and Persian catalogue.
 - [ ] Cross-company, role, key, ingestion, migration and end-to-end acceptance.
+  - [x] Company-state restore safeguards and read-only deployment configuration checks.
+  - [x] Four-role API checks against the actual identity permission catalogue.
+  - [ ] Deployment-host role/browser journey, real accounts and encrypted off-device recovery.
 - [ ] Publish tested commits to the existing GitHub repository.
 
 ## Agreed access
@@ -123,6 +126,8 @@ Full backend: 735 checks, 734 passed, one optional integration skipped. Frontend
 
 1. Deployment acceptance: Google/mail credentials, real provider setup,
    backup/restore, role-based browser walkthrough and published API documentation.
+   Local recovery/configuration safeguards are implemented; remaining host/account
+   checks are tracked in [deployment acceptance](DEPLOYMENT_ACCEPTANCE.md).
 
 Input-connections milestone: [delivery, setup and limits](COMPANY_CONNECTIONS_DELIVERY.md).
 HTTPS/SFTP fetch/review/save and connection CRUD are implemented; real client
@@ -170,3 +175,26 @@ skipped), followed by 54 focused checks after final recovery/permission safeguar
 all 264 frontend checks and the production build passed. Synthetic browser checks
 covered explicit send consent, linked retry history, archive/restore staying
 paused, company isolation, restricted navigation and Persian mobile dialogs.
+
+## Deployment safeguards — 10 October 2026
+
+Company restore now pauses imports, recurring forecasts and live factors, interrupts
+active jobs/fetches and expires old assistant actions while preserving business
+records and completed receipts. Notification recovery remains paused and safe.
+Runtime sanitization never rewrites uploaded files merely because their filename
+resembles a database. Identity PostgreSQL and secret vaults are explicitly outside
+the state archive and need separate recovery before activation.
+
+Read-only deployment checks reuse identity configuration validation. Actual four-role
+permissions are exercised against the company API. No new UI or dependency, paid
+AI request, real message or live-data replacement was introduced.
+
+Verification: backend 824 checks (823 passed, one optional integration skipped),
+17 final recovery/role checks passed, 264 interface checks and production build
+passed. Identity type checks and 10 tests passed; optional PostgreSQL acceptance
+was not configured. Offline secret scan passed; existing demo health confirmed.
+
+Next: isolated deployment origin/database, actual Google/mail/provider accounts,
+four-role browser acceptance and encrypted off-device recovery. See
+[deployment acceptance](DEPLOYMENT_ACCEPTANCE.md). Company mode is not activated
+in the existing local demo.
