@@ -143,6 +143,13 @@ class JobStore:
                 self.groups.c.created_at.desc()).limit(limit).offset(offset)).scalars())
         return [self.get_group(key) for key in keys]
 
+    def active_group_jobs(self, identifier):
+        # Retries are separate ledger entries but still belong to this forecast.
+        with self.engine.connect() as conn:
+            return list(conn.execute(select(self.jobs.c.id).where(
+                self.jobs.c.payload['forecast_group_id'].as_string()==identifier,
+                self.jobs.c.state.in_(['queued','running']))).scalars())
+
     def progress(self, key, owner, message=None):
         values = {'heartbeat_at': time.time()}
         if message:

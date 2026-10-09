@@ -508,18 +508,19 @@ function App({ access }) {
     setNotice(uiText(text));
     setTimeout(() => setNotice(""), 4200);
   };
-  const startNewForecast=(datasetId='',method='recommended',customer='')=>{
+  const startNewForecast=(datasetId='',method='recommended',customer='',parentForecastId=null,forecastName='')=>{
     if(!canEdit)return;
-    try{if(typeof datasetId==='string'&&datasetId)sessionState.setItem(FORECAST_DRAFT_KEY,JSON.stringify({version:2,source:datasetId,step:1,methods:[method],customer,jobs:[]}));else if(readForecastDraft(sessionState)?.step===4)sessionState.removeItem(FORECAST_DRAFT_KEY);}catch{}
+    try{if(typeof datasetId==='string'&&datasetId)sessionState.setItem(FORECAST_DRAFT_KEY,JSON.stringify({version:2,source:datasetId,step:1,methods:[method],customer,jobs:[],parentForecastId,
+      ...(forecastName?{name:(forecastName+' · '+new Date().toISOString().slice(0,10)).slice(0,160)}:{})}));else if(readForecastDraft(sessionState)?.step===4)sessionState.removeItem(FORECAST_DRAFT_KEY);}catch{}
     navigate('demand');
     setForecastBusy(false);
-    setForecastRequest({id:crypto.randomUUID()});
+    setForecastRequest({id:crypto.randomUUID(),parentForecastId});
   };
   const refresh = async () => {
     const [d, p, r, w, u] = await Promise.all([
-      companyMode()&&!canEdit?Promise.resolve({datasets:[]}):api("/api/datasets"),
+      companyMode()&&!canEdit?Promise.resolve({datasets:[]}):api(companyMode()?"/api/datasets?include_archived=true":"/api/datasets"),
       companyMode()?Promise.resolve({plans:[]}):api("/api/plans"),
-      api("/api/run-list"),
+      api(companyMode()?"/api/run-list?include_archived=true":"/api/run-list"),
       api("/api/workspace"),
       companyMode()&&!canEdit?Promise.resolve({updates:[]}):api('/api/forecast-updates'),
     ]);
@@ -790,7 +791,7 @@ function App({ access }) {
       </div>
       <Modal title={uiText('New forecast')} wide fixed open={canEdit&&!!forecastRequest&&page==='demand'&&!boot} dismissible={!forecastBusy}
         onClose={()=>setForecastRequest(null)} returnFocus={()=>document.querySelector('[data-action="new-forecast"]')}>
-        <NewForecast key={forecastIdentity.current} {...context} api={api} ui={inventoryUi} embedded onWorkingChange={setForecastBusy}
+        <NewForecast key={forecastIdentity.current} {...context} api={api} ui={inventoryUi} embedded onWorkingChange={setForecastBusy} parentForecastId={forecastRequest?.parentForecastId}
           openRun={async(...args)=>{if(await openRun(...args))setForecastRequest(null);else throw Error(uiText('Could not open the forecast. Try again.'));}}
           renderImport={props=><ImportFlow {...props}/>}/>
       </Modal>
@@ -979,8 +980,9 @@ function DataPage({
     [selected, setSelected] = useState(null);
   const [search,setSearch] = useState('');
   const [orderDataset,setOrderDataset] = useState(null);
+  const [showArchived,setShowArchived]=useState(false);
   const viewConnected=(kind,id)=>{setOrderDataset(id||null);setView(kind);};
-  const visibleDatasets = forecastInputs(datasets).filter(d => d.name.toLowerCase().includes(search.toLowerCase()));
+  const visibleDatasets = datasets.filter(d=>d.sources?.history&&!d.scenario_provenance&&!d.sources.operations&&(showArchived||!d.lifecycle?.archived)).filter(d => d.name.toLowerCase().includes(search.toLowerCase()));
   const loadSaved = async (d) => {
     setError("");
     try {
@@ -1073,6 +1075,7 @@ function DataPage({
           notify={notify}
         />
       ) : <SalesFiles datasets={visibleDatasets} search={search} onSearch={setSearch} ui={inventoryUi} date={date} fmt={fmt} onReview={loadSaved}
+        api={companyMode()?api:null} canEdit={canEdit} onChanged={refresh} showArchived={showArchived} onArchived={setShowArchived}
         actions={canEdit&&<Button kind="primary" onClick={()=>{setSelected(null);setImporting(true);}}><Plus/>{pendingImport(localState.getItem('demandlab.importDraft')).exists?uiText('Resume import'):uiText('Import data')}</Button>}/>}
     </Page>
   );

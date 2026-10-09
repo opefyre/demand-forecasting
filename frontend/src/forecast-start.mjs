@@ -13,7 +13,7 @@ export const FORECAST_CHOICES=[
   ['model:Elastic Net + drivers','Selective linear model','Learn factor relationships while limiting weak signals.'],
   ['model:Histogram gradient boosting','Boosted trees','Learn non-linear patterns from sales and factors.'],
 ];
-export function forecastInputs(datasets){return datasets.filter(d=>d.sources?.history&&!d.scenario_provenance&&!d.sources.operations);}
+export function forecastInputs(datasets){return datasets.filter(d=>d.sources?.history&&!d.scenario_provenance&&!d.sources.operations&&!d.lifecycle?.archived);}
 export function remainingMethods(methods,jobs){return methods.filter(method=>!jobs.some(j=>j.method===method));}
 export function forecastSummary(run){
   const rows=run.series?.__all__?.forecast||run.forecast;
@@ -30,6 +30,7 @@ export function readForecastDraft(storage,availableSources){
     if(!Array.isArray(value.jobs)||value.jobs.length>allowed.size||value.jobs.some(j=>typeof j.id!=='string'||!allowed.has(j.method)))return null;
     const salesInputId=typeof value.salesInputId==='string'&&/^[a-f\d]{32}$/.test(value.salesInputId)?value.salesInputId:null;
     const step=value.version===2?value.step:(value.step===3?4:value.step);
-    return {source:value.source,step:step===3&&!salesInputId?2:step,salesInputId,groupId:typeof value.groupId==='string'&&/^[a-f\d]{32}$/.test(value.groupId)?value.groupId:null,name:typeof value.name==='string'?value.name.slice(0,160):null,customer:typeof value.customer==='string'?value.customer.slice(0,160):'',methods:[...new Set(value.methods)],jobs:value.jobs.map(({id,method})=>({id,method,state:'loading'}))};
+    const parentForecastId=typeof value.parentForecastId==='string'&&/^[a-f\d]{32}$/.test(value.parentForecastId)?value.parentForecastId:null;
+    return {source:value.source,step:step===3&&!salesInputId?2:step,salesInputId,parentForecastId,groupId:typeof value.groupId==='string'&&/^[a-f\d]{32}$/.test(value.groupId)?value.groupId:null,name:typeof value.name==='string'?value.name.slice(0,160):null,customer:typeof value.customer==='string'?value.customer.slice(0,160):'',methods:[...new Set(value.methods)],jobs:value.jobs.map(({id,method})=>({id,method,state:'loading'}))};
   }catch{return null;}
 }

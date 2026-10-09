@@ -19,6 +19,8 @@ def submit_draft(workspace, dispatcher, payload, name, request_id, schedule_owne
     from .input_review import input_report
     values=SavedRunConfig(**payload).model_dump()
     source=workspace.datasets.get(values['dataset_id'])
+    workspace.lifecycle.require_active('datasets',values['dataset_id'])
+    for key in source['sources'].values():workspace.lifecycle.require_active('sources',key)
     if source['sources'].get('operations') or values['scenario_name'] or values['adjustment'] or values['sales_input_id']:
         raise ValueError('Use reviewed sales and factor inputs for this draft.')
     proof=source.get('scenario_provenance')

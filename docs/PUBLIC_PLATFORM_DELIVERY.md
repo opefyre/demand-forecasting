@@ -27,10 +27,12 @@ packages; retain licences and attribution. No SAML or messaging commands in v1.
   - [x] Advanced scenarios, monthly updates and recurring drafts: 131 v1 operations.
   - [x] Read-only input connection lifecycle/captures/review: 140 v1 operations.
   - [x] Connected customers/orders, provider adapters and scheduled captures: 145 v1 operations.
-  - [ ] Remaining resource lifecycle, advanced automation and ingestion routes.
+  - [x] Resource naming, archive/restore and recorded revisions: 150 v1 operations.
+  - [ ] Remaining notification routes and deployment acceptance.
 - [x] Scoped personal and company API keys; revocation, rotation and expiry.
 - [ ] Useful CRUD for customers/products, inputs/orders, forecast lifecycle,
       views/conversations, settings, connections and schedules.
+  - [x] Remaining input/forecast naming, archive/restore and revision navigation.
 - [x] SFTP pull, Odoo 18/19, Google Sheets and generic HTTP ingestion implementation.
   - [x] HTTPS complete exports and pinned-host-key SFTP, company-separated history/future captures.
   - [x] Reviewed mapping, immutable receipts/revisions and repeat-safe fetch/accept.
@@ -117,11 +119,9 @@ Company-scoped scenarios, monthly updates and recurring drafts are implemented.
 Full backend: 735 checks, 734 passed, one optional integration skipped. Frontend:
 249 passed. Production build and identity-service checks passed. No paid AI call.
 
-1. Finish resource lifecycle: remaining source/dataset/forecast naming, archive,
-   restore and revision presentation without modifying immutable evidence.
-2. Notifications: Slack/Teams/Telegram/eligible WhatsApp with
+1. Notifications: Slack/Teams/Telegram/eligible WhatsApp with
    admin-only connection setup, delivery history and explicit outbound consent.
-3. Deployment acceptance: Google/mail credentials, real provider setup,
+2. Deployment acceptance: Google/mail credentials, real provider setup,
    backup/restore, role-based browser walkthrough and published API documentation.
 
 Input-connections milestone: [delivery, setup and limits](COMPANY_CONNECTIONS_DELIVERY.md).
@@ -145,3 +145,15 @@ Verification: backend **780 checks (779 passed, one optional integration skipped
 all **254 interface checks passed**, production build passed. Browser acceptance
 covered customer/order review, preservation, daily schedule configuration,
 Persian narrow-screen setup and second-company restricted controls. No paid AI call.
+
+Resource-lifecycle milestone: [delivery and evidence rules](COMPANY_LIFECYCLE_DELIVERY.md).
+Company-scoped input/source/forecast naming, reversible archive and recorded
+revision navigation are implemented. Multi-method forecasts share one lifecycle;
+monthly results link to their recorded baselines. Evidence and approvals remain
+unchanged. The shared UI includes Persian and narrow-screen support.
+Company mode is still not activated in the original local demo.
+
+Verification: backend 794 checks (793 passed, one optional integration skipped),
+then 39 focused checks after the final retry-job safeguard; all 260 interface
+checks and the production build passed. Browser acceptance covered reversible
+archive, explicit revisions, Persian/mobile controls and separate company names.

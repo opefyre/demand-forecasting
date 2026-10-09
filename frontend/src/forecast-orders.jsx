@@ -3,6 +3,7 @@ import {t as uiText} from './localization.mjs';
 import {SalesSource} from './sales-demand.jsx';
 import {Actions,Disclosure,Grid,Stack} from './ui-layout.jsx';
 import {OrderRows} from './order-books.jsx';
+import {methodName} from './method-comparison.jsx';
 
 export function ForecastOrders({api,ui,dataset,snapshotId,onReady,canEdit=true,onWorkingChange}){
   const {Button,Pick,Field,ErrorBox,Table}=ui;
@@ -41,7 +42,7 @@ export function ForecastOrders({api,ui,dataset,snapshotId,onReady,canEdit=true,o
     </Disclosure>
     <OrderRows inputs={inputs} ui={ui} canEdit={!blocked} onChange={rows=>{change('orders',rows);setImports(v=>{const next={...v};delete next.orders;return next;});}}/>
     <Disclosure title={uiText('Import or reuse orders')}>
-      {!!loaded.saved_orders.length&&<Field title={uiText('Reuse saved orders')}><Pick label={uiText('Reuse saved orders')} value={reuse} onChange={useSaved} options={[["",uiText('Choose saved orders')],...loaded.saved_orders.map(s=>[s.id,s.name+' · '+s.as_of])]}/></Field>}
+      {!!loaded.saved_orders.length&&<Field title={uiText('Reuse saved orders')}><Pick label={uiText('Reuse saved orders')} value={reuse} onChange={useSaved} options={[["",uiText('Choose saved orders')],...loaded.saved_orders.map(s=>[s.id,s.name+(s.method?' · '+methodName(s.method):'')+' · '+s.as_of])]}/></Field>}
       <SalesSource embedded api={api} ui={ui} role="orders" schema={schema.orders} config={imports.orders} run={loaded.context} templateBase={path+'/template'} fallbackCount={inputs.orders.length} orderMode="replace" onBusyChange={fileBusy} setConfig={config=>{setImports(v=>{const next={...v};if(config)next.orders=config;else delete next.orders;return next;});setChecked(false);onReady(null);}}/>
     </Disclosure>
     <Disclosure title={uiText('Order coverage')}><Grid><Field title={uiText('Orders correct as of')}><input disabled={blocked} type="date" value={inputs.as_of} onChange={e=>change('as_of',e.target.value)}/></Field><Field title={uiText('Review again after')}><input disabled={blocked} type="date" value={inputs.valid_until} onChange={e=>change('valid_until',e.target.value)}/></Field></Grid></Disclosure>

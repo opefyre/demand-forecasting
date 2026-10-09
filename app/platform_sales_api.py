@@ -44,6 +44,7 @@ class ForecastCreate(StrictInput):
     sales_input_id: str = Field(pattern=r'^[a-f0-9]{32}$')
     methods: list[str] = Field(min_length=1, max_length=24)
     request_id: str = Field(min_length=8, max_length=100)
+    parent_forecast_id: str | None = Field(default=None,pattern=r'^[a-f0-9]{32}$')
 
 
 class FactorImport(StrictInput):
@@ -110,6 +111,7 @@ def install_platform_sales(api, workspaces, dispatcher=None):
     def check_sources(ws, body):
         for role, key in body.sources.items():
             source = call(lambda: ws.datasets.source(key)[0], missing=True)
+            call(lambda:ws.lifecycle.require_active('sources',key))
             if source['role'] != role:
                 raise HTTPException(400, 'Choose files saved for the selected input role.')
         if body.parent_dataset_id:
@@ -144,21 +146,25 @@ def install_platform_sales(api, workspaces, dispatcher=None):
         value = call(lambda: ws.datasets.source(source_id)[0], missing=True)
         scope = source_scope(value['role'])+':read'
         principal(request, scope)
-        return value
+        return ws.lifecycle.present('sources',source_id,value)
 
     @router.get('/sources', tags=['Sales inputs'])
-    def sources(request: Request, limit: int = Query(100, ge=1, le=1000), offset: int = Query(0, ge=0)):
+    def sources(request: Request, limit: int = Query(100, ge=1, le=1000), offset: int = Query(0, ge=0), include_archived:bool=False):
         ws = workspace(request)
         scopes = set(principal(request)['permissions'])
         if not scopes.intersection({'inputs:read','customers:read','orders:read','factors:read'}):
             raise HTTPException(403, 'Sales input access is required.')
         rows = [row for row in ws.datasets.list_sources() if
             source_scope(row['role'])+':read' in scopes]
+        rows=[ws.lifecycle.present('sources',r['id'],r) for r in rows]
+        if not include_archived:rows=[r for r in rows if not r['lifecycle']['archived']]
         return {'sources':rows[offset:offset+limit], 'total':len(rows), 'limit':limit, 'offset':offset}
 
     @router.get('/datasets', tags=['Sales inputs'])
-    def list_datasets(request: Request, limit: int = Query(100, ge=1, le=1000), offset: int = Query(0, ge=0)):
-        rows = workspace(request, 'inputs:read').datasets.list()
+    def list_datasets(request: Request, limit: int = Query(100, ge=1, le=1000), offset: int = Query(0, ge=0), include_archived:bool=False):
+        ws=workspace(request,'inputs:read')
+        rows = [ws.lifecycle.present('datasets',r['id'],r) for r in ws.datasets.list()]
+        if not include_archived:rows=[r for r in rows if not r['lifecycle']['archived']]
         return {'datasets':rows[offset:offset+limit], 'total':len(rows), 'limit':limit, 'offset':offset}
 
     @router.post('/datasets/preview', tags=['Sales inputs'])
@@ -178,7 +184,8 @@ def install_platform_sales(api, workspaces, dispatcher=None):
 
     @router.get('/datasets/{dataset_id}', tags=['Sales inputs'])
     def get_dataset(dataset_id: str, request: Request):
-        return dataset(workspace(request, 'inputs:read'), dataset_id)
+        ws=workspace(request,'inputs:read')
+        return ws.lifecycle.present('datasets',dataset_id,dataset(ws,dataset_id))
 
     @router.get('/datasets/{dataset_id}/orders', tags=['Orders'])
     def get_orders(dataset_id: str, request: Request):
@@ -186,7 +193,8 @@ def install_platform_sales(api, workspaces, dispatcher=None):
         dataset(ws, dataset_id)
         value = call(lambda: ws.order_books.get(dataset_id))
         from .order_reuse import compatible
-        value['saved_orders'] = [{'id':s['id'],'name':s['inputs']['name'],'as_of':s['inputs']['as_of']}
+        value['saved_orders'] = [{'id':s['id'],'name':ws.lifecycle.get('forecasts' if r.get('forecast_group_id') else 'runs',r.get('forecast_group_id') or r['run_id'])['name'] or r.get('forecast_name') or r.get('dataset_name') or s['inputs']['name'],
+            'method':r.get('method_selection'),'as_of':s['inputs']['as_of']}
             for r in ws.list_runs() if compatible(r,value['context']) for s in ws.sales.list(r['run_id'])[:1]]
         return value
 
@@ -257,6 +265,7 @@ def install_platform_sales(api, workspaces, dispatcher=None):
     def factor_save(dataset_id: str, body: dict, request: Request):
         ws = workspace(request, 'factors:write','inputs:write')
         dataset(ws, dataset_id)
+        call(lambda:ws.lifecycle.require_active('datasets',dataset_id))
         from .forecast_inputs import save_inputs
         # The factor service produces a reviewed, immutable derived sales dataset.
         return call(lambda: save_inputs(ws.datasets, ws.factors, dataset_id, body, ws.live_sources))
@@ -265,6 +274,12 @@ def install_platform_sales(api, workspaces, dispatcher=None):
     def create_forecast(body: ForecastCreate, request: Request):
         ws = workspace(request, 'forecasts:run','inputs:read','orders:read')
         value = dataset(ws, body.dataset_id)
+        call(lambda:ws.lifecycle.require_active('datasets',body.dataset_id))
+        for key in value['sources'].values():call(lambda:ws.lifecycle.require_active('sources',key))
+        if body.parent_forecast_id:
+            parent=call(lambda:ws.jobs.get_group(body.parent_forecast_id),missing=True)
+            if ws.jobs.active_group_jobs(parent['id']):
+                raise HTTPException(409,'Wait for the previous forecast to finish before revising it.')
         if value.get('scenario_provenance') or set(value['sources']) - {'history','future'}:
             raise HTTPException(400, 'Choose reviewed sales inputs.')
         call(lambda: reviewed(ws.datasets, ws.sales, body.dataset_id, body.sales_input_id, site=ws.site))
@@ -284,6 +299,8 @@ def install_platform_sales(api, workspaces, dispatcher=None):
         group_id = uuid.uuid5(uuid.NAMESPACE_URL, 'demandlab-group:' + body.request_id).hex
         payloads = [{'dataset_id':body.dataset_id, 'sales_input_id':body.sales_input_id,
             'method':method, 'forecast_group_id':group_id, 'forecast_name':body.name} for method in body.methods]
+        if body.parent_forecast_id:
+            for payload in payloads:payload['parent_forecast_id']=body.parent_forecast_id
         group = call(lambda: ws.jobs.create_group(payloads, body.name, body.request_id))
         # A dispatch failure leaves the durable group queued and safe to retry;
         # every method is recorded before any is sent to Huey.
@@ -304,14 +321,16 @@ def install_platform_sales(api, workspaces, dispatcher=None):
             'note':'A method still needs enough history and matching factors to calculate.'}
 
     @router.get('/forecasts', tags=['Forecasts'])
-    def forecasts(request: Request, limit: int = Query(100, ge=1, le=1000), offset: int = Query(0, ge=0)):
+    def forecasts(request: Request, limit: int = Query(100, ge=1, le=1000), offset: int = Query(0, ge=0),include_archived:bool=False):
         ws = workspace(request, 'drafts:read')
-        return {'forecasts':[safe_group(group) for group in ws.jobs.list_groups(limit, offset)]}
+        rows=[ws.lifecycle.present('forecasts',g['id'],safe_group(g)) for g in ws.jobs.list_groups(limit=None)]
+        if not include_archived:rows=[r for r in rows if not r['lifecycle']['archived']]
+        return {'forecasts':rows[offset:offset+limit],'total':len(rows),'offset':offset,'limit':limit}
 
     @router.get('/forecasts/{forecast_id}', tags=['Forecasts'])
     def forecast(forecast_id: str, request: Request):
         ws = workspace(request, 'drafts:read')
-        return safe_group(call(lambda: ws.jobs.get_group(forecast_id), missing=True))
+        return ws.lifecycle.present('forecasts',forecast_id,safe_group(call(lambda: ws.jobs.get_group(forecast_id), missing=True)))
 
     @router.get('/jobs/{job_id}', tags=['Forecast jobs'])
     def job(job_id: str, request: Request):

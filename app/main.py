@@ -243,6 +243,7 @@ class SavedRunConfig(BaseModel):
     sales_input_id: str | None = Field(default=None, min_length=32, max_length=32)
     forecast_group_id: str | None = Field(default=None, pattern=r'^[a-f0-9]{32}$')
     forecast_name: str | None = Field(default=None, min_length=1, max_length=160)
+    parent_forecast_id: str | None = Field(default=None,pattern=r'^[a-f0-9]{32}$')
 
 
 async def _read_upload(file: UploadFile) -> bytes:
@@ -1388,6 +1389,10 @@ async def calculate_saved(payload: SavedRunConfig, workspace=None):
         raise HTTPException(400, 'Company quantity scenarios are not available yet.')
     try:
         dataset=DATASET_STORE.get(payload.dataset_id)
+        if workspace:
+            workspace.lifecycle.require_active('datasets',payload.dataset_id)
+            for key in dataset['sources'].values():workspace.lifecycle.require_active('sources',key)
+            if payload.forecast_group_id:workspace.lifecycle.require_active('forecasts',payload.forecast_group_id)
         if bool(payload.forecast_group_id) != bool(payload.forecast_name):
             raise ValueError('A forecast group needs an identifier and a name.')
         if payload.forecast_group_id and (not payload.sales_input_id or payload.scenario_name or payload.adjustment or dataset.get('scenario_provenance')):

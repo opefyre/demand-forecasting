@@ -28,6 +28,11 @@ class CompanyWorkspace:
         return path
 
     @property
+    def lifecycle(self):
+        from .resource_lifecycle import ResourceLifecycle
+        return self.store('lifecycle',lambda:ResourceLifecycle(self.path('resource-metadata.sqlite3')))
+
+    @property
     def customers(self):
         return self.store('customers', lambda: CustomerStore(self.path('customers.sqlite3')))
 

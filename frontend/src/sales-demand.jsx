@@ -24,6 +24,7 @@ import {ModelEstimate} from './model-estimate.jsx';
 import {forecastGroups} from './forecast-groups.mjs';
 import {MethodComparison,methodName} from './method-comparison.jsx';
 import {ActualResults} from './actuals.jsx';
+import {ResourceMenu} from './resource-lifecycle.jsx';
 
 const number = n => n == null ? uiText('Unknown') : new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 2 }).format(n);
 const title = value => value.replaceAll('_', ' ').replace(/^./, c => c.toUpperCase());
@@ -33,7 +34,11 @@ export { remembered };
 export function SalesDemand({ api, ui, run, runs = [], openRun, importNew, navigate, canEdit, canAdmin, showHeading = true, decisionTarget,startUpdate,startNewForecast }) {
   const { Button, Pick, Field, Table, ErrorBox, Modal, Help } = ui;
   const basis=planningBasis(run);
-  const groups=forecastGroups(runs),group=groups.find(g=>g.runs.some(r=>r.run_id===run?.run_id));
+  const [library,setLibrary]=useState(null),[showArchived,setShowArchived]=useState(false);
+  useEffect(()=>{setLibrary(null);},[runs]);
+  const allGroups=forecastGroups(library||runs),group=allGroups.find(g=>g.runs.some(r=>r.run_id===run?.run_id));
+  const groups=allGroups.filter(g=>g.id===group?.id||showArchived||!g.runs[0].lifecycle?.archived);
+  const refreshLibrary=async()=>setLibrary((await api('/api/v1/runs?include_archived=true')).runs);
   const [comparing,setComparing]=useState(false);
   const [actualsOpen,setActualsOpen]=useState(false);
   const previousGroup=useRef(null);
@@ -133,7 +138,13 @@ export function SalesDemand({ api, ui, run, runs = [], openRun, importNew, navig
       {!startNewForecast&&!outlook&&!demandLoading&&!error&&canEdit&&<OrderReuse runId={run.run_id} api={api} ui={ui} onSaved={async saved=>{
         localState.setItem(`demandlab.orders.${run.run_id}`,saved.id);await refresh(run.run_id);
       }}/>}
-      {showHeading && <Pick label={uiText("Forecast")} value={group?.id||run.run_id} options={groups.map(g => [g.id,g.name])} onChange={id=>{setComparing(false);openRun(groups.find(g=>g.id===id).runs[0].run_id,'demand');}}/>}
+      {showHeading && <Pick label={uiText("Forecast")} value={group?.id||run.run_id} options={groups.map(g => [g.id,g.name+(g.runs[0].lifecycle?.archived?' · '+uiText('Archived'):'')])} onChange={id=>{setComparing(false);openRun(groups.find(g=>g.id===id).runs[0].run_id,'demand');}}/>}
+      {showHeading&&companyMode()&&<>
+        <label className="ui-check"><input type="checkbox" checked={showArchived} onChange={e=>setShowArchived(e.target.checked)}/>{uiText('Show archived')}</label>
+        {group&&<ResourceMenu api={api} ui={ui} kind={run.forecast_group_id?'forecasts':'runs'} id={run.forecast_group_id||run.run_id}
+          name={group.name} archived={!!group.runs[0].lifecycle?.archived} canEdit={canEdit} onChanged={refreshLibrary}
+          onOpenRevision={row=>row.run_id?openRun(row.run_id,'demand'):row.kind==='runs'?openRun(row.id,'demand'):Promise.reject(Error(uiText('This forecast has no completed results.')))}
+          onCreateRevision={canEdit&&startNewForecast&&run.forecast_group_id?()=>startNewForecast(run.dataset_id,run.method_selection||'recommended','',run.forecast_group_id,group.name):null}/>}</>}
       {group?.runs.length>1&&<>{!comparing&&<Pick label={uiText('Method')} value={run.run_id} options={group.runs.map(r=>[r.run_id,methodName(r.method_selection)])} onChange={id=>openRun(id,'demand')}/>}<Button onClick={()=>setComparing(v=>!v)}>{uiText(comparing?'Back to results':'Compare methods')}</Button></>}
       {!comparing&&snapshots.length>1 && <Pick label={uiText("Order version")} value={selected} options={snapshots.map(s => [s.id, `${s.name} · ${s.as_of}`])} onChange={setSelected}/>}
       {outlook&&!comparing && <div className="demand-context-actions">{canEdit && <Button onClick={() => start(false)}>{outlook.fresh ? uiText("Update orders") : uiText("Review orders")}</Button>}{companyMode()?<Button onClick={()=>setActualsOpen(true)}>{uiText('Actual results')}</Button>:navigate && <button className="home-text-link" onClick={()=>navigate('forecast')}>{uiText("How was this calculated?")}</button>}{!showHeading&&<Button onClick={()=>setExporting(true)}>{uiText("Export demand")}</Button>}</div>}

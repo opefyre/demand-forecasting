@@ -136,11 +136,14 @@ def install_platform_workspace(api, workspaces, dispatcher=None):
     def forecast_settings(dataset_id:str,body:ForecastSettings,request:Request):
         w=ws(request,'inputs:read','inputs:write')
         value=call(lambda:w.datasets.get(dataset_id),True)
+        call(lambda:w.lifecycle.require_active('datasets',dataset_id))
+        for key in value['sources'].values():call(lambda:w.lifecycle.require_active('sources',key))
         if value.get('scenario_provenance') or value['sources'].get('operations'):
             raise HTTPException(400,'Choose original sales inputs.')
         settings={**value['settings'],**body.model_dump(exclude={'request_id'})}
-        if settings==value['settings']:return value
-        return call(lambda:w.datasets.save(value['name'],value['sources'],settings,value['classification'],True,
+        if settings==value['settings']:return w.lifecycle.present('datasets',dataset_id,value)
+        name=w.lifecycle.get('datasets',dataset_id)['name'] or value['name']
+        return call(lambda:w.datasets.save(name,value['sources'],settings,value['classification'],True,
             parent_dataset_id=value['id'],request_id=body.request_id))
 
     @router.get('/orders/schema',tags=['Orders'])
@@ -159,15 +162,19 @@ def install_platform_workspace(api, workspaces, dispatcher=None):
         return Response(output.getvalue(),media_type='text/csv',headers={'Content-Disposition':f'attachment; filename="{role}.csv"'})
 
     @router.get('/runs',tags=['Forecast results'])
-    def runs(request:Request,limit:int=Query(100,ge=1,le=1000),offset:int=Query(0,ge=0)):
+    def runs(request:Request,limit:int=Query(100,ge=1,le=1000),offset:int=Query(0,ge=0),include_archived:bool=False):
         access=reports(request);values=[]
         for value in access.ws.list_runs():
             if not access.drafts:
                 try:access.approved(value['run_id'])
                 except HTTPException:continue
-            values.append({'run_id':value['run_id'],'name':value.get('forecast_name') or value.get('dataset_name') or 'Forecast',
+            row={'run_id':value['run_id'],'name':value.get('forecast_name') or value.get('dataset_name') or 'Forecast',
                 'created_at':value.get('issued_at',''),**{k:value.get(k) for k in ('base_run_id','dataset_id','scenario_name',
-                'summary','metrics','forecast_group_id','forecast_name','method_selection','forecast_order_inputs_id','sales_input_snapshot_id','unit')}})
+                'summary','metrics','forecast_group_id','forecast_name','method_selection','forecast_order_inputs_id','sales_input_snapshot_id','unit')}}
+            kind,key=('forecasts',value['forecast_group_id']) if value.get('forecast_group_id') else ('runs',value['run_id'])
+            row=access.ws.lifecycle.present(kind,key,row)
+            if row['lifecycle']['name']:row['forecast_name']=row['name']
+            if include_archived or not row['lifecycle']['archived']:values.append(row)
         return {'runs':values[offset:offset+limit],'total':len(values),'offset':offset,'limit':limit}
 
     @router.get('/runs/{run_id}/orders/starter',tags=['Orders'])
