@@ -49,6 +49,9 @@ packages; retain licences and attribution. No SAML or messaging commands in v1.
 - [ ] Cross-company, role, key, ingestion, migration and end-to-end acceptance.
   - [x] Company-state restore safeguards and read-only deployment configuration checks.
   - [x] Separate deployment templates, restricted services and account/credential runbook.
+  - [x] Separate Cloudflare domain hold and private R2 buckets; isolated Google/Resend identities created.
+  - [ ] Cloudflare durable state/auth/vault/job migration and idle-sleeping engine deployment.
+  - [ ] Replace exposed new Google secret; create restricted Resend key and verify delivery.
   - [x] Four-role API checks against the actual identity permission catalogue.
   - [ ] Deployment-host role/browser journey, real accounts and encrypted off-device recovery.
 - [ ] Publish tested commits to the existing GitHub repository.
@@ -59,6 +62,10 @@ Admin manages users/settings/connections and forecasting. Planner manages inputs
 and drafts. Approver reviews/releases without editing inputs or calculating.
 Viewer sees approved reports and read-only AI only. Own chats/views are personal.
 Users issue keys within their current rights; admins issue restricted company keys.
+
+Selected deployment: Cloudflare Workers Paid and Containers, domain
+`forecast.vrolen.com`. [Actual resources, credential actions and launch gates](CLOUDFLARE_DEPLOYMENT.md).
+The domain is held closed; the app is not publicly launched.
 
 ## Safety and delivery
 

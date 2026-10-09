@@ -1,10 +1,17 @@
 # Deployment setup
 
-Prepared 10 October 2026. Templates are ready for a separate staging installation;
-no public deployment, account, DNS record or local-demo setting has been changed.
-The existing demo stays at `http://127.0.0.1:8010`.
+Updated 10 October 2026. The user selected Cloudflare Workers Paid, Containers,
+R2 and `forecast.vrolen.com`. See [Cloudflare status and remaining work](CLOUDFLARE_DEPLOYMENT.md).
+The domain serves an intentional unavailable response, not the app or local demo.
+The existing demo stays at `http://127.0.0.1:8010` with its original configuration.
+The Linux templates below remain an alternative reference, not the selected host.
 
 ## What I need from you
+
+For the selected Cloudflare deployment, the immediate user actions are the
+Google secret replacement and the restricted Resend key listed in the Cloudflare
+status document. The following table is the original generic/Linux requirements;
+it does not request another server subscription or repeat the already confirmed domain.
 
 | Item | Exact information/access needed |
 | --- | --- |
