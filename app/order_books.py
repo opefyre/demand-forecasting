@@ -5,7 +5,7 @@ import json
 import sqlite3
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field
-from .sales_demand import SalesOrder, validate_inputs, run_today
+from .sales_demand import SalesOrder, validate_inputs, run_today, StaleOrderRevision
 from .forecast_orders import starter
 
 
@@ -50,14 +50,15 @@ class BookRequest(BaseModel):
 
 
 class OrderBooks:
-    def __init__(self, path, datasets, customers):
+    def __init__(self, path, datasets, customers, *, site=None):
         self.path,self.datasets,self.customers = path,datasets,customers
+        self.site = site
         with closing(sqlite3.connect(path)) as con:
             con.execute('CREATE TABLE IF NOT EXISTS order_books (id TEXT PRIMARY KEY, version INTEGER, payload TEXT)')
             con.commit()
 
     def get(self, identifier):
-        data = directory_inputs(starter(self.datasets,identifier), self.customers.list())
+        data = directory_inputs(starter(self.datasets,identifier,site=self.site), self.customers.list())
         with closing(sqlite3.connect(self.path)) as con:
             row=con.execute('SELECT version,payload FROM order_books WHERE id=?',(lineage(self.datasets,identifier),)).fetchone()
         if row:
@@ -78,7 +79,7 @@ class OrderBooks:
             key=lineage(self.datasets,identifier)
             current=con.execute('SELECT version FROM order_books WHERE id=?',(key,)).fetchone()
             if (current[0] if current else 0)!=payload.version:
-                raise ValueError('Orders changed. Reload the order book before saving.')
+                raise StaleOrderRevision('Orders changed. Reload the order book before saving.')
             con.execute('INSERT OR REPLACE INTO order_books VALUES (?,?,?)',(key,payload.version+1,json.dumps(keep)))
             con.commit()
         return self.get(identifier)

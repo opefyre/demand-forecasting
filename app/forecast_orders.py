@@ -13,19 +13,21 @@ from .sales_demand import validate_inputs, demand_outlook, import_rows, run_toda
 from .order_reuse import compatible
 
 
-def context(datasets, identifier):
-    from .main import SITE_PROFILE
+def context(datasets, identifier, *, site=None):
+    if site is None:
+        from .main import SITE_PROFILE
+        site = SITE_PROFILE
     value = input_context(datasets, identifier)
     settings = value['input_manifest']['settings']
     value.update(unit=settings.get('unit', 'units'),
                  run_settings={'frequency': 'monthly', 'calendar_profile': {
                      'month_basis': settings.get('month_basis', 'gregorian')}},
-                 site=deepcopy(SITE_PROFILE))
+                 site=deepcopy(site))
     return value
 
 
-def starter(datasets, identifier):
-    value = context(datasets, identifier)
+def starter(datasets, identifier, *, site=None):
+    value = context(datasets, identifier, site=site)
     today = str(run_today(value))
     return {'context': value, 'inputs': {'name': 'Forecast inputs', 'run_id': value['run_id'],
             'as_of': today, 'valid_until': today, 'classification': value['source_classification'],
@@ -33,8 +35,8 @@ def starter(datasets, identifier):
             'orders': [], 'commitments': [], 'reviewed': False, 'note': ''}}
 
 
-def prepare(datasets, sales, identifier, payload, load_run):
-    value = context(datasets, identifier)
+def prepare(datasets, sales, identifier, payload, load_run, *, site=None):
+    value = context(datasets, identifier, site=site)
     inputs = deepcopy(payload.get('inputs', {}))
     evidence = []
     for role, config in payload.get('imports', {}).items():
@@ -86,15 +88,15 @@ def prepare(datasets, sales, identifier, payload, load_run):
     return report, inputs, value, evidence
 
 
-def save(datasets, sales, identifier, payload, load_run, actor):
-    report, inputs, value, evidence = prepare(datasets, sales, identifier, payload, load_run)
+def save(datasets, sales, identifier, payload, load_run, actor, *, site=None):
+    report, inputs, value, evidence = prepare(datasets, sales, identifier, payload, load_run, site=site)
     if payload.get('review_token') != report['review_token']:
         raise StaleOrderRevision('Inputs changed. Review them before continuing.')
     return sales.save(inputs, value, payload.get('request_id'), actor, evidence)
 
 
-def reviewed(datasets, sales, identifier, snapshot_id):
-    value = context(datasets, identifier)
+def reviewed(datasets, sales, identifier, snapshot_id, *, site=None):
+    value = context(datasets, identifier, site=site)
     saved = sales.get(snapshot_id)
     proof = next((e for e in saved['evidence'] if e.get('type') == 'forecast_order_inputs'), {})
     if proof.get('dataset_id') != identifier or proof.get('context_sha256') != run_hash(value):
@@ -112,8 +114,8 @@ def reviewed(datasets, sales, identifier, snapshot_id):
     return saved
 
 
-def finalize(datasets, sales, result, snapshot_id, folder):
-    saved = reviewed(datasets, sales, result['dataset_id'], snapshot_id)
+def finalize(datasets, sales, result, snapshot_id, folder, *, site=None):
+    saved = reviewed(datasets, sales, result['dataset_id'], snapshot_id, site=site)
     inputs = deepcopy(saved['inputs'])
     inputs['run_id'] = result['run_id']
     outlook = demand_outlook(inputs, result)

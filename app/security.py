@@ -238,7 +238,12 @@ def install_access(app, access):
     if access.config.mode == 'better_auth':
         from .platform_api import create_platform_api
         from .company_workspace import CompanyWorkspaces
-        app.mount('/api/v1', create_platform_api(access.identity_service, CompanyWorkspaces(access.data_dir/'companies')))
+        company_workspaces = CompanyWorkspaces(access.data_dir/'companies')
+        app.mount('/api/v1', create_platform_api(access.identity_service, company_workspaces))
+
+        @app.on_event('shutdown')
+        def close_company_workspaces():
+            company_workspaces.close()
 
         @app.api_route('/api/login/{path:path}', methods=['GET','POST'], include_in_schema=False)
         async def login_proxy(request: Request):

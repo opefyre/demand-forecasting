@@ -66,6 +66,10 @@ class DatasetStore:
     def list(self):
         return sorted([json.loads(p.read_text()) for p in self.root.glob('dataset-*.json')], key=lambda x:x['created_at'], reverse=True)
 
+    def list_sources(self):
+        return sorted([json.loads(p.read_text()) for p in self.root.glob('source-*.json')],
+                      key=lambda row: row['created_at'], reverse=True)
+
     def get(self, key):
         path = self._path('dataset',key)
         if not path.exists(): raise ValueError('Saved dataset was not found.')

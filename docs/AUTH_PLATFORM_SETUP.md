@@ -1,8 +1,9 @@
 # Authentication and public API foundation
 
 Status: tested foundation, not yet a complete authenticated forecasting deployment.
-Keep the current demo in local mode until company-scoped business APIs, jobs and
-AI context are delivered. Do not expose local evaluation mode to the internet.
+Company sales/forecast/job APIs are delivered; AI context and remaining screens
+still need migration. Keep the current demo in local mode until that migration
+passes. Do not expose local evaluation mode to the internet.
 
 ## What is available
 
@@ -15,8 +16,10 @@ AI context are delivered. Do not expose local evaluation mode to the internet.
 - Settings → API access: personal keys within current rights; restricted company
   keys for admins. Hashes remain in PostgreSQL, raw key shown once. Default expiry
   90 days, maximum 365 days; 60 requests/minute/key. Rotate/revoke immediately.
-- `/api/v1` provides identity, access management, audit and company customer/product
-  operations. Remaining business API coverage is listed in PUBLIC_API_COVERAGE.md.
+- `/api/v1` provides identity/access management, customers/products, sales inputs,
+  reviewed orders/factors, grouped forecast jobs, results/exports and approvals.
+  See COMPANY_FORECAST_DELIVERY.md for the workflow and limitations; remaining
+  business API coverage is listed in PUBLIC_API_COVERAGE.md.
 
 These screens are available in `better_auth` mode only. They are intentionally not
 shown as nonfunctional management controls in the unauthenticated local demo.
@@ -26,8 +29,9 @@ shown as nonfunctional management controls in the unauthenticated local demo.
 Python app is the only public entry point. It forwards `/api/login/*` to the
 private identity service at `127.0.0.1:8011`. The private `/internal/*` endpoints
 require a separate shared bridge secret and must not be exposed by a proxy.
-An isolated PostgreSQL database stores identity. Company customer directories
-use explicit per-company folders. There is no default-company fallback.
+An isolated PostgreSQL database stores identity. Sales files, customers/orders,
+factors, jobs/results and approvals use explicit company-separated storage.
+There is no default-company fallback.
 
 Use `auth-service/.env.example` as the configuration-field reference. Actual
 values belong in the ignored `secrets/.env.local` or a deployment secret manager,
@@ -82,7 +86,7 @@ owners lose access. Keys cannot mint other keys or manage users.
 Browser writes require matching origin plus `X-DemandLab-CSRF` from
 `/api/auth/session`. Access/key administration requires an interactive session.
 OpenAPI: `/api/v1/openapi.json`; interactive docs: `/api/v1/docs` when signed in.
-Membership determines company selection; body-supplied company IDs are rejected.
+Membership determines company selection; request bodies cannot select a company.
 
 ## Verification
 

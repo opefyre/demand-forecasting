@@ -1,5 +1,21 @@
 # Sales/demand forecasting delivery plan
 
+## Current priority — approved public-platform expansion, 9 October
+
+Follow [PUBLIC_PLATFORM_DELIVERY.md](PUBLIC_PLATFORM_DELIVERY.md) for the current
+build order. Older entries below are delivery history, not today's next-task plan.
+
+Access foundation is published. Company-separated sales inputs, orders, factors,
+grouped model jobs, results/exports and independent approvals are now implemented
+as a backend milestone. See [COMPANY_FORECAST_DELIVERY.md](COMPANY_FORECAST_DELIVERY.md).
+The existing local demo remains usable; do not enable company mode yet.
+
+Next: company-scoped assistant/personal context and remaining frontend business
+routing/settings/views. Then SFTP/Odoo/Google Sheets/HTTP, notifications/schedules,
+and deployment/provider acceptance. No production or inventory-execution scope.
+
+## Earlier delivery history
+
 Latest delivery, 7 October — guided read recovery across sales demand, order-import
 schema, monthly updates and saved live-source information. Failed reads no longer
 suggest empty orders or permanent loading. Structured bilingual guidance preserves

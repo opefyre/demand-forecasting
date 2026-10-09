@@ -48,9 +48,17 @@ class JobStore:
             Column('error', String), Column('retry_of', String))
         self.workers = Table('worker_health', metadata,
             Column('id', String, primary_key=True), Column('heartbeat_at', Float))
-        metadata.create_all(self.engine)
+        self.groups = Table('forecast_groups', metadata,
+            Column('id', String, primary_key=True), Column('request_id', String, unique=True),
+            Column('name', String, nullable=False), Column('payloads', JSON, nullable=False),
+            Column('job_ids', JSON, nullable=False), Column('created_at', Float, nullable=False))
         with self.engine.begin() as conn:
             conn.exec_driver_sql('PRAGMA journal_mode=WAL')
+        # SQLite must serialize schema discovery + creation across app/worker
+        # processes, including the first startup after a schema addition.
+        with self.engine.begin() as conn:
+            conn.exec_driver_sql('BEGIN IMMEDIATE')
+            metadata.create_all(conn)
 
     def close(self):
         self.engine.dispose()
@@ -100,6 +108,40 @@ class JobStore:
                     state='running', owner=owner, heartbeat_at=now,
                     updated_at=now, message='Checking saved inputs'))
         return owner if result.rowcount else None
+
+    def create_group(self, payloads, name, request_id):
+        """Commit all selected methods together; retries cannot leave half a group."""
+        identifier = uuid.uuid5(uuid.NAMESPACE_URL, 'demandlab-group:' + request_id).hex
+        now = time.time()
+        row = dict(id=identifier, request_id=request_id, name=name, payloads=payloads,
+                   job_ids=[uuid.uuid4().hex for _ in payloads], created_at=now)
+        try:
+            with self.engine.begin() as conn:
+                conn.execute(self.groups.insert().values(**row))
+                for index, (key, payload) in enumerate(zip(row['job_ids'], payloads)):
+                    conn.execute(self.jobs.insert().values(id=key, request_id=f'group:{identifier}:{index}',
+                        payload=payload, name=name, state='queued', message='Waiting to start',
+                        created_at=now, updated_at=now, cancel_requested=False))
+        except IntegrityError:
+            with self.engine.connect() as conn:
+                old = conn.execute(select(self.groups).where(self.groups.c.request_id == request_id)).mappings().one()
+            if old['payloads'] != payloads or old['name'] != name:
+                raise ValueError('This request identifier was already used for a different forecast.')
+        return self.get_group(identifier)
+
+    def get_group(self, identifier):
+        with self.engine.connect() as conn:
+            row = conn.execute(select(self.groups).where(self.groups.c.id == identifier)).mappings().first()
+        if not row:
+            raise ValueError('Forecast not found.')
+        return {k:v for k,v in dict(row).items() if k != 'payloads'} | {
+            'jobs':[self.get(key) for key in row['job_ids']]}
+
+    def list_groups(self, limit=100, offset=0):
+        with self.engine.connect() as conn:
+            keys = list(conn.execute(select(self.groups.c.id).order_by(
+                self.groups.c.created_at.desc()).limit(limit).offset(offset)).scalars())
+        return [self.get_group(key) for key in keys]
 
     def progress(self, key, owner, message=None):
         values = {'heartbeat_at': time.time()}
@@ -176,7 +218,7 @@ STORE = JobStore(ROOT / 'data' / 'jobs.sqlite3', ROOT / 'runs')
 huey = SqliteHuey('demandlab_forecasts', filename=str(ROOT / 'data' / 'queue.sqlite3'), results=False)
 
 
-def execute_job(key, store=STORE, executor=None):
+def execute_job(key, store=STORE, executor=None, finalizer=None):
     owner = store.claim(key)
     if not owner:
         return  # Duplicate delivery and cancellation are safe.
@@ -208,9 +250,14 @@ def execute_job(key, store=STORE, executor=None):
             result.update(job_id=key, job_owner=owner)
             folder = staging / result['run_id']
             if job['payload'].get('sales_input_id'):
-                from .main import DATASET_STORE, SALES_STORE
-                from .forecast_orders import finalize
-                finalize(DATASET_STORE, SALES_STORE, result, job['payload']['sales_input_id'], folder)
+                if finalizer is not None:
+                    finalizer(result, job['payload']['sales_input_id'], folder)
+                elif executor is None:
+                    from .main import DATASET_STORE, SALES_STORE
+                    from .forecast_orders import finalize
+                    finalize(DATASET_STORE, SALES_STORE, result, job['payload']['sales_input_id'], folder)
+                else:
+                    raise ValueError('A scoped order finalizer is required for this worker.')
             (folder / 'result.json').write_text(json.dumps(result, ensure_ascii=False, allow_nan=False, default=str))
             target = store.runs_dir / result['run_id']
             store.begin_publish(key, owner, result['run_id'])

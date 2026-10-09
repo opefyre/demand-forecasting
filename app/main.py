@@ -376,6 +376,46 @@ async def run(
     sales_conventions_json: str = Form('{}'),
     evidence_policy: str = Form('standard'),
 ):
+    return await _calculate_upload(**locals())
+
+
+async def _calculate_upload(
+    historical_file: UploadFile = File(...),
+    future_file: UploadFile | None = File(None),
+    operations_file: UploadFile | None = File(None),
+    date_col: str = Form(...),
+    target_col: str = Form(...),
+    item_col: str = Form(""),
+    sku_col: str = Form(""),
+    category_col: str = Form(""),
+    customer_col: str = Form(""),
+    future_date_col: str = Form(""),
+    future_item_col: str = Form(""),
+    driver_cols_json: str = Form("[]"),
+    known_driver_cols_json: str = Form("[]"),
+    driver_roles_json: str = Form("{}"),
+    frequency: str = Form("monthly"),
+    horizon: int = Form(6),
+    profile: str = Form("deep"),
+    missing_strategy: str = Form("auto"),
+    outlier_strategy: str = Form("winsorize"),
+    scenario_adjustment_pct: float = Form(0.0),
+    method_selection: str = Form("recommended"),
+    future_driver_policy: str = Form("require"),
+    source_classification: str = Form("user_provided"),
+    unit_filter: str = Form(""),
+    calendar_json: str = Form('{"country":"IR","weekend_days":[4],"shutdown_dates":[]}'),
+    excluded_items_json: str = Form('[]'),
+    quantity_unit: str = Form('units'),
+    operations_mapping_json: str = Form('null'),
+    production_line_col: str = Form('production_line'),
+    sales_conventions_json: str = Form('{}'),
+    evidence_policy: str = Form('standard'),
+    workspace=None,
+):
+    RUNS_DIR = workspace.runs if workspace else globals()['RUNS_DIR']
+    UNIT_STORE = workspace.units if workspace else globals()['UNIT_STORE']
+    SITE_PROFILE = workspace.site if workspace else globals()['SITE_PROFILE']
     try:
         if frequency not in {"monthly", "weekly", "daily"}:
             raise ValueError("Frequency must be monthly, weekly, or daily.")
@@ -1315,10 +1355,10 @@ def update_forecast_settings(dataset_id: str,payload: ForecastSettings):
     except ValueError as exc: raise HTTPException(400,str(exc)) from exc
 
 
-def validate_forecast_group(payload):
+def validate_forecast_group(payload, runs_dir=None):
     if not payload.forecast_group_id:
         return
-    for path in RUNS_DIR.glob('*/result.json'):
+    for path in (runs_dir if runs_dir is not None else RUNS_DIR).glob('*/result.json'):
         prior=json.loads(path.read_text())
         if prior.get('forecast_group_id')==payload.forecast_group_id and (
             prior.get('dataset_id')!=payload.dataset_id or
@@ -1330,19 +1370,32 @@ def validate_forecast_group(payload):
 
 @app.post('/api/run-saved')
 async def run_saved(payload: SavedRunConfig):
+    return await calculate_saved(payload)
+
+
+async def calculate_saved(payload: SavedRunConfig, workspace=None):
+    DATASET_STORE = workspace.datasets if workspace else globals()['DATASET_STORE']
+    SALES_STORE = workspace.sales if workspace else globals()['SALES_STORE']
+    UNIT_STORE = workspace.units if workspace else globals()['UNIT_STORE']
+    RUNS_DIR = workspace.runs if workspace else globals()['RUNS_DIR']
+    _load_run = workspace.load_run if workspace else globals()['_load_run']
+    if workspace and (payload.scenario_name or payload.base_run_id or payload.adjustment):
+        raise HTTPException(400, 'Company quantity scenarios are not available yet.')
     try:
         dataset=DATASET_STORE.get(payload.dataset_id)
         if bool(payload.forecast_group_id) != bool(payload.forecast_name):
             raise ValueError('A forecast group needs an identifier and a name.')
         if payload.forecast_group_id and (not payload.sales_input_id or payload.scenario_name or payload.adjustment or dataset.get('scenario_provenance')):
             raise ValueError('Group methods only with the same reviewed forecast inputs.')
-        validate_forecast_group(payload)
+        validate_forecast_group(payload, RUNS_DIR)
         if payload.sales_input_id:
             from .forecast_orders import reviewed
             if dataset.get('scenario_provenance') or payload.scenario_name or payload.adjustment:
                 raise ValueError('Use reviewed orders with a new forecast, not a quantity scenario.')
-            reviewed(DATASET_STORE, SALES_STORE, dataset['id'], payload.sales_input_id)
+            reviewed(DATASET_STORE, SALES_STORE, dataset['id'], payload.sales_input_id, site=workspace.site if workspace else None)
         assumption = dataset.get('scenario_provenance')
+        if workspace and assumption:
+            raise ValueError('Choose reviewed forecast inputs, not a legacy scenario.')
         if assumption and (payload.scenario_name or payload.adjustment or payload.method):
             raise ValueError('An assumption scenario keeps its baseline method. Start a new baseline to change methods or demand percentages.')
         if assumption and assumption.get('type')=='factor_batch':
@@ -1378,7 +1431,11 @@ async def run_saved(payload: SavedRunConfig):
                     effective_conventions.update(history_calendar='gregorian',history_grain='monthly_totals')
                 content=frame.to_csv(index=False).encode('utf-8')
             uploads[role]=UploadFile(BytesIO(content),filename=source['name'] if role=='operations' else role+'.csv')
-        result=await run(historical_file=uploads['history'],future_file=uploads.get('future'),operations_file=uploads.get('operations'),
+        # Keep the legacy upload boundary compatible; scoped workers use the
+        # same calculation with explicit stores, not the public legacy handler.
+        from functools import partial
+        calculate = run if workspace is None else partial(_calculate_upload, workspace=workspace)
+        result=await calculate(historical_file=uploads['history'],future_file=uploads.get('future'),operations_file=uploads.get('operations'),
             quantity_unit=s.get('unit','units'),operations_mapping_json=json.dumps(s.get('operations_mapping')),production_line_col=s.get('production_line_col') or 'production_line',
             sales_conventions_json=json.dumps(effective_conventions),
             evidence_policy='reviewed_what_if' if s.get('evidence_policy') == 'reviewed_what_if' or (assumption and assumption.get('alignment',{}).get('retrospective')) else 'standard',
@@ -1430,7 +1487,7 @@ async def run_saved(payload: SavedRunConfig):
                                 cell.data_type = 's'
         if payload.sales_input_id and output_directory(RUNS_DIR) == RUNS_DIR:
             from .forecast_orders import finalize
-            finalize(DATASET_STORE, SALES_STORE, result, payload.sales_input_id, RUNS_DIR / result['run_id'])
+            finalize(DATASET_STORE, SALES_STORE, result, payload.sales_input_id, RUNS_DIR / result['run_id'], site=workspace.site if workspace else None)
         (output_directory(RUNS_DIR) / result['run_id'] / 'result.json').write_text(json.dumps(result,ensure_ascii=False,default=str),encoding='utf-8')
         return result
     except HTTPException: raise

@@ -8,6 +8,9 @@ from threading import Event, Thread
 from huey.consumer import Consumer
 
 from .jobs import STORE, forecast_job, huey
+from .company_workspace import CompanyWorkspaces
+from .company_jobs import recover_companies
+from .jobs import ROOT
 
 
 def parent_is_current(parent_pid):
@@ -17,6 +20,7 @@ def parent_is_current(parent_pid):
 def main(parent_pid=None):
     logging.basicConfig(level=logging.INFO)
     stop = Event()
+    workspaces = CompanyWorkspaces(ROOT / 'data' / 'companies')
 
     def watch_parent():
         # A terminated web process can bypass its Python finally block. Do not
@@ -37,6 +41,7 @@ def main(parent_pid=None):
             try:
                 STORE.pulse_worker()
                 STORE.recover()
+                recover_companies(workspaces)
             except Exception:
                 logging.exception('Worker health update failed')
             stop.wait(5)
@@ -45,12 +50,14 @@ def main(parent_pid=None):
     thread.start()
     for key in STORE.queued():
         forecast_job(key)
+    recover_companies(workspaces, enqueue=True)
     try:
         Consumer(huey, workers=1, worker_type='thread', periodic=False,
                  max_delay=1, shutdown_timeout=10).run()
     finally:
         stop.set()
         thread.join(timeout=2)
+        workspaces.close()
 
 
 if __name__ == '__main__':

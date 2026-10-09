@@ -15,7 +15,10 @@ packages; retain licences and attribution. No SAML or messaging commands in v1.
   - [ ] Google OAuth and production mail verified with deployment credentials.
 - [ ] Company-scoped persistence, files, jobs, schedules and assistant context.
   - [x] Explicit workspace factory and isolated customer/product directory.
-  - [ ] History, orders, factors, forecasts, jobs, files, releases and AI context.
+  - [x] Sales history/files, order books/reviews, factors, grouped forecasts,
+        durable jobs, results/exports and independent release approvals.
+  - [ ] Personal AI context, views, actual-vs-forecast checks, schedules/settings
+        and the remaining frontend migration.
 - [ ] Public `/api/v1` and route-by-route permission/coverage inventory.
   - [x] Initial 21 v1 operations and source-derived full route inventory.
   - [ ] Remaining useful business operations and matching frontend migration.
@@ -67,11 +70,34 @@ Fixed an empty-state bug that hid populated People/API-key tables.
 Details: [setup and limitations](AUTH_PLATFORM_SETUP.md),
 [route-by-route coverage](PUBLIC_API_COVERAGE.md).
 
+## Company forecasting API milestone — 9 October 2026
+
+Delivered backend pipeline: separate sales sources/datasets, customer/order books,
+immutable reviewed orders/factors, atomic named multi-method forecasts, company
+Huey jobs/recovery, filtered demand/model exports and independent approvals.
+Public coverage is now **56 operations**; useful remaining routes are still open.
+No new mathematical engine, paid AI call or client-data replacement was used.
+
+Two disposable companies were tested with four customers, two SKUs and 36 months
+of history. Checks include orders above/below forecasts, missing orders, factor
+values in model outputs, Gregorian/Persian periods, all demand export formats,
+viewer restrictions, independent approval, simultaneous retries and rollback.
+The current demo is not switched to company mode: AI/personal context, remaining
+screens, settings and connection APIs must first move to company-scoped services.
+
+See [scope, workflow and remaining work](COMPANY_FORECAST_DELIVERY.md).
+
+Verification: full backend suite **710 checks: 709 passed, one optional identity
+integration skipped**; all **243 interface tests passed**. The focused sales,
+identity middleware and legacy spreadsheet compatibility run passed 29 checks.
+Secret scan: no new findings; staged pre-commit secret check passed. Existing local
+demo health confirmed; it was not restarted, reconfigured or populated with test data.
+
 ## Next delivery chunks
 
-1. Company-scoped sales pipeline and forecasting: inputs, orders, factors,
-   grouped model runs, background jobs, reports/exports, releases, personal AI
-   context and frontend routing. Prove isolation with two synthetic companies.
+1. Finish company-scoped personal AI context, views, actual-vs-forecast checks,
+   settings and frontend routing. The sales pipeline/engine API milestone is
+   delivered; prove the remaining first-use-to-export screens with two companies.
 2. Public CRUD completion and ingestion: maintained SFTP/Google libraries,
    version-aware Odoo, safe HTTP; preview/validation, mapping and repeat-safe sync.
 3. Notifications and schedules: Slack/Teams/Telegram/eligible WhatsApp with

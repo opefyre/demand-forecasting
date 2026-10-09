@@ -8,8 +8,13 @@
 - [x] Shared English/Persian People/API access/sign-in components and isolated
   browser checks. Full backend: 694 passed, one optional integration skipped;
   frontend: 243 passed; identity: 21 passed including actual PostgreSQL/HTTP tests.
-- [ ] Company-scoped forecasting/jobs/AI, remaining public CRUD, ingestion
-  connectors, notifications and production-provider acceptance.
+- [x] Company-scoped sales inputs, customers/orders, factor preparation, grouped
+  forecasting/jobs, filtered results/exports and independent report approvals.
+  See [company forecast delivery](COMPANY_FORECAST_DELIVERY.md).
+  Latest verification: 709 backend tests passed, one optional integration skipped;
+  243 interface tests passed. Public API now has 56 documented operations.
+- [ ] Company-scoped AI/context, views/settings and remaining frontend routing;
+  remaining public CRUD, ingestion connectors, notifications and provider acceptance.
 - [ ] Activate company authentication only after the business migration passes.
 
 See [full platform delivery checklist](PUBLIC_PLATFORM_DELIVERY.md),

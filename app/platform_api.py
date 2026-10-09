@@ -36,7 +36,7 @@ class MemberUpdate(BaseModel):
     suspended: bool | None = None
 
 
-def create_platform_api(service, workspaces=None):
+def create_platform_api(service, workspaces=None, dispatcher=None):
     api = FastAPI(title='DemandLab public API', version='1.0.0',
         description='Company-scoped sales and demand forecasting. API access uses a Bearer key. Access administration requires an interactive session.')
 
@@ -171,6 +171,9 @@ def create_platform_api(service, workspaces=None):
     async def audit(request: Request):
         return await operation(request, 'audit', admin=True)
 
+    from .platform_sales_api import install_platform_sales
+    install_platform_sales(api, workspaces, dispatcher)
+
     def schema():
         if api.openapi_schema is None:
             value = get_openapi(title=api.title, version=api.version, description=api.description,
@@ -181,7 +184,8 @@ def create_platform_api(service, workspaces=None):
                 'BrowserSession':{'type':'apiKey','in':'cookie','name':('__Secure-' if secure_cookie else '')+'better-auth.session_token','description':'Verified interactive session; mutations also require X-DemandLab-CSRF.'}}
             for path, methods in value['paths'].items():
                 for method, details in methods.items():
-                    details['security'] = [{'ApiKey':[]},{'BrowserSession':[]}] if path == '/me' or path.startswith('/customers') else [{'BrowserSession':[]}]
+                    access_only = path.startswith(('/api-keys','/access-options','/members','/invitations','/audit-events'))
+                    details['security'] = [{'BrowserSession':[]}] if access_only else [{'ApiKey':[]},{'BrowserSession':[]}]
                     if method in {'post','put','patch','delete'}:
                         details.setdefault('parameters', []).append({'name':'X-DemandLab-CSRF','in':'header','required':False,
                             'schema':{'type':'string'},'description':'Required for browser-session changes, not Bearer-key requests.'})

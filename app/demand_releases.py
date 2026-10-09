@@ -158,7 +158,7 @@ class DemandReleases:
         superseded=bool(latest and latest['version']>record['version'])
         can_approve=(not blocked and not superseded and record['state']=='awaiting_review' and
             ((actor['basis']=='local_demo' and record['demo_only']) or
-             (role in {'reviewer','admin'} and actor!=record['submitted_by'] and not record['demo_only'])))
+             (role in {'reviewer','approver','admin'} and actor!=record['submitted_by'] and not record['demo_only'])))
         return {**record,'blocked':blocked,'superseded':superseded,'can_approve':can_approve,
             'can_export':record['state']=='approved' and not blocked and not superseded}
 
@@ -170,7 +170,7 @@ class DemandReleases:
             if actor['basis']=='local_demo':
                 if not record['demo_only'] or payload.get('demo_confirmed') is not True:
                     raise ValueError('Confirm this is a local demo approval, not company sign-off.')
-            elif role not in {'reviewer','admin'} or actor==record['submitted_by'] or record['demo_only']:
+            elif role not in {'reviewer','approver','admin'} or actor==record['submitted_by'] or record['demo_only']:
                 raise PermissionError('A different company reviewer must approve this demand release.')
             if payload.get('review_token')!=record['report']['review_token']:
                 raise ReleaseConflict('Review this exact demand release before approval.')

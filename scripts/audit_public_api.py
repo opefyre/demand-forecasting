@@ -24,7 +24,7 @@ def routes(source, filename):
                     and isinstance(call.func.value, ast.Name) and call.func.attr in METHODS
                     and call.args and isinstance(call.args[0], ast.Constant)
                     and isinstance(call.args[0].value, str)): continue
-            prefix = '/api/v1' if filename == 'app/platform_api.py' else prefixes.get(call.func.value.id, '')
+            prefix = '/api/v1' if filename in {'app/platform_api.py','app/platform_sales_api.py'} else prefixes.get(call.func.value.id, '')
             path = prefix + call.args[0].value
             if not path.startswith('/api/'): continue
             methods = [call.func.attr.upper()]
@@ -58,7 +58,7 @@ def markdown():
         f'{len(public)} implemented v1 operations. The rest of the useful business API is not delivered yet.', '',
         'New company authentication deliberately blocks unscoped legacy business routes. Existing local mode remains unchanged.', '',
         'The Better Auth identity service supplies library-managed login, Google callback, verification, recovery and factor endpoints behind `/api/login/*`. These are not business CRUD.', '',
-        'Future v1 resources: sales history/sources/datasets, orders/snapshots, factors/live feeds/assumptions, grouped forecasts/jobs/results/exports, releases, actual-vs-forecast checks, personal chats/views, company settings/units, connections/ingestion runs and schedules. Immutable source evidence uses archive/revision rather than destructive overwrite.', '',
+        'Delivered business resources: customers/products, sales sources/datasets, versioned orders/reviews, factor preparation, grouped forecasts/jobs/results/exports and independent releases. Pending: complete archive/revision lifecycle, live feeds/assumptions, actual-vs-forecast checks, personal chats/views, company settings/units, connections/ingestion runs and schedules. Immutable source evidence is never destructively overwritten.', '',
         '| Method | Route | Delivery | Source |', '|---|---|---|---|']
     for method, path, file, line in records:
         lines.append(f'| {method} | `{path}` | {delivery(path)} | `{file}:{line}` |')

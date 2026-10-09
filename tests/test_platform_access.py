@@ -72,6 +72,24 @@ class PlatformAccessTests(unittest.TestCase):
             (self.origin,'http://name:pass@127.0.0.1:8011',self.secret), (self.origin,'http://127.0.0.1:8011','short')]:
             with self.assertRaises(ValueError): IdentityServiceConfig(origin,url,secret).validate()
 
+    def test_public_sales_routes_keep_identity_csrf_and_key_permissions(self):
+        self.signed_in()
+        self.permissions=['inputs:read','inputs:write']
+        files={'file':('sales.csv',b'date,sku,customer,quantity\n2026-01-01,001,Customer,10\n','text/csv')}
+        self.assertEqual(self.client.post('/api/v1/sources',files=files).status_code,403)
+        response=self.client.post('/api/v1/sources',files=files,headers=self.csrf())
+        self.assertEqual(response.status_code,201,response.text)
+        key=response.json()['id']
+        self.auth_kind='api_key'
+        self.client.cookies.clear()
+        headers={'authorization':'Bearer test-company-key'}
+        self.assertEqual(self.client.get('/api/v1/sources/'+key,headers=headers).status_code,200)
+        self.permissions=['reports:read']
+        self.assertEqual(self.client.get('/api/v1/sources/'+key,headers=headers).status_code,403)
+        self.assertEqual(self.client.post('/api/v1/sources',files=files,headers=headers).status_code,403)
+        self.company='company_b';self.permissions=['inputs:read']
+        self.assertEqual(self.client.get('/api/v1/sources/'+key,headers=headers).status_code,404)
+
     def test_anonymous_requests_and_global_legacy_routes_are_blocked(self):
         self.assertEqual(self.client.get('/api/v1/me').status_code,401)
         self.signed_in()
