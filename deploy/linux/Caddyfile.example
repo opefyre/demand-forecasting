@@ -1,0 +1,18 @@
+# Replace this reserved example hostname. Do not activate before acceptance.
+forecast.example.com {
+    @private path /internal /internal/* /secrets /secrets/* /.git /.git/* /.env /.env.* /RESTORE_INCOMPLETE
+    respond @private 404
+
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy same-origin
+        Strict-Transport-Security "max-age=31536000"
+        -Server
+    }
+
+    # Python enforces company, session, key and role permissions.
+    # Do not proxy the identity service or serve the checkout as files.
+    reverse_proxy 127.0.0.1:8020
+    # Access logging intentionally disabled: URLs may contain invitation links.
+}

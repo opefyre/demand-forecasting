@@ -1,0 +1,24 @@
+[Unit]
+Description=DemandLab private identity service
+PartOf=demandlab.target
+Requires=demandlab-check.service
+After=demandlab-check.service network-online.target
+
+[Service]
+Type=exec
+User=demandlab
+Group=demandlab
+WorkingDirectory=/opt/demandlab/auth-service
+EnvironmentFile=/etc/demandlab/secrets/deployment.env
+ExecStart=/usr/bin/node --import tsx src/server.ts
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+
+[Install]
+WantedBy=demandlab.target

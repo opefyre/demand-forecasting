@@ -1,0 +1,26 @@
+[Unit]
+Description=DemandLab company API
+PartOf=demandlab.target
+Requires=demandlab-check.service
+Wants=demandlab-auth.service
+After=demandlab-check.service demandlab-auth.service network-online.target
+
+[Service]
+Type=exec
+User=demandlab
+Group=demandlab
+WorkingDirectory=/opt/demandlab
+EnvironmentFile=/etc/demandlab/secrets/deployment.env
+ExecStart=/opt/demandlab/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8020 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1 --no-access-log
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=60
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/demandlab/data /opt/demandlab/runs /opt/demandlab/.forecast-work /opt/demandlab/.workspace.lock
+
+[Install]
+WantedBy=demandlab.target

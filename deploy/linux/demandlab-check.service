@@ -1,0 +1,19 @@
+[Unit]
+Description=DemandLab read-only configuration check
+PartOf=demandlab.target
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=demandlab
+Group=demandlab
+WorkingDirectory=/opt/demandlab/auth-service
+EnvironmentFile=/etc/demandlab/secrets/deployment.env
+ExecStart=/usr/bin/node --import tsx src/preflight.ts
+RemainAfterExit=yes
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes

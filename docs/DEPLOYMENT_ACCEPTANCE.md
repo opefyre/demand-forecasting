@@ -20,11 +20,21 @@ on a public company deployment. Do not reconfigure the existing port-8010 demo.
 - Existing tests separately cover independent approvals, approved-only viewer
   exports, scope reduction, keys, CSRF, company isolation and revoked schedules.
 - No new UI, styles, packages, paid AI calls or real provider messages in this chunk.
+- Separate Linux service/proxy templates, blank startup/owner settings and an
+  exact [domain/account/credential runbook](DEPLOYMENT_SETUP.md). Prepared only;
+  systemd/Caddy execution and certificates are not verified on this Mac.
 
 ## Required before activation
 
 - [ ] Choose the public HTTPS origin and deployment host; keep the identity service
       private. Expose only the Python entry point. Local evaluation must not be public.
+- [ ] Validate the service units and Caddy configuration on the chosen Linux host;
+      run the restricted services, firewall and real HTTPS checks in private staging.
+- [ ] Implement and recovery-test a secure Linux vault before enabling secret-backed
+      live sources, connectors or notifications; no plaintext fallback.
+- [ ] Resolve AI provider eligibility for the Iranian client. OpenAI does not list
+      Iran as supported; an overseas host is not an automatic exception. Keep AI
+      disabled until an eligible setup is verified.
 - [ ] Provision an isolated identity PostgreSQL database, run migrations and
       bootstrap an initial owner. Use verified database transport/access controls.
 - [ ] Verify real mail: invitation, email verification and password recovery.
@@ -88,7 +98,8 @@ was restored, revoked, migrated or changed during these local tests.
 
 ## Next chunk
 
-Prepare an isolated deployment with the chosen domain, PostgreSQL, mail and Google
-accounts. Verify those services and the four-role browser journey, then validate
+The reference setup and account checklist are prepared in [deployment setup](DEPLOYMENT_SETUP.md).
+Obtain the chosen domain/host, prepare the Linux vault and isolated PostgreSQL,
+mail and Google accounts. Verify those services and the four-role browser journey, then validate
 the actual input providers and off-device restore. Activation stays gated until
 those checks pass; do not call the app production-ready from synthetic tests alone.

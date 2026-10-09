@@ -48,6 +48,7 @@ packages; retain licences and attribution. No SAML or messaging commands in v1.
     - [x] Business input connections share the existing collection/dialog framework and Persian catalogue.
 - [ ] Cross-company, role, key, ingestion, migration and end-to-end acceptance.
   - [x] Company-state restore safeguards and read-only deployment configuration checks.
+  - [x] Separate deployment templates, restricted services and account/credential runbook.
   - [x] Four-role API checks against the actual identity permission catalogue.
   - [ ] Deployment-host role/browser journey, real accounts and encrypted off-device recovery.
 - [ ] Publish tested commits to the existing GitHub repository.
@@ -198,3 +199,27 @@ Next: isolated deployment origin/database, actual Google/mail/provider accounts,
 four-role browser acceptance and encrypted off-device recovery. See
 [deployment acceptance](DEPLOYMENT_ACCEPTANCE.md). Company mode is not activated
 in the existing local demo.
+
+## Deployment preparation — 10 October 2026
+
+Prepared a separate single-host Linux reference installation using Caddy/systemd:
+loopback company API on 8020, private identity on 8011, one worker, restricted
+runtime write paths, read-only startup checks and manual-only owner bootstrap.
+Blank protected-settings templates and the exact domain/account/credential
+inventory are in [deployment setup](DEPLOYMENT_SETUP.md). No new package, provider
+call, host installation, migration, copied secret or local-demo change.
+
+Linux connector/notification/live-source vault portability remains unresolved;
+macOS Keychain is not a deployable Linux vault. AI is disabled in the template:
+OpenAI country eligibility for the Iranian client must be resolved rather than
+assuming an overseas host bypasses it. Neither gate is marked completed.
+
+Verification: 8 deployment-template contract tests passed; identity type check
+and 10 identity tests passed (one optional PostgreSQL check skipped). Native Linux
+systemd/Caddy validation and real hosting/account acceptance remain to be run on
+the selected host. See [acceptance checklist](DEPLOYMENT_ACCEPTANCE.md).
+
+Next: obtain the chosen hostname, host and first-owner details; select/recovery-
+test the secure Linux vault, configure dedicated PostgreSQL/mail/Google in private
+staging, then verify four-role journeys, selected providers and encrypted recovery.
+Original port-8010 demo remains separate; no production activation in this chunk.

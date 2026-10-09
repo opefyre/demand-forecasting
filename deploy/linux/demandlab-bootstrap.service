@@ -1,0 +1,18 @@
+[Unit]
+Description=DemandLab offline first owner setup (manual only)
+Requires=demandlab-check.service
+After=demandlab-check.service network-online.target
+
+[Service]
+Type=oneshot
+User=demandlab
+Group=demandlab
+WorkingDirectory=/opt/demandlab/auth-service
+EnvironmentFile=/etc/demandlab/secrets/deployment.env
+EnvironmentFile=/etc/demandlab/secrets/bootstrap.env
+ExecStart=/usr/bin/node --import tsx src/bootstrap.ts
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes

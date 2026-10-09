@@ -1,0 +1,8 @@
+[Unit]
+Description=DemandLab company installation
+Requires=demandlab-check.service
+Wants=demandlab-auth.service demandlab-api.service demandlab-worker.service
+After=demandlab-check.service demandlab-auth.service demandlab-api.service demandlab-worker.service
+
+[Install]
+WantedBy=multi-user.target

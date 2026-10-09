@@ -13,6 +13,8 @@ Sales Forecast-2026.xlsx
 .env
 .env.local
 secrets/
+# Deployment copies contain credentials; only blank .env.example templates belong in Git.
+deploy/**/*.env
 .vite/
 outputs/
 docs/screenshots/
