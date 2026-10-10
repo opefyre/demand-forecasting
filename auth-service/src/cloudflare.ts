@@ -20,6 +20,7 @@ export interface CloudflareIdentityEnv {
   RESEND_API_KEY?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
+  OWNER_ONLY_ACCEPTANCE?: string;
 }
 export const FORECAST_ORIGIN = "https://forecast.vrolen.com";
 export const FORECAST_OWNER = "opefyre@gmail.com";
@@ -30,7 +31,7 @@ export function cloudflareConfiguration(env: CloudflareIdentityEnv) {
   if (env.PRIVATE_ACCESS !== "closed") throw new Error("Private deployment must remain closed");
   if (!env.IDENTITY_DB || !env.IDENTITY_DB.prepare || !env.IDENTITY_DB.batch || !env.IDENTITY_DB.exec)
     throw new Error("An isolated D1 identity database is required");
-  if (typeof env.BETTER_AUTH_SECRET !== "string" || env.BETTER_AUTH_SECRET.length < 64)
+  if (typeof env.BETTER_AUTH_SECRET !== "string" || env.BETTER_AUTH_SECRET.length < 64) // pragma: allowlist secret — type/length validation, not a credential
     throw new Error("Configure a dedicated production authentication secret");
   if (!!env.GOOGLE_CLIENT_ID !== !!env.GOOGLE_CLIENT_SECRET ||
       (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_ID !== FORECAST_GOOGLE_CLIENT))
@@ -43,7 +44,7 @@ export function createCloudflareIdentity(env: CloudflareIdentityEnv, deliver: Ma
   const auth = createAuthCore(config, env.IDENTITY_DB as BetterAuthOptions["database"], {
     // No bootstrap, new invitations or registration while deployment is closed.
     // Future owner-only acceptance needs an explicit reviewed workflow.
-    async invitationAllowed() { return false; },
+    async invitationAllowed(email) { return env.OWNER_ONLY_ACCEPTANCE === 'true' && email.toLowerCase() === FORECAST_OWNER; },
     async recordMfa(sessionId, userId) {
       await env.IDENTITY_DB.prepare(
         `INSERT INTO demandlab_session_mfa(session_id,user_id,verified_at) VALUES(?,?,?)

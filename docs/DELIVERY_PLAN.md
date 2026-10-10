@@ -47,10 +47,17 @@ Approved reports/resource slice, 10 October: approval/export, lifecycle, setting
 personal views and saved-chat resource bridges plus shared asynchronous screen
 and download adapters are implemented. See [exact scope and gates](CLOUD_REPORTS_DELIVERY.md).
 The public edge remains closed; the private screen adapter is not a cloud UI launch.
-Next substantial slice: networked assistant/recurring/live-source work, remaining
-connection/management routes and owner-only
-identity/mail/browser plus measured remote wake/sleep acceptance. Do not open
-public access automatically.
+Cloud workflow slice, 10 October: assistant, live connectors, durable schedules
+and remaining management routes are bridged; see CLOUD_WORKFLOWS_DELIVERY.md.
+Owner acceptance, 10 October: the existing interface now runs privately at
+forecast.vrolen.com. Real Google login, owner-enrolled MFA and Resend delivery
+are verified. Fictional Tehran history/orders produced a six-month mathematical
+forecast and a 108-row CSV export. All other people remain denied. See
+CLOUD_OWNER_ACCEPTANCE.md for exact evidence and unresolved gates.
+Current next task: finish measured sleep/wake, then reduce cold Automatic runtime
+(roughly nine minutes on the smallest engine), verify recovery/off-device restore
+and explicitly configure approved live providers. AI remains separately gated.
+Do not open public access automatically or change the independent local demo.
 
 ## Earlier delivery history
 

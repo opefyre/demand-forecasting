@@ -1,25 +1,27 @@
 # Cloudflare deployment
 
-Status: 10 October 2026. Private permissions, storage and engine backbone deployed.
-**The forecasting app is not deployed or ready for public use.**
+Status: 10 October 2026. The owner-only cloud interface is deployed. Real Google
+sign-in, owner MFA, Resend delivery, remote calculation and CSV export are verified.
+Sleep/wake acceptance is in progress; this is **not a public or production launch**.
 The local demo remains independent at `http://127.0.0.1:8010`.
 
 Latest private API slice: 169 explicit company operations plus 14 native
 identity/management operations, including assistant workflows, live connectors,
 durable schedules, reports, exports and personal resources, are implemented.
-Shared asynchronous screen/download adapters are implemented but require the
-future authenticated private UI gateway. See [scope and gates](CLOUD_WORKFLOWS_DELIVERY.md).
-The public edge remains the same closed hold; no cloud UI launch is claimed.
+Shared asynchronous screen/download adapters are connected through the
+owner-only authenticated private UI gateway. See [scope and gates](CLOUD_WORKFLOWS_DELIVERY.md)
+and [live owner acceptance](CLOUD_OWNER_ACCEPTANCE.md).
 
 Current API-bridge deployment versions: identity
-`0b68c42d-e105-47c4-9741-8d959bf1ba4a`, storage
+`04ea7aa7-943b-4b18-9e4a-46b58ead19e5`, storage
 `5b71f9db-98d6-4bf5-b670-50a0be979ae9`, engine
 `0fcf85be-8aa3-46c8-bf6e-06fc36314f97`; image
 `sha256:bb84d6cc0a7d2ee07edaaff2390daa1c9fc844beb715f009a6341990d176d45f`.
 Earlier versions below record the preceding backbone checkpoint. The dedicated
 build VM is stopped after testing and its temporary registry login cleared after
-the upload. Public edge remains HTTP 503; engine inventory shows zero live instances.
-No live provider data, AI request or notification was sent.
+the upload. The sign-in screen is reachable, but company routes require the
+verified owner and fresh MFA. One owner mail test was delivered. No AI request
+or client-source connection was made during this acceptance slice.
 
 ## Confirmed scope
 
@@ -35,21 +37,22 @@ No live provider data, AI request or notification was sent.
 
 | Resource | State |
 | --- | --- |
-| Worker `demandlab-forecast-edge` | New isolated domain hold. Every route returns HTTP 503; no backend, assets, credentials, cron or storage bindings. |
+| Worker `demandlab-forecast-edge` | Owner-only compiled UI and private bindings. Company data requires verified owner and fresh MFA. No signup, outsider or bearer-key access. |
 | Worker `demandlab-forecast-identity` | Private D1 permissions service and serialized administrator coordinator deployed. No routes, workers.dev or preview URL. HTTP always returns 404; private RPC only. |
 | Worker `demandlab-forecast-storage` | Private native SQLite job/revision ledger and company-bound R2 checkpoint/artifact service deployed; private RPC only. |
 | Worker `demandlab-forecast-engine` | Offline, non-root Linux engine with five-minute inactivity policy; private Worker relays only permission-checked, attempt-bound provider requests. No public listener or generic proxy. |
-| D1 `demandlab-forecast-identity` | New WEUR database, `f0f8d4b4-ff3d-4bcc-90ac-c08ff97b64e7`. Library-generated schema applied; zero users, companies and sessions. |
+| D1 `demandlab-forecast-identity` | Dedicated WEUR database, `f0f8d4b4-ff3d-4bcc-90ac-c08ff97b64e7`. Library-generated schema; one verified owner, one company and one MFA session. |
 | `forecast.vrolen.com` | Worker custom domain created; HTTPS and closed app/login/API routes checked. No wildcard route. |
-| R2 `demandlab-forecast-files` | New empty Standard bucket, Western Europe location hint; public r2.dev access disabled. |
-| R2 `demandlab-forecast-backups` | New empty Standard bucket, Western Europe location hint; public r2.dev access disabled. |
-| Google client `Vrolen Forecast` | Separate Web client with only the forecast origin/callback. Replacement installed as a private identity Worker secret; exposed predecessor disabled. Login remains inaccessible and real sign-in untested. |
-| Resend `forecast.vrolen.com` | Separate verified Ireland domain, TLS required and receiving disabled. Restricted key installed in the private identity Worker; real mail delivery untested. |
+| R2 `demandlab-forecast-files` | Dedicated Standard bucket with fictional owner-acceptance inputs/results; public r2.dev access disabled. |
+| R2 `demandlab-forecast-backups` | Dedicated Standard bucket with immutable owner-acceptance checkpoints; public r2.dev access disabled. |
+| Google client `Vrolen Forecast` | Separate Web client with only the forecast origin/callback. Replacement installed privately; exposed predecessor disabled. Real owner sign-in verified. |
+| Resend `forecast.vrolen.com` | Separate verified Ireland domain, TLS required and receiving disabled. Restricted key installed privately; owner recovery email delivered. |
 
 The edge configuration is [wrangler.jsonc](../deploy/cloudflare/wrangler.jsonc).
 It disables workers.dev, preview URLs and observability payloads, limits CPU to
-10 milliseconds, and cannot wake any container. This is an access hold, not a
-successful application launch. It does not expose or tunnel the local demo.
+50 milliseconds. Only authenticated, MFA-verified company operations can wake
+the dedicated engine; reading runtime status cannot start it. It does not expose
+or tunnel the local demo. No public company access is enabled.
 
 The existing Vrolen website, `app.vrolen.com`, `demo.vrolen.com`, root MX/SPF,
 Google client, Finkavo domain/keys and seven pre-existing R2 buckets were not edited.
@@ -75,7 +78,8 @@ On 2026-10-10 the owner added a replacement secret. Its Google JSON download was
 moved to ignored `secrets/forecast-google-oauth.json` with mode 0600; the Downloads
 copy is gone. Client identity and replacement match were verified without
 printing the secret. The replacement is now installed in the private identity Worker
-only. It has not been used for real sign-in; the public callback remains closed.
+only. Real owner Google sign-in is now verified through the restricted gateway.
+Outsider access and public registration remain blocked.
 
 The owner disabled the older exposed secret on 2026-10-10. The Google client
 page confirms the older secret is **Disabled** and the replacement is **Enabled**.
@@ -196,7 +200,11 @@ AI remains off for this deployment. Existing local keys were not copied; the
 Iran-related provider eligibility gate in [deployment setup](DEPLOYMENT_SETUP.md)
 still applies. Creating infrastructure does not resolve that gate.
 
-## Verification evidence
+## Earlier backbone verification evidence
+
+The following is the historical closed-domain checkpoint, not the current owner
+interface state. Current live identity/mail/calculation/export evidence and
+remaining gates are recorded in [owner acceptance](CLOUD_OWNER_ACCEPTANCE.md).
 
 - Three edge tests passed: route closure, honest unavailable API response, and
   domain/cost/isolation configuration. Wrangler dry-run passed.
@@ -246,7 +254,7 @@ them through stdin only to `demandlab-forecast-identity`. Do not manually copy
 secrets into configuration, arguments, logs or Git. The quarantined Google file
 is never loaded. Git contains code/schema only, not credentials or databases.
 
-Next substantial build: bridge existing company CRUD/screens and recurring/live
-workflows to the durable runtime, then private owner identity/mail and remote
-forecast/wake/sleep acceptance. The public hold stays in place until a separate
+Current next task: finish measured owner sleep/wake acceptance, then improve cold
+automatic calculation performance and verify recovery/restore. Existing cloud
+business bridges are implemented. Other people remain denied until a separate
 explicit access decision; deployment completion must not automatically open it.

@@ -9,6 +9,13 @@
   "routes": [
     { "pattern": "forecast.vrolen.com", "custom_domain": true }
   ],
-  "limits": { "cpu_ms": 10 },
+  "limits": { "cpu_ms": 50 },
+  "vars": {"PRIVATE_ACCESS":"closed","OWNER_ONLY_ACCEPTANCE":"true"},
+  "assets": {"directory":"../../app/static/client","binding":"ASSETS","run_worker_first":true},
+  "services":[
+    {"binding":"IDENTITY","service":"demandlab-forecast-identity","entrypoint":"ForecastIdentity"},
+    {"binding":"STORAGE","service":"demandlab-forecast-storage","entrypoint":"ForecastStorage"},
+    {"binding":"ENGINE","service":"demandlab-forecast-engine","entrypoint":"ForecastRunner"}
+  ],
   "observability": { "enabled": false }
 }

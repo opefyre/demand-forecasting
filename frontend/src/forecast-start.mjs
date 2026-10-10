@@ -15,6 +15,7 @@ export const FORECAST_CHOICES=[
 ];
 export function forecastInputs(datasets){return datasets.filter(d=>d.sources?.history&&!d.scenario_provenance&&!d.sources.operations&&!d.lifecycle?.archived);}
 export function remainingMethods(methods,jobs){return methods.filter(method=>!jobs.some(j=>j.method===method));}
+export function orderCoverageTitle(orders,uploadedOrders){return orders?.length||uploadedOrders?'All known orders included':'No current orders';}
 export function forecastSummary(run){
   const rows=run.series?.__all__?.forecast||run.forecast;
   if(!Array.isArray(rows)||!rows.length||rows.some(row=>typeof row.mean!=='number'||!Number.isFinite(row.mean)))return null;

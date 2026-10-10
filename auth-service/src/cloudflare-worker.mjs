@@ -3,10 +3,13 @@ import { getMigrations } from 'better-auth/db/migration';
 import { cloudflareConfiguration, createCloudflareIdentity } from './cloudflare.ts';
 import { cloudflareMailer } from './cloudflare-mail.ts';
 import { cloudAccessOperation, safeCloudAccessError } from './cloudflare-access.ts';
+import {ownerContext,ownerLogin} from './cloudflare-browser.ts';
 
 // One private serialized coordinator. Nothing can remove two final admins in
 // concurrent requests; each actor is checked against D1 AFTER entering the lock.
 export class ForecastAccess extends DurableObject {
+  browser(request) { return this.ctx.blockConcurrencyWhile(()=>ownerLogin(this.env,cloudflareMailer(this.env),request)); }
+  owner(body) { return this.ctx.blockConcurrencyWhile(()=>ownerContext(this.env,cloudflareMailer(this.env),body)); }
   async operation(operation, body) {
     return this.ctx.blockConcurrencyWhile(async () => {
       try {
@@ -18,9 +21,11 @@ export class ForecastAccess extends DurableObject {
   fetch() { return new Response(null, { status: 404 }); }
 }
 
-// Only a future, explicitly bound private gateway can call this RPC entrypoint.
-// No request handler forwards to Better Auth; signup/login/keys remain inaccessible.
+// Only the explicitly bound private gateway can call this RPC entrypoint.
+// Public identity HTTP remains closed; browser RPC admits only the owner.
 export class ForecastIdentity extends WorkerEntrypoint {
+  browser(request) { return this.env.ACCESS.get(this.env.ACCESS.idFromName('forecast-access-v1')).browser(request); }
+  owner(body) { return this.env.ACCESS.get(this.env.ACCESS.idFromName('forecast-access-v1')).owner(body); }
   async operation(operation, body) {
     return this.env.ACCESS.get(this.env.ACCESS.idFromName('forecast-access-v1')).operation(operation, body);
   }

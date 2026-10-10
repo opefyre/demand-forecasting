@@ -25,15 +25,18 @@ test('API responds truthfully with an unavailable status, not a demo', async () 
   assert.equal((await response.json()).error, 'deployment_not_ready');
 });
 
-test('deployment has only the approved domain and cannot wake containers or expose storage', async () => {
+test('owner-only gateway has only the approved domain and private service bindings', async () => {
   const config = JSON.parse(await readFile(new URL('./wrangler.jsonc', import.meta.url), 'utf8'));
   assert.equal(config.name, 'demandlab-forecast-edge');
   assert.deepEqual(config.routes, [{ pattern: 'forecast.vrolen.com', custom_domain: true }]);
   assert.equal(config.workers_dev, false);
   assert.equal(config.preview_urls, false);
   assert.equal(config.observability.enabled, false);
-  assert.equal(config.limits.cpu_ms, 10);
-  for (const key of ['assets', 'containers', 'r2_buckets', 'd1_databases', 'triggers', 'services', 'vars']) {
+  assert.equal(config.limits.cpu_ms, 50);
+  assert.equal(config.vars.PRIVATE_ACCESS,'closed');assert.equal(config.vars.OWNER_ONLY_ACCEPTANCE,'true');
+  assert.equal(config.assets.run_worker_first,true);
+  assert.deepEqual(config.services.map(s=>s.service),['demandlab-forecast-identity','demandlab-forecast-storage','demandlab-forecast-engine']);
+  for (const key of ['containers', 'r2_buckets', 'd1_databases', 'triggers']) {
     assert.ok(!(key in config), key);
   }
 });

@@ -4,6 +4,7 @@ import {SalesSource} from './sales-demand.jsx';
 import {Actions,Disclosure,Grid,Stack} from './ui-layout.jsx';
 import {OrderRows} from './order-books.jsx';
 import {methodName} from './method-comparison.jsx';
+import {orderCoverageTitle} from './forecast-start.mjs';
 
 export function ForecastOrders({api,ui,dataset,snapshotId,onReady,canEdit=true,onWorkingChange}){
   const {Button,Pick,Field,ErrorBox,Table}=ui;
@@ -46,7 +47,7 @@ export function ForecastOrders({api,ui,dataset,snapshotId,onReady,canEdit=true,o
       <SalesSource embedded api={api} ui={ui} role="orders" schema={schema.orders} config={imports.orders} run={loaded.context} templateBase={path+'/template'} fallbackCount={inputs.orders.length} orderMode="replace" onBusyChange={fileBusy} setConfig={config=>{setImports(v=>{const next={...v};if(config)next.orders=config;else delete next.orders;return next;});setChecked(false);onReady(null);}}/>
     </Disclosure>
     <Disclosure title={uiText('Order coverage')}><Grid><Field title={uiText('Orders correct as of')}><input disabled={blocked} type="date" value={inputs.as_of} onChange={e=>change('as_of',e.target.value)}/></Field><Field title={uiText('Review again after')}><input disabled={blocked} type="date" value={inputs.valid_until} onChange={e=>change('valid_until',e.target.value)}/></Field></Grid></Disclosure>
-    <Field title={uiText('Order coverage')}><Pick disabled={blocked} label={uiText('Order coverage')} value={inputs.order_feed} onChange={v=>change('order_feed',v)} options={[["unknown",uiText('Orders not provided or incomplete')],["complete_snapshot",uiText(inputs.orders.length?'All known orders included':'No current orders')]]}/></Field>
+    <Field title={uiText('Order coverage')}><Pick disabled={blocked} label={uiText('Order coverage')} value={inputs.order_feed} onChange={v=>change('order_feed',v)} options={[["unknown",uiText('Orders not provided or incomplete')],["complete_snapshot",uiText(orderCoverageTitle(inputs.orders,imports.orders))]]}/></Field>
     <label className="ui-check"><input type="checkbox" checked={checked} disabled={blocked} onChange={e=>setChecked(e.target.checked)}/>{uiText('I checked the customers, products, order quantities and coverage.')}</label>
     <Actions><Button kind="primary" disabled={blocked||!checked||!!snapshotId} onClick={check}>{uiText(busy?'Checking…':snapshotId?'Inputs ready':'Continue')}</Button></Actions>
   </Stack>;

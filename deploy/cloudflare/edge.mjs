@@ -1,7 +1,15 @@
-// Fail closed until durable state, identity and recovery pass deployment checks.
-// Deliberately no assets, secrets, storage bindings or container wake-up path.
+import {ownerRequest} from './owner-edge.mjs';
+// Owner acceptance only; all company data requires verified owner plus fresh MFA.
 export default {
-  async fetch(request) {
+  async fetch(request,env={}) {
+    if(env.PRIVATE_ACCESS==='closed'&&env.OWNER_ONLY_ACCEPTANCE==='true') {
+      let response;try{response=await ownerRequest(request,env);}catch{response=Response.json({detail:'Private workspace is unavailable'},{status:503});}
+      const headers=new Headers(response.headers);
+      for(const [key,value] of Object.entries({'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY',
+        'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+        'Referrer-Policy':'no-referrer','X-Robots-Tag':'noindex, nofollow','Strict-Transport-Security':'max-age=31536000'}))headers.set(key,value);
+      return new Response(request.method==='HEAD'?null:response.body,{status:response.status,headers});
+    }
     const headers = new Headers({
       'Cache-Control': 'no-store',
       'Retry-After': '3600',

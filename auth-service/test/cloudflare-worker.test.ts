@@ -34,11 +34,11 @@ test("built identity Worker denies every HTTP route while private RPC checks nat
       script: await readFile(new URL("../../deploy/cloudflare/build/identity/cloudflare-worker.js", import.meta.url), "utf8"),
       compatibilityDate: "2026-10-09",
       durableObjects: { ACCESS: { className: "ForecastAccess", useSQLite: true } },
-      bindings: { PRIVATE_ACCESS: "closed", NODE_ENV: "production", BETTER_AUTH_SECRET: secret,
-        RESEND_API_KEY: "re_synthetic_not_a_real_key", GOOGLE_CLIENT_ID: "945632758521-baj6dsc8irl5qmcknbi0tgt4ui0skjl0.apps.googleusercontent.com",
-        GOOGLE_CLIENT_SECRET: "synthetic-not-a-real-secret" }, d1Databases: ["IDENTITY_DB"] },
+      bindings: { PRIVATE_ACCESS: "closed", OWNER_ONLY_ACCEPTANCE: "true", NODE_ENV: "production", BETTER_AUTH_SECRET: secret,
+        RESEND_API_KEY: "re_synthetic_not_a_real_key", GOOGLE_CLIENT_ID: "945632758521-baj6dsc8irl5qmcknbi0tgt4ui0skjl0.apps.googleusercontent.com", // pragma: allowlist secret — non-working fixture
+        GOOGLE_CLIENT_SECRET: "synthetic-not-a-real-secret" }, d1Databases: ["IDENTITY_DB"] }, // pragma: allowlist secret — non-working fixture
     { name: "test-only-caller", modules: true, compatibilityDate: "2026-10-09",
-      script: "export default { async fetch(request, env) { if(request.method==='POST') { const {operation,body}=await request.json(); return Response.json(await env.IDENTITY.operation(operation,body)); } return Response.json(await env.IDENTITY.readiness()); } };",
+      script: "export default { async fetch(request, env) { if(request.method==='POST') { const {operation,body}=await request.json(); if(operation==='browser')return env.IDENTITY.browser(new Request('https://forecast.vrolen.com/api/login/'+body.path,{method:'POST',headers:{origin:'https://forecast.vrolen.com','content-type':'application/json'},body:JSON.stringify(body.data)})); if(operation==='owner')return Response.json(await env.IDENTITY.owner(body)); return Response.json(await env.IDENTITY.operation(operation,body)); } return Response.json(await env.IDENTITY.readiness()); } };",
       serviceBindings: { IDENTITY: { name: "identity", entrypoint: "ForecastIdentity" } } },
   ] }));
   try {
@@ -61,11 +61,23 @@ test("built identity Worker denies every HTTP route while private RPC checks nat
     assert.deepEqual(readiness, { access: "closed", schema_ready: true, google_configured: true,
       mail_configured: true, sign_in_verified: false, delivery_verified: false });
     assert.equal((await db.prepare('SELECT count(*) AS n FROM "user"').first<{ n: number }>())!.n, 0);
+    const browser = (path: string, data: unknown) => caller.fetch('https://local.test/', {
+      method: 'POST', body: JSON.stringify({ operation: 'browser', body: { path, data } }),
+    });
+    assert.equal((await browser('sign-up/email', {})).status, 404);
+    assert.equal((await browser('sign-in/email', { email: 'outsider@example.test', password: 'not-a-real-password' })).status, 403); // pragma: allowlist secret — denied fixture
+    const social = await browser('sign-in/social', { provider: 'google', callbackURL: FORECAST_ORIGIN + '/' });
+    assert.equal(social.status, 200);
+    assert.ok(social.headers.get('set-cookie'), 'OAuth state cookie survives private RPC');
+    const redirect = new URL((await social.json() as any).url);
+    assert.equal(redirect.hostname, 'accounts.google.com');
+    assert.equal(redirect.searchParams.get('redirect_uri'), FORECAST_ORIGIN + '/api/login/callback/google');
+    assert.equal((await (await caller.fetch('https://local.test/', {method:'POST', body: JSON.stringify({operation:'owner',body:{cookie:''}})})).json() as any).status,401);
     // Disposable operator fixture only. Never deployed and no real mail/keys.
     const fixture = createAuthCore({ origin: FORECAST_ORIGIN, secret, local: false }, db, {
       async invitationAllowed() { return true; }, async recordMfa() {}, async clearMfa() {},
     }, async () => {});
-    const password = "Synthetic-" + randomBytes(24).toString("hex");
+    const password = "Synthetic-" + randomBytes(24).toString("hex"); // pragma: allowlist secret — random disposable test password
     const people: { user: string; cookie: string; session: string }[] = [];
     for (const name of ["one", "two", "viewer"]) {
       const user = await fixture.api.signUpEmail({ body: { name, email: name + "@example.test", password } });
