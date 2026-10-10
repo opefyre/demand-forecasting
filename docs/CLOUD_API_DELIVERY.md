@@ -1,6 +1,8 @@
 # Private company API bridge — 10 October 2026
 
-This is a backend milestone, not the cloud UI launch. The public domain and every
+This records the original core bridge. The subsequent [approved reports/resource
+and screen-adapter slice](CLOUD_REPORTS_DELIVERY.md) supersedes its route counts
+and corresponding remaining-work items. This is not the cloud UI launch. The public domain and every
 backend HTTP listener remain closed. No real company data, identity account,
 provider credential, mail or AI request is created by these checks.
 

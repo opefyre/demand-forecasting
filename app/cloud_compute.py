@@ -143,7 +143,7 @@ def artifact(job: str, name: str):
     root, metadata = output(job)
     if name not in metadata['artifacts']: raise HTTPException(404, 'Output not found.')
     if 'api_status' in metadata:
-        return FileResponse(root / 'api-output' / name, media_type='application/json')
+        return FileResponse(root / 'api-output' / name, media_type='application/octet-stream' if name=='api-download.bin' else 'application/json')
     return FileResponse(root / 'workspace/data/companies' / metadata['company_id'] / 'runs' / metadata['run_id'] / name)
 
 

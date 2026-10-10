@@ -34,7 +34,7 @@ export async function cloudAccessOperation(identity: Identity, db: D1Binding, op
         !/^[A-Za-z0-9_-]{1,128}$/.test(body.company_id) || typeof body.subject !== "string" ||
         !Array.isArray(body.permissions)) return { allowed: false };
     try {
-      let user = body.subject, available: string[];
+      let user = body.subject, available: string[], currentRole: Role;
       if (body.auth_kind === "api_key") {
         const key = await statement(`SELECT b.owner_id,b.service_role,a.permissions,a.enabled,a."expiresAt"
           FROM demandlab_key_bindings b JOIN "apikey" a ON a.id=b.key_id
@@ -43,6 +43,7 @@ export async function cloudAccessOperation(identity: Identity, db: D1Binding, op
             body.subject !== (key.service_role ? 'service:' + body.key_id : key.owner_id)) return { allowed: false };
         user = key.owner_id;
         const current = await d1Membership(db, body.company_id, user);
+        currentRole = asRole(key.service_role || current.role);
         if (current.role === 'admin' && current.two_factor_enabled !== 1) return { allowed: false };
         const saved = typeof key.permissions === 'string' ? JSON.parse(key.permissions) : key.permissions;
         available = effectiveScopes(current.role, effectiveScopes(key.service_role || current.role, saved?.app || []));
@@ -51,6 +52,7 @@ export async function cloudAccessOperation(identity: Identity, db: D1Binding, op
           body.session_id, user, Date.now()).first();
         if (!session) return { allowed: false };
         const current = await d1Membership(db, body.company_id, user);
+        currentRole = asRole(current.role);
         if (current.role === 'admin' && current.two_factor_enabled !== 1) return { allowed: false };
         available = permissions[current.role];
       } else return { allowed: false };
@@ -58,7 +60,7 @@ export async function cloudAccessOperation(identity: Identity, db: D1Binding, op
       if (!Array.isArray(required) || !required.length || required.length > 8 ||
           required.some(scope => typeof scope !== 'string' || !(scope in scopeLabels))) return { allowed: false };
       return { allowed: required.every(scope => body.permissions.includes(scope) && available.includes(scope)),
-        permissions: body.permissions.filter(scope => available.includes(scope)) };
+        permissions: body.permissions.filter(scope => available.includes(scope)), role:currentRole };
     } catch (error) {
       if (error instanceof AccessError && error.status === 403) return { allowed: false };
       throw error;

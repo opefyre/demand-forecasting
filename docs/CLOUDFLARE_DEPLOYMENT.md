@@ -4,17 +4,17 @@ Status: 10 October 2026. Private permissions, storage and engine backbone deploy
 **The forecasting app is not deployed or ready for public use.**
 The local demo remains independent at `http://127.0.0.1:8010`.
 
-Latest private API slice: core customer/input/order/factor/grouped-forecast
-commands and saved JSON reads are implemented and verified. See
-[exact supported routes, limits and open work](CLOUD_API_DELIVERY.md).
-The UI has not been connected to the asynchronous cloud protocol; the public
-edge remains the same closed hold.
+Latest private API slice: 108 company operations, including approved reports,
+exports, lifecycle/settings and personal resources, are implemented and verified.
+Shared asynchronous screen/download adapters are implemented but require the
+future authenticated private UI gateway. See [scope and gates](CLOUD_REPORTS_DELIVERY.md).
+The public edge remains the same closed hold; no cloud UI launch is claimed.
 
 Current API-bridge deployment versions: identity
-`c7e61139-1fea-41d0-afc1-a0853bdcd697`, storage
-`b962cedf-f8cd-47c0-9c78-10ad32c1e061`, engine
-`fe9f65e3-1464-447b-a9fd-37a073123957`; image
-`sha256:fa802040310c6809b9ee6aca2e31a7af87c150750556910e73187fda4ce06d32`.
+`f7ec875f-fb1f-45e4-86d6-de56fbd2e308`, storage
+`fc20db3f-5240-4698-aa46-09371cdac76b`, engine
+`2619d520-6ed9-47c4-91e8-ee9723c4e224`; image
+`sha256:e9bbb6ca643ab8111806a1a61f1c58683174f497b9bfa326004113c2c03b4f9c`.
 Earlier versions below record the preceding backbone checkpoint. The dedicated
 build VM was stopped and its temporary registry login cleared after the upload.
 
@@ -152,10 +152,11 @@ Native Durable Object scheduling is Cloudflare's beta policy; it does not accept
 
 ## Required engineering before the app can go live
 
-1. **Cloud API/screens bridge:** the local app's existing company APIs and screens
-   need the remaining resource bridges and screen adapters. Core customer/input/
-   order/factor/grouped-forecast commands and saved reads now have private RPC;
-   see CLOUD_API_DELIVERY.md. Cloudflare container disk is
+1. **Cloud workflows/private UI gateway:** primary company resources, approved
+   reports/exports and screen/download adapters now have private cloud bridges.
+   Networked assistant, advanced/recurring actions and remaining connection/admin
+   routes plus the authenticated private UI gateway still need completion;
+   see CLOUD_REPORTS_DELIVERY.md. Cloudflare container disk is
    [ephemeral](https://developers.cloudflare.com/containers/faq/) and used as
    scratch only. Native SQLite jobs/revisions and immutable R2 company checkpoints
    now keep accepted work outside it, preserving existing calculations and orders.

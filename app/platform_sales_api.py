@@ -393,11 +393,15 @@ def install_platform_sales(api, workspaces, dispatcher=None):
         return call(lambda: ws.releases.detail(key, identity(who), who['role']))
 
     @router.get('/releases', tags=['Approved reports'])
-    def releases(request: Request):
+    def releases(request: Request, run_id: str = ''):
         ws = workspace(request, 'reports:read')
         who = principal(request)
-        rows = ws.releases.list()
-        return {'releases':[row for row in rows if row['state'] == 'approved' or 'drafts:read' in who['permissions']]}
+        rows = ws.releases.list(run_id or None)
+        visible = [row for row in rows if row['state'] == 'approved' or 'drafts:read' in who['permissions']]
+        for row in visible:
+            detail = release(ws, row['id'], who)
+            row.update({key:detail[key] for key in ('blocked','superseded','can_export')})
+        return {'releases':visible}
 
     @router.post('/releases/preview', tags=['Approved reports'])
     def preview_release(body: ReleaseInput, request: Request):

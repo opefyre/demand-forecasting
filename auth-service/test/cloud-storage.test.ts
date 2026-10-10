@@ -41,8 +41,8 @@ test('native company ledger: durable checkpoints, roles, deduplication, cancella
     export class Identity extends WorkerEntrypoint {async operation(op,body) {
       if(op==='work/authorize')return {status:200,body:{allowed:body.subject!=='revoked',permissions:body.permissions}};
       const company=body.company_id,role=body.role;
-      const scopes={admin:['settings:manage','forecasts:run','forecasts:write','reports:export','drafts:read','customers:read','customers:write'],
-        planner:['forecasts:run','forecasts:write','reports:export','drafts:read','customers:read','customers:write'],approver:['drafts:read','reports:export'],viewer:['reports:read']};
+      const scopes={admin:['settings:manage','forecasts:run','forecasts:write','reports:read','reports:export','drafts:read','customers:read','customers:write'],
+        planner:['forecasts:run','forecasts:write','reports:read','reports:export','drafts:read','customers:read','customers:write'],approver:['drafts:read','reports:export'],viewer:['reports:read','reports:export']};
       if(!['tehran_a','tehran_b','tehran_c'].includes(company)||!scopes[role])return{status:401,body:{}};
       return{status:200,body:{issuer:'https://forecast.vrolen.com',company_id:company,role,subject:body.subject||role,
         auth_kind:'session',session_id:'test-only',mfa_required:!!body.mfa_required,permissions:scopes[role]}};
@@ -51,14 +51,31 @@ test('native company ledger: durable checkpoints, roles, deduplication, cancella
     export class Engine extends WorkerEntrypoint {async count(){return calls;}async execute(job){calls++;
       const key='companies/'+job.company_id+'/revisions/'+job.attempt+'.zip';
       if(job.kind==='api') {
-        const body=await(await this.env.FILES.get(job.payload.body_key)).json();
+        const body=job.payload.method==='GET'?{}:await(await this.env.FILES.get(job.payload.body_key)).json();
         const root='companies/'+job.company_id+'/outputs/'+job.job_id+'/'+job.attempt+'/';
+        if(job.payload.method==='GET') {
+          if(!job.payload.path.includes('/export')) {
+            const artifacts={'api-response.json':root+'api-response.json','company-view.json':root+'company-view.json'};
+            await this.env.FILES.put(artifacts['api-response.json'],JSON.stringify({runs:[{run_id:'approved'}],total:1}));
+            await this.env.FILES.put(artifacts['company-view.json'],JSON.stringify({company_id:job.company_id,checked_at:new Date().toISOString(),timezone:'Asia/Tehran',
+              views:{'/customers':{customers:[{id:'abc123',customer:'New revision',active:true}],total:1}},
+              report_views:{'/runs':{runs:[{run_id:'approved'}],total:1}}}));
+            return{company_id:job.company_id,attempt:job.attempt,run_id:job.attempt,object_key:null,artifacts,api_status:200};
+          }
+          const artifacts={'api-response.json':root+'api-response.json','api-download.bin':root+'api-download.bin'};
+          await this.env.FILES.put(artifacts['api-response.json'],JSON.stringify({checked_at:new Date().toISOString(),timezone:'Asia/Tehran',
+            download:{content_type:'text/csv',disposition:'attachment; filename="approved.csv"'}}));
+          await this.env.FILES.put(artifacts['api-download.bin'],'customer,quantity\u005cnMehr,49\u005cn');
+          return{company_id:job.company_id,attempt:job.attempt,run_id:job.attempt,object_key:null,artifacts,api_status:200};
+        }
         const artifacts={'api-response.json':root+'api-response.json'},api_status=body.customer?201:422;
         await this.env.FILES.put(artifacts['api-response.json'],JSON.stringify(api_status===201?{id:'abc123',customer:body.customer}:{detail:'Check customer name'}));
         if(api_status===201) {
           await this.env.FILES.put(key,'synthetic-completed-checkpoint');await this.env.BACKUPS.put(key,'synthetic-completed-checkpoint');
           artifacts['company-view.json']=root+'company-view.json';await this.env.FILES.put(artifacts['company-view.json'],JSON.stringify({company_id:job.company_id,
-            views:{'/customers':{customers:[{id:'abc123',customer:body.customer,active:true}],total:1},'/customers/abc123':{id:'abc123',customer:body.customer}}}));
+            checked_at:body.checked_at || new Date().toISOString(),timezone:'Asia/Tehran',
+            views:{'/runs':{runs:[{run_id:'draft'}],total:1},'/customers':{customers:[{id:'abc123',customer:body.customer,active:true}],total:1},'/customers/abc123':{id:'abc123',customer:body.customer}},
+            report_views:{'/runs':{runs:[{run_id:'approved'}],total:1}}}));
         }
         return{company_id:job.company_id,attempt:job.attempt,run_id:job.attempt,object_key:api_status===201?key:null,artifacts,api_status};
       }
@@ -133,22 +150,44 @@ test('native company ledger: durable checkpoints, roles, deduplication, cancella
     assert.equal((await call({op:'artifact',credentials:fresh,id:queued.id,name:'company-view.json'})).detail,'Forecast result not found');
     assert.match((await call({op:'api_result',credentials:planner,id:queued.id})).detail,/not found/);
     assert.match((await call({op:'api_result',credentials:{...fresh,subject:'other-planner'},id:queued.id})).detail,/access/);
+    assert.match((await call({op:'api_result',credentials:{...fresh,role:'admin',subject:'planner'},id:queued.id})).detail,/access/,'Even unchanged action scopes do not permit reuse after a role change');
     assert.match((await call({...apiRequest,request_id:'stale-write'})).detail,/inputs changed/);
     assert.match((await call({...apiRequest,path:'/members',request_id:'no-cloud-admin'})).detail,/not connected/);
     assert.match((await call({op:'api',credentials:fresh,path:'/customers?ignored=1'})).detail,/Unsupported query/);
     const head=await call({op:'api_meta',credentials:fresh,path:'/customers'});
     assert.equal(head.status,200);assert.ok(head.revision);
+    const viewer={company_id:'tehran_c',role:'viewer'};
+    assert.deepEqual((await call({op:'api',credentials:viewer,path:'/runs'})).runs,[{run_id:'approved'}]);
+    const exportJob=await call({op:'api',credentials:viewer,path:'/releases/approved/export?kind=csv',
+      request_id:'approved-export-request',revision:head.revision});
+    assert.equal(exportJob.state,'queued',JSON.stringify(exportJob));await call({op:'drain'});
+    const exported=await caller.fetch('http://local.test/',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({op:'api_result',credentials:viewer,id:exportJob.id})});
+    assert.equal(exported.status,200);assert.match(exported.headers.get('content-disposition')||'',/approved.csv/);
+    assert.match(await exported.text(),/Mehr,49/);
+    assert.equal((await call({op:'api_meta',credentials:fresh,path:'/customers'})).revision,head.revision,'Exports never create a company revision');
+    assert.match((await call({op:'api_result',credentials:{...viewer,subject:'another-reader'},id:exportJob.id})).detail,/access/);
     const invalid=await call({...apiRequest,body:{customer:''},request_id:'invalid-customer',revision:head.revision});
     await call({op:'drain'});
     assert.equal((await call({op:'api_result',credentials:fresh,id:invalid.id})).detail,'Check customer name');
     assert.equal((await call({op:'api_meta',credentials:fresh,path:'/customers'})).revision,head.revision,'Validation failure never promotes scratch state');
+    await call({...apiRequest,body:{customer:'New revision',checked_at:'2000-01-01T00:00:00Z'},request_id:'changed-after-export',revision:head.revision});await call({op:'drain'});
+    assert.match((await call({op:'api_result',credentials:viewer,id:exportJob.id})).detail,/inputs changed/);
+    const reportHead=await call({op:'api_meta',credentials:fresh,path:'/customers'});
+    const refresh=await call({op:'api',credentials:viewer,path:'/runs?limit=1000',request_id:'refresh-report-day',revision:reportHead.revision});
+    assert.equal(refresh.state,'queued',JSON.stringify(refresh));await call({op:'drain'});
+    assert.equal((await call({op:'api_result',credentials:viewer,id:refresh.id})).runs[0].run_id,'approved');
+    const refreshedCount=await call({op:'engine_count'});
+    assert.equal((await call({op:'api',credentials:viewer,path:'/runs'})).runs[0].run_id,'approved');
+    assert.equal(await call({op:'engine_count'}),refreshedCount,'Same-day reports remain saved reads');
+    assert.equal((await call({op:'api_meta',credentials:fresh,path:'/customers'})).revision,reportHead.revision,'Read refresh does not mutate business data');
     const pending=await call({op:'submit',credentials:other,payload,request_id:'restart-request'});
     await runtime.dispose();
     runtime=new Miniflare(convertV4MiniflareOptions(options));caller=await runtime.getWorker('test-only-caller') as unknown as Fetcher;
     const recovered=await call({op:'jobs',credentials:planner});
     assert.equal(recovered.body.find((row:any)=>row.id===job.id)?.state,'succeeded',JSON.stringify(recovered));
     assert.deepEqual(await call({op:'artifact',credentials:planner,id:job.id,name:'result.json'}),{company:'tehran_a',total:49});
-    assert.equal((await call({op:'api',credentials:fresh,path:'/customers'})).customers[0].customer,'Mehr Packaging');
+    assert.equal((await call({op:'api',credentials:fresh,path:'/customers'})).customers[0].customer,'New revision');
     await call({op:'drain'});
     assert.equal((await call({op:'jobs',credentials:other})).body.find((r:any)=>r.id===pending.body.id).state,'succeeded');
   } finally {await runtime.dispose();await fs.rm(persistent,{recursive:true,force:true});}

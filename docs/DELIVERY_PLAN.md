@@ -43,8 +43,12 @@ bridge and saved read views that do not wake computation. Validation errors do
 not publish scratch changes; live scope checks and company/revision fences remain.
 See [scope, verification and remaining work](CLOUD_API_DELIVERY.md). The local UI
 has not been switched to this asynchronous cloud protocol.
-Next substantial slice: approved reports/exports and remaining resource bridges,
-then screen adapters, assistant/recurring/live-source work and owner-only
+Approved reports/resource slice, 10 October: approval/export, lifecycle, settings,
+personal views and saved-chat resource bridges plus shared asynchronous screen
+and download adapters are implemented. See [exact scope and gates](CLOUD_REPORTS_DELIVERY.md).
+The public edge remains closed; the private screen adapter is not a cloud UI launch.
+Next substantial slice: networked assistant/recurring/live-source work, remaining
+connection/management routes and owner-only
 identity/mail/browser plus measured remote wake/sleep acceptance. Do not open
 public access automatically.
 

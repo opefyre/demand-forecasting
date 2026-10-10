@@ -90,6 +90,7 @@ import {FactorEvaluation} from './factor-evaluation';
 import { pendingImport } from "./workflow-state.mjs";
 import {requestJSON} from './request-errors.mjs';
 import {companyMode,companyPage,configureCompanyApi,companyRequest} from './company-api.mjs';
+import {installCloudDownloads} from './cloud-transport.mjs';
 import {configureWorkspaceStorage,workspaceContextKey,localState,sessionState} from './workspace-storage.mjs';
 import {CompanyFactors} from './company-factors.jsx';
 import {RequestRecovery} from './request-recovery.jsx';
@@ -508,6 +509,7 @@ function App({ access }) {
     setNotice(uiText(text));
     setTimeout(() => setNotice(""), 4200);
   };
+  useEffect(()=>installCloudDownloads({onStart:()=>notify('Preparing download…'),onError:setError}),[]);
   const startNewForecast=(datasetId='',method='recommended',customer='',parentForecastId=null,forecastName='')=>{
     if(!canEdit)return;
     try{if(typeof datasetId==='string'&&datasetId)sessionState.setItem(FORECAST_DRAFT_KEY,JSON.stringify({version:2,source:datasetId,step:1,methods:[method],customer,jobs:[],parentForecastId,

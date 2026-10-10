@@ -1,4 +1,5 @@
 // Preserve response evidence without treating server text as instructions or UI keys.
+import {cloudFetch} from './cloud-transport.mjs';
 export class RequestFailure extends Error {
   constructor(message, {status=0, kind='http', fields=[], retryAt=null}={}) {
     super(message); this.name='RequestFailure';
@@ -31,12 +32,12 @@ export async function requestJSON(url, body, method, {csrfToken='',fetcher=fetch
   const failure=error=>{error.operation=operation;return error;};
   let response;
   try {
-    response=await fetcher(url,{
+    response=await cloudFetch(url,{
       method:requestMethod,
       ...(isFile?{body}:body?{body:JSON.stringify(body)}:{}),
       headers:{...(body&&!isFile?{'Content-Type':'application/json'}:{}),
         ...(csrfToken?{'X-DemandLab-CSRF':csrfToken}:{})},
-    });
+    },fetcher);
   } catch {
     throw failure(new RequestFailure('The connection was interrupted.',{kind:'connection'}));
   }

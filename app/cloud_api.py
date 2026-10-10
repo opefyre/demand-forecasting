@@ -6,6 +6,8 @@ background schedulers or alternate business/calculation implementation is used.
 import asyncio
 import json
 import re
+from urllib.parse import urlsplit, parse_qsl
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
@@ -21,9 +23,14 @@ RECORD_LIMIT = 5000
 def route(method, path):
     if not isinstance(path, str) or len(path) > 512:
         raise ValueError('Unsupported company operation.')
+    parsed = urlsplit(path)
+    if parsed.scheme or parsed.netloc: raise ValueError('Unsupported company operation.')
     for entry in CONTRACT:
         pattern = re.escape(entry['path']).replace(r'\{id\}', r'[a-zA-Z0-9_-]{1,128}')
-        if method == entry['method'] and re.fullmatch(pattern, path):
+        if method == entry['method'] and re.fullmatch(pattern, parsed.path):
+            query = parse_qsl(parsed.query, keep_blank_values=True)
+            if parsed.fragment or any(k not in entry.get('query', []) for k, _ in query) or len({k for k, _ in query}) != len(query):
+                raise ValueError('Unsupported company query.')
             return entry
     raise ValueError('Unsupported company operation.')
 
@@ -50,7 +57,7 @@ async def projection(api, workspace, company):
 
     async def save(path):
         response = await invoke(api, who, 'GET', path)
-        if response.status_code == 404: return None
+        if response.status_code in {400, 404, 409}: return None
         if response.status_code != 200: raise ValueError('Company read projection is unavailable.')
         value = response.json()
         views[path] = value
@@ -71,22 +78,55 @@ async def projection(api, workspace, company):
             key = row.get('id', row.get('run_id'))
             await save('/' + name + '/' + key)
             if name == 'customers': await save('/customers/' + key + '/products')
+            if name == 'customers': await save('/customers/' + key + '/factor-profiles')
             if name == 'datasets':
                 await save('/datasets/' + key + '/orders')
                 await save('/datasets/' + key + '/factors')
             if name == 'runs' and row.get('sales_input_snapshot_id'):
                 await save('/runs/' + key + '/demand')
+            if name == 'runs':
+                await save('/runs/' + key + '/orders/starter')
+                await save('/runs/' + key + '/order-snapshots')
+                evaluations = await save('/runs/' + key + '/actuals')
+                for item in (evaluations or {}).get('evaluations', []): await save('/actuals/' + item['id'])
+            if name != 'customers':
+                for suffix in ['metadata', 'revisions']: await save('/' + name + '/' + key + '/' + suffix)
     await save('/orders/schema')
     await save('/factors')
     for row in workspace.factors.list(): await save('/factors/' + row['id'])
     # Review snapshots may precede any calculation; retain both dataset-bound
     # reviews and subsequent run-bound reviews, through the existing store API.
     for key in ['inputs:' + r['id'] for r in views['/datasets']['datasets']] + [r['run_id'] for r in views['/runs']['runs']]:
-        for row in workspace.sales.list(key): await save('/order-snapshots/' + row['id'])
+        for row in workspace.sales.list(key):
+            await save('/order-snapshots/' + row['id'])
+            if not key.startswith('inputs:'): await save('/order-snapshots/' + row['id'] + '/demand')
     for frequency in ['monthly', 'weekly', 'daily']:
         for profile in ['fast', 'deep']:
             await save(f'/forecast-methods?frequency={frequency}&profile={profile}')
-    encoded = json.dumps({'company_id': company, 'views': views}, ensure_ascii=False).encode()
+    for path in ['/workspace', '/units', '/jobs', '/releases']: await save(path)
+    for item in views['/jobs']['jobs']: await save('/jobs/' + item['id'])
+    for item in views['/releases']['releases']: await save('/releases/' + item['id'])
+    # Build approved-only variants THROUGH the original report permission gates.
+    # Never filter a draft payload after giving it to a Viewer.
+    report_views = {}
+    viewer = dict(who, role='viewer', permissions=['reports:read','reports:export'])
+    paths = ['/runs?limit=1000&include_archived=true'] + [p for p in views if
+        p.startswith(('/runs/', '/releases', '/actuals/', '/order-snapshots/')) and not
+        p.endswith(('/orders/starter', '/demand'))]
+    paths += [p for p in views if p.startswith('/order-snapshots/') and p.endswith('/demand')]
+    approved_rows = []
+    for offset in range(0, RECORD_LIMIT + 1, 1000):
+        value = await invoke(api, viewer, 'GET', f'/runs?limit=1000&offset={offset}&include_archived=true')
+        if value.status_code != 200: raise ValueError('Approved reports unavailable.')
+        page = value.json(); approved_rows.extend(page['runs'])
+        if len(approved_rows) > RECORD_LIMIT: raise ValueError('Approved report capacity exceeded.')
+        if len(approved_rows) >= page['total']: break
+    report_views['/runs'] = {'runs':approved_rows,'total':len(approved_rows)}
+    for path in paths[1:]:
+        value = await invoke(api, viewer, 'GET', path)
+        if value.status_code == 200: report_views[path] = value.json()
+    encoded = json.dumps({'company_id': company, 'views': views, 'report_views':report_views,
+        'checked_at':datetime.now(timezone.utc).isoformat(), 'timezone':workspace.site['timezone']}, ensure_ascii=False).encode()
     if len(encoded) > VIEW_LIMIT: raise ValueError('Company read projection is too large.')
     return encoded
 
@@ -94,7 +134,7 @@ async def projection(api, workspace, company):
 def operate(source, root, company, attempt, command, body_path):
     company_id(company)
     entry = route(command['method'], command['path'])
-    if entry['method'] == 'GET': raise ValueError('Saved reads must not wake the engine.')
+    if entry['method'] == 'GET' and not (entry.get('queued') or entry.get('fresh')): raise ValueError('Saved reads must not wake the engine.')
     who = command['principal']
     if (who.get('company_id') != company or who.get('issuer') != 'https://forecast.vrolen.com'
             or who.get('mfa_required') is not False or who.get('role') not in {'admin', 'planner', 'approver', 'viewer'}
@@ -115,13 +155,22 @@ def operate(source, root, company, attempt, command, body_path):
         # even if a route wrote temporary review material before failing.
         status = response.status_code
         if status >= 500: raise ValueError('Company operation unavailable.')
-        value = response.json()
         result = {'job_id': attempt, 'company_id': company, 'run_id': attempt,
             'api_status': status, 'artifacts': ['api-response.json']}
         output = source.parent / 'api-output'
         output.mkdir()
+        if entry.get('download') and 200 <= status < 300:
+            value = {'checked_at':datetime.now(timezone.utc).isoformat(), 'timezone':workspace.site['timezone'],
+                'download':{'content_type':response.headers.get('content-type','application/octet-stream'),
+                'disposition':response.headers.get('content-disposition','attachment')}}
+            (output / 'api-download.bin').write_bytes(response.content)
+            result['artifacts'].append('api-download.bin')
+        else: value = response.json()
         (output / 'api-response.json').write_text(json.dumps(value, ensure_ascii=False))
-        if 200 <= status < 300:
+        if 200 <= status < 300 and entry['method'] == 'GET' and entry.get('fresh'):
+            (output / 'company-view.json').write_bytes(asyncio.run(projection(api, workspace, company)))
+            result['artifacts'].append('company-view.json')
+        if 200 <= status < 300 and entry['method'] != 'GET':
             (output / 'company-view.json').write_bytes(asyncio.run(projection(api, workspace, company)))
             result['artifacts'].append('company-view.json')
             workspaces.close()

@@ -43,6 +43,9 @@ class CloudApiTests(unittest.TestCase):
         if response.status_code != 200: return response, None, None, b''
         metadata = response.json()
         value = self.client.get('/output/' + attempt + '/artifact/api-response.json').json()
+        if method == 'GET':
+            self.assertEqual(self.client.get('/output/' + attempt + '/snapshot').status_code, 404)
+            return response, value, None, checkpoint
         if metadata['api_status'] >= 300:
             self.assertEqual(self.client.get('/output/' + attempt + '/snapshot').status_code, 404)
             return response, value, None, b''
@@ -55,7 +58,10 @@ class CloudApiTests(unittest.TestCase):
         api = create_platform_api(None, CompanyWorkspaces(self.root/'contract'))
         import re
         actual = {(method.upper(),re.sub(r'\{[^}]+\}', '{id}', path)) for path,methods in api.openapi()['paths'].items() for method in methods}
-        for entry in CONTRACT: self.assertIn((entry['method'], entry['path']), actual)
+        for entry in CONTRACT:
+            path = entry['path'].replace('{id}', 'test-id')
+            self.assertTrue(any(method == entry['method'] and re.fullmatch(re.escape(pattern).replace(r'\{id\}', '[^/]+'),path)
+                for method,pattern in actual),entry)
         for path in ['/api-keys', '/members', '/assistant', '/external-sources/refresh', '/../customers', '/customers/a/b']:
             with self.assertRaises(ValueError): route('POST', path)
 
@@ -152,3 +158,102 @@ class CloudApiTests(unittest.TestCase):
             self.assertEqual(response.json()['api_status'],201,snapshot)
             self.assertIn('/order-snapshots/'+snapshot['id'],view['views'])
         finally: fixture.tearDown()
+
+    def test_approved_reports_independent_review_exports_and_lifecycle_across_cold_starts(self):
+        fixture=sales_fixture.PublicSalesTests();fixture.setUp()
+        try:
+            _,dataset,_=fixture.history();orders=fixture.orders(dataset)
+            group,_=fixture.calculate(dataset,orders,['model:Last observed'])
+            run_id=group['jobs'][0]['run_id'];run=fixture.ws.load_run(run_id)
+            source=self.root/'approved.zip'
+            import shutil
+            shutil.copytree(fixture.root/'companies',self.root/'input/data/companies')
+            capture(self.root/'input','tehran_a',source);checkpoint=source.read_bytes()
+            payload={'snapshot_id':run['sales_input_snapshot_id'],'receiver':'Client MRP',
+                'mode':'combined_demand','request_id':'cloud-release-review'}
+            response,review,view,checkpoint=self.command('POST','/releases/preview',payload,checkpoint)
+            self.assertEqual(response.json()['api_status'],200,review)
+            self.assertEqual(view['report_views']['/runs']['runs'],[])
+            response,record,view,checkpoint=self.command('POST','/releases',payload|{'reviewed':True,'review_token':review['review_token']},checkpoint)
+            self.assertEqual(response.json()['api_status'],201,record)
+            approval={'reviewed':True,'review_token':review['review_token']}
+            own=dict(self.who,role='approver')
+            response,_,_,_=self.command('POST','/releases/'+record['id']+'/approve',approval,checkpoint,who=own)
+            self.assertEqual(response.json()['api_status'],403)
+            approver=dict(own,subject='independent-reviewer')
+            response,approved,view,checkpoint=self.command('POST','/releases/'+record['id']+'/approve',approval,checkpoint,who=approver)
+            self.assertEqual(response.json()['api_status'],200,approved)
+            self.assertEqual(len(view['report_views']['/runs']['runs']),1)
+            self.assertIn('/runs/'+run_id,view['report_views'])
+            self.assertNotIn('/runs/'+run_id+'/demand',view['report_views'])
+            viewer=dict(self.who,subject='reader',role='viewer',permissions=['reports:read','reports:export'])
+            response,fresh,read_view,unchanged=self.command('GET','/runs?limit=1000',None,checkpoint,who=viewer)
+            self.assertEqual(response.json()['api_status'],200,fresh)
+            self.assertEqual(len(fresh['runs']),1)
+            self.assertEqual(unchanged,checkpoint)
+            self.assertIn('company-view.json',response.json()['artifacts'])
+            for kind in ['csv','xlsx','json']:
+                response,descriptor,_,unchanged=self.command('GET','/releases/'+record['id']+'/export?kind='+kind,None,checkpoint,who=viewer)
+                self.assertEqual(response.json()['api_status'],200,descriptor)
+                self.assertEqual(unchanged,checkpoint)
+                binary=self.client.get('/output/'+self.attempts[-1]+'/artifact/api-download.bin').content
+                self.assertGreater(len(binary),100)
+                if kind=='xlsx':self.assertTrue(binary.startswith(b'PK'))
+                if kind=='json':self.assertIsInstance(json.loads(binary),list)
+            path='/datasets/'+dataset['id']
+            response,metadata,view,checkpoint=self.command('PATCH',path+'/metadata',{'name':'Tehran demand inputs','version':0},checkpoint)
+            self.assertEqual(response.json()['api_status'],200,metadata)
+            self.assertEqual(view['views'][path+'/metadata']['name'],'Tehran demand inputs')
+            version=metadata['lifecycle']['version']
+            response,archived,view,checkpoint=self.command('POST',path+'/archive',{'version':version},checkpoint)
+            self.assertTrue(archived['lifecycle']['archived'])
+            response,restored,view,checkpoint=self.command('POST',path+'/restore',{'version':archived['lifecycle']['version']},checkpoint)
+            self.assertFalse(restored['lifecycle']['archived'])
+            response,_,_,_=self.command('GET','/runs/'+run_id+'/export?mode=combined_demand&kind=csv',None,checkpoint,who=viewer)
+            self.assertEqual(response.status_code,422,'Viewer cannot ask for draft exports')
+        finally:fixture.tearDown()
+
+    def test_settings_and_personal_views_use_original_permission_and_owner_gates(self):
+        admin=dict(self.who,role='admin',permissions=self.who['permissions']+['settings:manage'])
+        response,site,view,checkpoint=self.command('PUT','/settings/site',{'name':'Tehran test factory','province':'Tehran','timezone':'Asia/Tehran'},who=admin)
+        self.assertEqual(response.json()['api_status'],200,site)
+        self.assertEqual(view['views']['/workspace']['site']['name'],'Tehran test factory')
+        response,_,_,_=self.command('PUT','/settings/site',{'name':'Wrong','province':'Tehran','timezone':'Asia/Tehran'},checkpoint)
+        self.assertEqual(response.status_code,422)
+        key=dict(self.who,subject='service:test-key',auth_kind='api_key',key_kind='company',permissions=self.who['permissions']+['views:own'])
+        response,value,_,_=self.command('GET','/views?run_id=unknown',None,checkpoint,who=key)
+        self.assertIn(response.json()['api_status'],[403,404])
+
+    def test_saved_conversations_remain_personal_and_survive_rename_archive_restore(self):
+        from app.company_context import personal_owner
+        who=dict(self.who,permissions=self.who['permissions']+['ai:query','chats:own'])
+        workspace=CompanyWorkspaces(self.root/'chat/data/companies')
+        try:
+            w=workspace.for_principal(who)
+            chat=w.journal.put(personal_owner(who),{'question':'Check Tehran demand','answer':'Review saved demand.',
+                'run_id':None,'snapshot_id':None,'dataset_id':None,'actions':[]})
+            archive=self.root/'chat.zip';capture(self.root/'chat','tehran_a',archive)
+        finally:workspace.close()
+        checkpoint=archive.read_bytes()
+        response,_,view,checkpoint=self.command('POST','/ai/conversations/'+chat+'/rename',{'title':'Tehran sales review'},checkpoint,who=who)
+        self.assertEqual(response.json()['api_status'],200)
+        self.assertFalse(any(path.startswith('/ai') for path in view['views']),'Private chats never enter shared projections')
+        response,listed,_,_=self.command('GET','/ai/conversations',None,checkpoint,who=who)
+        self.assertEqual(listed['chats'][0]['title'],'Tehran sales review')
+        other=dict(who,subject='other-user')
+        response,listed,_,_=self.command('GET','/ai/conversations',None,checkpoint,who=other)
+        self.assertEqual(listed['chats'],[])
+        response,_,_,_=self.command('GET','/ai/conversations/'+chat,None,checkpoint,who=other)
+        self.assertEqual(response.json()['api_status'],400)
+        response,_,_,checkpoint=self.command('POST','/ai/conversations/'+chat+'/manage',{'operation':'archive'},checkpoint,who=who)
+        self.assertEqual(response.json()['api_status'],200)
+        response,listed,_,_=self.command('GET','/ai/conversations?status=archived',None,checkpoint,who=who)
+        self.assertEqual(len(listed['chats']),1)
+        response,_,_,checkpoint=self.command('POST','/ai/conversations/'+chat+'/manage',{'operation':'restore'},checkpoint,who=who)
+        self.assertEqual(response.json()['api_status'],200)
+        response,descriptor,_,_=self.command('GET','/ai/conversations/'+chat+'/export',None,checkpoint,who=who)
+        self.assertEqual(response.json()['api_status'],200,descriptor)
+        self.assertIn(b'Review saved demand',self.client.get('/output/'+self.attempts[-1]+'/artifact/api-download.bin').content)
+        service=dict(who,subject='service:integration',auth_kind='api_key',key_kind='company')
+        response,_,_,_=self.command('GET','/ai/conversations',None,checkpoint,who=service)
+        self.assertEqual(response.json()['api_status'],403)

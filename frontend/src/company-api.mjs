@@ -1,9 +1,10 @@
 // Explicit adapter for the existing screens. Unknown business calls fail closed.
 import {RequestFailure} from './request-errors.mjs';
+import {configureCloudTransport} from './cloud-transport.mjs';
 let company=false;
 export const companyMode=()=>company;
 export const companyPage=value=>company&&value==='forecast'?'demand':value;
-export function configureCompanyApi(access){company=access?.mode==='better_auth';}
+export function configureCompanyApi(access){company=access?.mode==='better_auth';configureCloudTransport(access);}
 
 export function companyPath(value,method='GET'){
   const url=new URL(value,'http://app.local');

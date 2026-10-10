@@ -1,5 +1,5 @@
 import { DurableObject, WorkerEntrypoint } from 'cloudflare:workers';
-import { companyRoute, savedResponse } from './company-api.mjs';
+import { companyRoute, savedResponse, sameReportDay } from './company-api.mjs';
 
 const FORECAST_DEADLINE_MS = 12 * 60 * 1000;
 const ID = /^[a-f0-9]{32}$/;
@@ -95,7 +95,7 @@ export class ForecastCloud extends DurableObject {
   async enqueueApi(company,payload,requestId,grant,expected) {
     return this.serialized(async()=>{
       const entry=companyRoute(payload?.method,payload?.path);
-      if(!entry || entry.method==='GET' || !COMPANY.test(company) || typeof requestId!=='string' || requestId.length<8 || requestId.length>160 ||
+      if(!entry || (entry.method==='GET'&&!entry.queued&&!entry.fresh) || !COMPANY.test(company) || typeof requestId!=='string' || requestId.length<8 || requestId.length>160 ||
           !payload.body_key?.startsWith(ROOT+company+'/requests/') || !/^[a-f0-9]{64}$/.test(payload.body_hash) ||
           !entry.scopes.every(scope=>grant.permissions.includes(scope)) || JSON.stringify(payload).length>16384)
         throw new CloudStorageError(400,'Invalid company operation');
@@ -106,7 +106,8 @@ export class ForecastCloud extends DurableObject {
       }
       const head=this.head(company);
       if((head?.revision || null)!==expected)throw new CloudStorageError(409,'Company inputs changed. Reload before saving.');
-      if(this.pending(company))throw new CloudStorageError(409,'Wait for the current company operation before saving.');
+      if(this.pending(company) && (payload.method!=='GET' || this.rows("SELECT payload FROM jobs WHERE company=? AND state IN ('queued','running')",company).some(row=>JSON.parse(row.payload).method!=='GET')))
+        throw new CloudStorageError(409,'Wait for the current company operation before saving.');
       if(this.rows("SELECT count(*) AS n FROM jobs WHERE state IN ('queued','running')")[0].n>=20)throw new CloudStorageError(429,'The company queue is full');
       const id=random();
       await this.ctx.storage.setAlarm(now()+1000);
@@ -115,13 +116,16 @@ export class ForecastCloud extends DurableObject {
       return this.publicJob(this.rows('SELECT * FROM jobs WHERE id=?',id)[0]);
     });
   }
-  async apiResult(company,id,subject,permissions) {
+  async apiResult(company,id,subject,permissions,role) {
     const row=this.rows("SELECT * FROM jobs WHERE company=? AND id=? AND kind='api'",company,id)[0];
     if(!row)throw new CloudStorageError(404,'Company operation not found');
     const grant=JSON.parse(row.grant_json);
-    if(grant.subject!==subject || !grant.required_scopes.every(scope=>permissions.includes(scope)))throw new CloudStorageError(403,'Your access does not allow this operation');
-    return {...this.publicJob(row),revision:row.api_status<300?row.attempt:row.input_revision,
-      response_key:row.state==='succeeded'?JSON.parse(row.artifacts)['api-response.json']:null};
+    if(grant.subject!==subject || grant.role!==role || !grant.required_scopes.every(scope=>permissions.includes(scope)))throw new CloudStorageError(403,'Your access does not allow this operation');
+    const payload=JSON.parse(row.payload),files=row.state==='succeeded'?JSON.parse(row.artifacts):{};
+    if(payload.method==='GET' && (this.head(company)?.revision || '')!==row.input_revision)
+      throw new CloudStorageError(409,'Report inputs changed. Download the current version.');
+    return {...this.publicJob(row),revision:row.api_status<300&&payload.method!=='GET'?row.attempt:row.input_revision,
+      response_key:files['api-response.json'] || null,download_key:files['api-download.bin'] || null};
   }
   async enqueue(company, payload, requestId, grant) {
     return this.serialized(async () => {
@@ -186,7 +190,7 @@ export class ForecastCloud extends DurableObject {
       if(row.kind==='api') {
         if((head?.revision || '')!==row.input_revision)throw new CloudStorageError(409,'Company revision changed');
         const grant=JSON.parse(row.grant_json);
-        payload.principal={...grant,mfa_required:false,role:grant.role,
+        payload.principal={...grant,mfa_required:false,role:authorization.body.role || grant.role,
           permissions:authorization.body.permissions || []};
       }
       const result = await this.env.ENGINE.execute({ company_id:row.company,job_id:row.id,attempt,
@@ -196,11 +200,12 @@ export class ForecastCloud extends DurableObject {
       const current = this.rows('SELECT * FROM jobs WHERE id=?',row.id)[0];
       if (current.state !== 'running' || current.attempt !== attempt || deadline <= now()) return;
       if (!result || !RUN.test(result.run_id) || result.company_id !== row.company || result.attempt !== attempt ||
-          (!(row.kind==='api' && result.api_status>=300 && result.object_key===null) && !result.object_key?.startsWith(ROOT+row.company+'/revisions/')) || !result.artifacts ||
+          (!(row.kind==='api' && (result.api_status>=300 || payload.method==='GET') && result.object_key===null) && !result.object_key?.startsWith(ROOT+row.company+'/revisions/')) || !result.artifacts ||
           Object.values(result.artifacts).some(key => typeof key !== 'string' || !key.startsWith(ROOT+row.company+'/outputs/'+row.id+'/'+attempt+'/')))
         throw new CloudStorageError(503, 'Invalid engine output');
       if(row.kind==='api' && (!Number.isInteger(result.api_status) || result.api_status<200 || result.api_status>=500 ||
-          !result.artifacts['api-response.json'] || (result.api_status<300 && !result.artifacts['company-view.json'])))throw new CloudStorageError(503,'Invalid company output');
+          !result.artifacts['api-response.json'] || (result.api_status<300 && payload.method!=='GET' && !result.artifacts['company-view.json']) ||
+          (payload.method==='GET' && result.object_key!==null)))throw new CloudStorageError(503,'Invalid company output');
       if (result.object_key && (!await this.env.FILES.head(result.object_key) || !await this.env.BACKUPS.head(result.object_key)))
         throw new CloudStorageError(503, 'Engine output was not durably saved');
       for (const key of Object.values(result.artifacts)) if (!await this.env.FILES.head(key)) throw new CloudStorageError(503,'Engine output was not durably saved');
@@ -215,6 +220,8 @@ export class ForecastCloud extends DurableObject {
           this.sql.exec('INSERT INTO companies(company,revision,object_key,view_key) VALUES(?,?,?,?) ON CONFLICT(company) DO UPDATE SET revision=excluded.revision,object_key=excluded.object_key,view_key=excluded.view_key',
             row.company,attempt,result.object_key,result.artifacts['company-view.json'] || null);
         }
+        if(payload.method==='GET' && result.api_status<300 && result.artifacts['company-view.json'])
+          this.sql.exec('UPDATE companies SET view_key=? WHERE company=? AND revision=?',result.artifacts['company-view.json'],row.company,row.input_revision);
         this.sql.exec("UPDATE jobs SET state='succeeded',run_id=?,artifacts=?,api_status=?,message=NULL WHERE id=?",result.run_id,JSON.stringify(result.artifacts),result.api_status || null,row.id);
       });
     } catch (error) {
@@ -244,21 +251,28 @@ export class ForecastStorage extends WorkerEntrypoint {
     try {
       const url=new URL(request.url),path=url.pathname.replace(/^\/api\/v1/,'');
       if(!url.pathname.startsWith('/api/v1/'))throw new CloudStorageError(404,'Company operation not found');
+      if(path==='/cloud/revision'&&request.method==='GET'&&!url.search) {
+        const who=await this.who(credentials),head=await this.ledger().checkpoint(who.company_id);
+        return Response.json({revision:head?.revision || null},{headers:{'Cache-Control':'no-store'}});
+      }
       const entry=companyRoute(request.method,path);
       if(!entry)throw new CloudStorageError(501,'This company route is not connected to cloud storage yet');
       const who=await this.who(credentials);
       if(!entry.scopes.every(scope=>who.permissions.includes(scope)))throw new CloudStorageError(403,'Your role does not allow this action');
       const head=await this.ledger().checkpoint(who.company_id);
-      if(entry.method==='GET') {
-        if(!head?.view_key)throw new CloudStorageError(409,'No saved cloud read view is available yet');
-        const object=await this.env.FILES.get(head.view_key);
-        if(!object || object.size>12*1024*1024)throw new CloudStorageError(503,'Company read view unavailable');
-        const document=await object.json();
-        if(document.company_id!==who.company_id)throw new CloudStorageError(503,'Company read view unavailable');
-        const value=savedResponse(entry,url,document);
-        return Response.json(value.body,{status:value.status,headers:{'Cache-Control':'no-store','X-Company-Revision':head.revision}});
+      if(entry.method==='GET'&&!entry.queued) {
+        if(!head && entry.collection)return Response.json({[entry.collection]:[],total:0,offset:0,limit:100},{headers:{'Cache-Control':'no-store','X-Company-Revision':''}});
+        if(!head?.view_key&&!entry.fresh)throw new CloudStorageError(409,'No saved cloud read view is available yet');
+        if(head?.view_key) {
+          const object=await this.env.FILES.get(head.view_key);
+          if(!object || object.size>12*1024*1024)throw new CloudStorageError(503,'Company read view unavailable');
+          const document=await object.json();
+          if(document.company_id!==who.company_id)throw new CloudStorageError(503,'Company read view unavailable');
+          const value=savedResponse(entry,url,document,who);
+          if(value.status!==409||!entry.fresh)return Response.json(value.body,{status:value.status,headers:{'Cache-Control':'no-store','X-Company-Revision':head.revision}});
+        }
       }
-      if(url.search || typeof expectedRevision==='undefined' ||
+      if((url.search&&!entry.queued&&!entry.fresh) || !companyRoute(request.method,path+url.search) || typeof expectedRevision==='undefined' ||
           (expectedRevision!==null && !ID.test(expectedRevision)))throw new CloudStorageError(400,'Provide the current company revision');
       if(typeof requestId!=='string' || requestId.length<8 || requestId.length>160)throw new CloudStorageError(400,'Provide a stable request identifier');
       const size=Number(request.headers.get('content-length'));
@@ -277,23 +291,32 @@ export class ForecastStorage extends WorkerEntrypoint {
         if(!body || body.size!==size)throw new CloudStorageError(413,'Request size did not match');
         await this.env.FILES.put(bodyKey,body.body,{onlyIf:{etagDoesNotMatch:'*'}});
       } finally { await this.env.FILES.delete(temporary); }
-      const grant=Object.fromEntries(['issuer','subject','company_id','auth_kind','session_id','key_id','permissions','role']
+      const grant=Object.fromEntries(['issuer','subject','company_id','auth_kind','session_id','key_id','key_kind','permissions','role']
         .filter(key=>who[key]!==undefined).map(key=>[key,who[key]]));
       grant.required_scopes=entry.scopes;
       const result=await this.ledger().operation('enqueueApi',[who.company_id,
-        {method:entry.method,path,content_type:type,body_key:bodyKey,body_hash:bodyHash},requestId,grant,expectedRevision]);
-      return Response.json(result.body,{status:result.status,headers:{'Cache-Control':'no-store'}});
+        {method:entry.method,path:path+url.search,content_type:type,body_key:bodyKey,body_hash:bodyHash},requestId,grant,expectedRevision]);
+      return Response.json(result.body,{status:result.status,headers:{'Cache-Control':'no-store','X-Company-Operation':result.body.id || ''}});
     } catch(error) { const value=safe(error);return Response.json(value.body,{status:value.status,headers:{'Cache-Control':'no-store'}}); }
   }
   async companyApiResult(credentials,id) {
     try {
       const who=await this.who(credentials);
-      const result=await this.ledger().operation('apiResult',[who.company_id,id,who.subject,who.permissions]);
+      const result=await this.ledger().operation('apiResult',[who.company_id,id,who.subject,who.permissions,who.role]);
       if(result.status!==200)throw new CloudStorageError(result.status,result.body.detail);
-      const {response_key,...job}=result.body;
-      if(!response_key)return Response.json(job,{status:job.state==='queued' || job.state==='running'?202:409,headers:{'Cache-Control':'no-store'}});
+      const {response_key,download_key,...job}=result.body;
+      if(!response_key)return Response.json(job,{status:job.state==='queued' || job.state==='running'?202:409,headers:{'Cache-Control':'no-store','X-Company-Operation':id}});
       const object=await this.env.FILES.get(response_key);
       if(!object)throw new CloudStorageError(503,'Company response unavailable');
+      if(download_key) {
+        const descriptor=await object.json();
+        if(!sameReportDay(descriptor))throw new CloudStorageError(409,'Report checks need refreshing before download');
+        const file=await this.env.FILES.get(download_key);
+        if(!file || !descriptor.download || /[\r\n]/.test(descriptor.download.disposition))throw new CloudStorageError(503,'Company download unavailable');
+        return new Response(file.body,{status:job.api_status,headers:{'Content-Type':descriptor.download.content_type,
+          'Content-Disposition':descriptor.download.disposition,'Cache-Control':'no-store','X-Company-Revision':job.revision || '',
+          'X-Content-Type-Options':'nosniff'}});
+      }
       return new Response(object.body,{status:job.api_status,headers:{'Content-Type':'application/json','Cache-Control':'no-store',
         ...(job.revision?{'X-Company-Revision':job.revision}:{})}});
     } catch(error) {const value=safe(error);return Response.json(value.body,{status:value.status,headers:{'Cache-Control':'no-store'}});}

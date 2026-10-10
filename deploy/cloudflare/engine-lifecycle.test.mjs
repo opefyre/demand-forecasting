@@ -7,7 +7,7 @@ import { CloudEngineController } from './engine-lifecycle.mjs';
 globalThis.FixedLengthStream=class extends TransformStream {
   constructor(size) {let seen=0;super({transform(chunk,ctl){seen+=chunk.byteLength;if(seen>size)throw new Error('length');ctl.enqueue(chunk);},flush(){if(seen!==size)throw new Error('length');}});}
 };
-function fixture({badResponse=false,backupFailure=false,badSize=false,startFailure=false,apiStatus=null}={}) {
+function fixture({badResponse=false,backupFailure=false,badSize=false,startFailure=false,apiStatus=null,apiRead=false}={}) {
   const values=new Map(),objects=new Map(),backup=new Map(),events=[];
   const job={company_id:'company-a',job_id:'1'.repeat(32),attempt:'2'.repeat(32),object_key:'companies/company-a/revisions/'+ '3'.repeat(32)+'.zip',deadline:Date.now()+60000,payload:{}};
   const response=(text,type='application/octet-stream')=>new Response(text,{headers:{'content-type':type,'content-length':String(Buffer.byteLength(text)+(badSize?1:0))}});
@@ -20,7 +20,7 @@ function fixture({badResponse=false,backupFailure=false,badSize=false,startFailu
       if(url.endsWith('/ready'))return new Response('ready');
       if(url.endsWith('/forecast'))return badResponse?new Response(null,{status:500}):Response.json({job_id:job.attempt,company_id:job.company_id,run_id:'4'.repeat(12),artifacts:['result.json','forecast.csv']});
       if(url.endsWith('/api-operation'))return Response.json({job_id:job.attempt,company_id:job.company_id,run_id:job.attempt,
-        api_status:apiStatus,artifacts:apiStatus<300?['api-response.json','company-view.json']:['api-response.json']});
+        api_status:apiStatus,artifacts:apiRead?['api-response.json','api-download.bin']:apiStatus<300?['api-response.json','company-view.json']:['api-response.json']});
       if(options?.method==='DELETE'){events.push('cleanup');return new Response(null,{status:204});}
       if(url.endsWith('/snapshot'))return response('checkpoint','application/zip');
       return response('result','application/json');
@@ -55,6 +55,12 @@ for(const apiStatus of [201,422])test('company API '+apiStatus+' saves its respo
 test('deadline alarm stops abandoned work and clears its lease',async()=>{
   const f=fixture();f.ctx.container.running=true;f.values.set('active',{attempt:f.job.attempt,deadline:Date.now()-1});f.values.set('alarm',1);
   await f.controller.alarm();assert.equal(f.ctx.container.running,false);assert.equal(f.values.size,0);
+});
+test('read-only exports save binary artifacts without a checkpoint or backup revision',async()=>{
+  const f=fixture({apiStatus:200,apiRead:true}),bodyKey='companies/company-a/requests/'+'7'.repeat(64);
+  f.objects.set(bodyKey,new Uint8Array());
+  const result=await f.controller.execute({...f.job,kind:'api',payload:{method:'GET',body_key:bodyKey}});
+  assert.equal(result.object_key,null);assert.equal(f.backup.size,0);assert.ok(result.artifacts['api-download.bin']);
 });
 test('alarm preserves bounded active work until its deadline',async()=>{
   const f=fixture();f.ctx.container.running=true;f.values.set('active',{attempt:f.job.attempt,deadline:f.job.deadline});

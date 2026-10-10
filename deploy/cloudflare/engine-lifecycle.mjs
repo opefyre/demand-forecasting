@@ -72,8 +72,9 @@ export class CloudEngineController {
       const root='companies/'+job.company_id+'/',key=root+'revisions/'+job.attempt+'.zip';
       const apiStatus=job.kind==='api'?result.api_status:undefined;
       if(job.kind==='api' && (!Number.isInteger(apiStatus) || apiStatus<200 || apiStatus>=500 ||
-          (apiStatus<300 && !result.artifacts.includes('company-view.json'))))throw new Error('Invalid company output');
-      if(apiStatus===undefined || apiStatus<300) {
+          (apiStatus<300 && job.payload.method!=='GET' && !result.artifacts.includes('company-view.json'))))throw new Error('Invalid company output');
+      const publish=apiStatus===undefined || (apiStatus<300&&job.payload.method!=='GET');
+      if(publish) {
         const snapshot=await request('/output/'+job.attempt+'/snapshot');
         if(!snapshot.ok)throw new Error('Checkpoint unavailable');
         await save(key,snapshot);
@@ -91,7 +92,7 @@ export class CloudEngineController {
       if(Date.now()>=job.deadline)throw new Error('Forecast deadline exceeded');
       completed=true;
       return {company_id:job.company_id,attempt:job.attempt,run_id:result.run_id,
-        object_key:apiStatus>=300?null:key,artifacts,...(apiStatus!==undefined?{api_status:apiStatus}:{})};
+        object_key:publish?key:null,artifacts,...(apiStatus!==undefined?{api_status:apiStatus}:{})};
     } finally {
       await this.ctx.blockConcurrencyWhile(async()=>{
         const current=await this.ctx.storage.get('active');

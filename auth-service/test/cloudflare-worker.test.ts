@@ -92,6 +92,9 @@ test("built identity Worker denies every HTTP route while private RPC checks nat
     })).json()) as { status: number; body: any };
     const adminBody = { company_id: company.id, cookie: people[0].cookie };
     const viewerBody = { company_id: company.id, cookie: people[2].cookie };
+    const viewerIdentity=(await call('identity',viewerBody)).body;
+    const staleRole=await call('work/authorize',{...viewerIdentity,role:'admin',required_scopes:['reports:read']});
+    assert.equal(staleRole.body.allowed,true);assert.equal(staleRole.body.role,'viewer','Queued work uses the live role, not its saved role');
     assert.equal((await call("members/list", viewerBody)).status, 403);
     assert.equal((await call("keys/create", { ...viewerBody, kind: "company", name: "Invalid", scopes: ["reports:read"] })).status, 403);
     assert.equal((await call("keys/create", { ...viewerBody, kind: "personal", name: "Invalid", scopes: ["orders:write"] })).status, 400);
