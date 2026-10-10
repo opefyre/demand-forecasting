@@ -50,12 +50,16 @@ compromised; replace it before deployment. The download was moved out of Downloa
 into the ignored `secrets/` folder with mode 0600, and is quarantined as
 `forecast-google-oauth.DO-NOT-USE.json`. Do not copy it into production.
 
-User action on the new **Vrolen Forecast** client only:
+On 2026-10-10 the owner added a replacement secret. Its Google JSON download was
+moved to ignored `secrets/forecast-google-oauth.json` with mode 0600; the Downloads
+copy is gone. Client identity and replacement match were verified without
+printing the secret. The replacement has not yet been deployed or used by the app.
 
-1. Click **Add secret**; save its credential securely as
-   `secrets/forecast-google-oauth.json` (never paste the secret into chat).
-2. Disable the old secret on this new client. Do not change the existing Vrolen client.
-3. Tell Codex when complete. Only non-secret metadata will be checked.
+Remaining user action on the new **Vrolen Forecast** client only:
+
+1. Disable the older, exposed secret on this new client. Leave the replacement
+   enabled. Do not change the existing Vrolen client.
+2. Tell Codex when complete. Only non-secret metadata will be checked.
 
 The replacement page is left open. Do not publish the shared Google consent app
 or broaden its scopes merely to make this new client work. Check the existing
