@@ -15,7 +15,8 @@ export async function ownerContext(env:CloudflareIdentityEnv,deliver:MailDeliver
     if(body.key || typeof body.cookie!=='string' || body.cookie.length>16384)throw Error();
     const identity=createCloudflareIdentity(env,deliver);
     const headers=new Headers({cookie:body.cookie,origin:FORECAST_ORIGIN});
-    const saved=await identity.auth.api.getSession({headers,query:{disableCookieCache:true}});
+    const renewed=await identity.auth.api.getSession({headers,query:{disableCookieCache:true},returnHeaders:true});
+    const saved=renewed.response;
     if(!saved || saved.user.email.toLowerCase()!==FORECAST_OWNER || !saved.user.emailVerified)throw Error();
     const memberships=await env.IDENTITY_DB.prepare('SELECT 1 FROM "member" WHERE "userId"=?').bind(saved.user.id).first();
     if(!memberships){
@@ -34,7 +35,7 @@ export async function ownerContext(env:CloudflareIdentityEnv,deliver:MailDeliver
     if(body.csrf!==undefined && (typeof body.csrf!=='string'||!/^[a-f0-9]{64}$/.test(body.csrf)||who.mfa_required||
       !await crypto.subtle.verify('HMAC',key,Uint8Array.from(body.csrf.match(/../g)!,s=>parseInt(s,16)),message)))
       return {status:403,body:{detail:'Verify this signed-in change'}};
-    return {status:200,body:{user:who,csrf}};
+    return {status:200,body:{user:who,csrf},cookies:renewed.headers.getSetCookie()};
   } catch {return {status:401,body:{detail:'Sign in with the private owner account'}};}
 }
 

@@ -1,5 +1,5 @@
 import { asRole, effectiveScopes, permissions, type Role } from "./policy.js";
-import type { createCloudflareIdentity, D1Binding } from "./cloudflare.js";
+import { FORECAST_OWNER, type createCloudflareIdentity, type D1Binding } from "./cloudflare.js";
 
 type Identity = ReturnType<typeof createCloudflareIdentity>;
 const COMPANY_ID = /^[A-Za-z0-9_-]{1,128}$/;
@@ -76,7 +76,7 @@ export async function resolveD1Identity(identity: Identity, db: D1Binding,
   await db.prepare("INSERT INTO demandlab_session_company(session_id,company_id) VALUES(?,?) ON CONFLICT DO NOTHING")
     .bind(saved.session.id, company).run();
   const proof = await db.prepare("SELECT 1 FROM demandlab_session_mfa WHERE session_id=? AND verified_at>? AND verified_at<=?")
-    .bind(saved.session.id, now - 3600000, now).first();
+    .bind(saved.session.id, now - (identity.config.sessionSeconds===172800&&current.email.toLowerCase()===FORECAST_OWNER?172800000:3600000), now).first();
   return { issuer: identity.config.origin, subject: saved.user.id, name: saved.user.name, email: saved.user.email,
     company_id: company, role: current.role, permissions: permissions[current.role],
     mfa_required: current.role === "admin" && (!current.two_factor_enabled || !proof),

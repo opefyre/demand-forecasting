@@ -82,8 +82,17 @@ live cloud DNS-request failure; **cloud monthly feeds are not verified connected
 Host provider parsers and the exact offline deployed image pass the new success
 regression. Interface 280, controller 51 and focused backend 53 checks pass.
 See CLOUD_FACTOR_ACCEPTANCE.md for evidence and boundaries.
-Current next task: resolve and verify the cloud's DNS-request failure, then refresh
-the monthly feeds after their existing cooldowns; finish correction/revision, orders, factor-aware
+Connection/access recovery slice, 10 October: native Cloudflare tests reproduced
+an unsupported DNS request redirect option. Manual redirects with explicit rejection
+now pass the deployed private DNS probe without waking the engine. Actual provider
+refreshes remain unverified until their normal cooldowns expire. Owner-requested
+48-hour private development sessions are active, with a 17 October automatic sunset;
+authentication and company isolation remain enabled. Shared bilingual lazy sign-in
+recovery is browser-tested on desktop and Persian mobile. Interface 281, controller/
+edge 53, identity 30 (four optional skipped), and compiled native identity two checks
+pass. See CLOUD_FEED_RECOVERY.md for deployed versions and exact boundaries.
+Current next task: refresh and verify the monthly feeds after their existing
+cooldowns; finish correction/revision, orders, factor-aware
 grouped models and review/export UI journey, including mobile/error/reload paths.
 Real client accuracy and an explicitly authorised live multi-person pilot remain
 separate. AI and new provider credential setup remain separately gated.

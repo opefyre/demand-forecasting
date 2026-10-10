@@ -91,7 +91,8 @@ export class NetworkBroker {
     if(!/^[a-z0-9][a-z0-9.-]{0,252}$/i.test(host)||host.endsWith('.local')||host==='localhost'||!host.includes('.'))deny();
     if(/^\d+[.\d]*$/.test(host)){if(!publicAddress(host))deny();return host;}
     const response=await checkedCall('dns_request',()=>this.fetcher('https://cloudflare-dns.com/dns-query?name='+encodeURIComponent(host)+'&type=A',
-      {headers:{accept:'application/dns-json'},redirect:'error',signal:AbortSignal.timeout(5000)}));
+      {headers:{accept:'application/dns-json'},redirect:'manual',signal:AbortSignal.timeout(5000)}));
+    if(response.status>=300&&response.status<400)deny('redirect');
     if(!response.ok)deny('dns');const value=JSON.parse(new TextDecoder().decode(await bounded(response,32768)));
     const addresses=value.Answer?.filter(r=>r.type===1).map(r=>r.data);
     if(!addresses?.length||addresses.some(a=>!publicAddress(a)))deny('dns');return addresses[0];

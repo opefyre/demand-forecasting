@@ -73,6 +73,23 @@ test('sign-in uses the shared entry surface and action-menu contract',async()=>{
   const source=await readFile(new URL('access-management.jsx',import.meta.url),'utf8');
   assert.match(source,/<ActionMenu name=/);assert.doesNotMatch(source,/select-menu|select-option|Dropdown\.Content/);
 });
+test('failed sign-in chunk has a shared bilingual recovery instead of a blank screen',async()=>{
+  const {AccessRecovery,AccessBoundary}=await server.ssrLoadModule('/src/access.jsx');
+  const {EntrySurface}=await server.ssrLoadModule('/src/ui-layout.jsx');
+  const render=()=>renderToStaticMarkup(React.createElement(EntrySurface,{brand:'DemandLab',icon:()=>null},React.createElement(AccessRecovery)));
+  const html=render();assert.match(html,/Reopen workspace/);assert.match(html,/role="alert"/);
+  assert.match(html,/class="btn primary"/);assert.doesNotMatch(html,/style=|access-card/);
+  assert.deepEqual(AccessBoundary.getDerivedStateFromError(Error('private error')), {failed:true});
+  const failed=new AccessBoundary({children:'Original'});failed.state={failed:true};
+  assert.equal(failed.render().type,AccessRecovery);
+  let reloads=0;const content=AccessRecovery({onReload:()=>reloads++});
+  assert.equal(reloads,0,'Never refresh or replay a write automatically');
+  React.Children.toArray(content.props.children).find(child=>child.type==='button').props.onClick();
+  assert.equal(reloads,1);
+  await locale.changeInterfaceLanguage('fa');
+  try{assert.match(render(),/باز کردن دوباره/);assert.doesNotMatch(render(),/Reopen workspace|could not load/);}
+  finally{await locale.changeInterfaceLanguage('en');}
+});
 test('shared brand fonts are bundled assets, not missing cloud root paths',async()=>{
   const css=await readFile(new URL('workspace.css',import.meta.url),'utf8');
   assert.match(css,/\.\.\/\.\.\/app\/static\/fonts\/instrument-sans/);

@@ -1,4 +1,7 @@
 export const faPlatform = {
+  "Reopen workspace": "باز کردن دوبارهٔ محیط کار",
+  "The sign-in screen could not load. Reload to try again.": "صفحهٔ ورود بارگیری نشد. دوباره بارگیری کنید.",
+  "Reload": "بارگیری دوباره",
   "Recovery code": "کد بازیابی",
   "Use recovery code": "استفاده از کد بازیابی",
   "Use authenticator": "استفاده از برنامه احراز هویت",

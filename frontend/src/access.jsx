@@ -9,6 +9,18 @@ const IdentityLogin = lazy(() =>
   })),
 );
 
+export function AccessRecovery({onReload=()=>window.location.reload()}) {
+  return <><h1>{uiText('Reopen workspace')}</h1>
+    <p role="alert">{uiText('The sign-in screen could not load. Reload to try again.')}</p>
+    <button type="button" className="btn primary" onClick={onReload}>{uiText('Reload')}</button>
+  </>;
+}
+export class AccessBoundary extends React.Component {
+  state={failed:false};
+  static getDerivedStateFromError(){return {failed:true};}
+  render(){return this.state.failed?<AccessRecovery/>:this.props.children;}
+}
+
 export function AccessGate({ api, onSession, children }) {
   useInterfaceLanguage();
   const [session, setSession] = useState(null),
@@ -73,7 +85,7 @@ export function AccessGate({ api, onSession, children }) {
             </button>
           </>
         ) : session?.mode === "better_auth" ? (
-          <Suspense
+          <AccessBoundary><Suspense
             fallback={<p role="status">{uiText("Checking access…")}</p>}
           >
             <IdentityLogin
@@ -82,7 +94,7 @@ export function AccessGate({ api, onSession, children }) {
               api={api}
               onSignedIn={() => setRevision((value) => value + 1)}
             />
-          </Suspense>
+          </Suspense></AccessBoundary>
         ) : session ? (
           <>
             <p>{uiText("Sign in with your company account.")}</p>

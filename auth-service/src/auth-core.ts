@@ -1,4 +1,5 @@
-import { betterAuth, type BetterAuthOptions } from "better-auth";
+import { betterAuth, type BetterAuthOptions, type Session, type User } from "better-auth";
+import {setSessionCookie} from 'better-auth/cookies';
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { organization, twoFactor } from "better-auth/plugins";
 import { createAccessControl } from "better-auth/plugins/access";
@@ -15,7 +16,7 @@ export interface AuthStorage {
   recordMfa(sessionId: string, userId: string): Promise<void>;
   clearMfa(userId: string): Promise<void>;
 }
-export interface AuthConfiguration { origin: string; secret: string; local: boolean; }
+export interface AuthConfiguration { origin: string; secret: string; local: boolean; sessionSeconds?: number; ownerSessionEmail?: string; }
 export interface GoogleConfiguration { GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; }
 export type MailDelivery = (to: string, subject: string, text: string) => Promise<void>;
 
@@ -36,7 +37,7 @@ export function createAuthCore(
     trustedOrigins: [config.origin],
     logger: { disabled: true },
     advanced: { useSecureCookies: !config.local },
-    session: { expiresIn: 3600, cookieCache: { enabled: false } },
+    session: { expiresIn: config.sessionSeconds===172800?172800:3600, cookieCache: { enabled: false } },
     rateLimit: {
       enabled: true,
       storage: "database",
@@ -109,6 +110,15 @@ export function createAuthCore(
           throw new APIError("FORBIDDEN", { message: "Use Settings → People" });
       }),
       after: createAuthMiddleware(async (ctx) => {
+        // Renew the browser's managed cookie even when another server-side read
+        // already refreshed its record. Never outlive the validated DB session.
+        if(ctx.path==='/get-session'&&config.sessionSeconds===172800&&config.ownerSessionEmail){
+          const current=ctx.context.returned as {session?:Session;user?:User}|null;
+          if(current?.session&&current.user?.email.toLowerCase()===config.ownerSessionEmail){
+            const maxAge=Math.min(172800,Math.floor((new Date(current.session.expiresAt).getTime()-Date.now())/1000));
+            if(Number.isFinite(maxAge)&&maxAge>0)await setSessionCookie(ctx,{session:current.session,user:current.user},false,{maxAge});
+          }
+        }
         // Better Auth validates the factor. This evidence also gates Google sessions:
         // enabling 2FA on an account is not proof that a particular session passed it.
         if (

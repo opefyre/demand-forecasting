@@ -10,7 +10,7 @@
   "routes": [],
   "limits": { "cpu_ms": 50 },
   "observability": { "enabled": false },
-  "vars": { "PRIVATE_ACCESS": "closed", "NODE_ENV": "production", "OWNER_ONLY_ACCEPTANCE":"true" },
+  "vars": { "PRIVATE_ACCESS": "closed", "NODE_ENV": "production", "OWNER_ONLY_ACCEPTANCE":"true", "OWNER_DEV_SESSION_UNTIL":"2026-10-17T00:00:00.000Z" },
   "durable_objects": { "bindings": [{ "name": "ACCESS", "class_name": "ForecastAccess" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ForecastAccess"] }],
   "d1_databases": [{

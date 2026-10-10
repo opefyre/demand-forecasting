@@ -12,8 +12,13 @@ export async function ownerRequest(request,env) {
   if(url.pathname==='/api/auth/providers'&&request.method==='GET')return json({password:true,google:true});
   if(url.pathname==='/api/auth/session'&&request.method==='GET'){
     const result=await env.IDENTITY.owner(credentials),who=result.body.user;
-    return json({mode:'better_auth',transport:'cloud',user:result.status===200?Object.fromEntries(Object.entries(who).filter(([k])=>!['session_id','key_id'].includes(k))):null,
+    const response=json({mode:'better_auth',transport:'cloud',user:result.status===200?Object.fromEntries(Object.entries(who).filter(([k])=>!['session_id','key_id'].includes(k))):null,
       csrf:result.status===200?result.body.csrf:null});
+    // Preserve maintained-library renewal on the owner-only session endpoint.
+    // Never expose cookie contents as JSON or forward untrusted browser headers.
+    if(result.status===200&&who?.email?.toLowerCase()===owner)for(const cookie of result.cookies||[])
+      if(typeof cookie==='string'&&/^__Secure-better-auth\.session_token=/.test(cookie)&&/;\s*HttpOnly(?:;|$)/i.test(cookie)&&/;\s*Secure(?:;|$)/i.test(cookie)&&!/[\r\n]/.test(cookie))response.headers.append('set-cookie',cookie);
+    return response;
   }
   if(url.pathname==='/api/health'&&request.method==='GET')return json({status:'ok'});
   if(url.pathname.startsWith('/api/v1/')||url.pathname==='/api/auth/runtime'){

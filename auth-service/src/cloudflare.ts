@@ -21,11 +21,17 @@ export interface CloudflareIdentityEnv {
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   OWNER_ONLY_ACCEPTANCE?: string;
+  OWNER_DEV_SESSION_UNTIL?: string;
 }
 export const FORECAST_ORIGIN = "https://forecast.vrolen.com";
 export const FORECAST_OWNER = "opefyre@gmail.com";
 export const FORECAST_GOOGLE_CLIENT = "945632758521-baj6dsc8irl5qmcknbi0tgt4ui0skjl0.apps.googleusercontent.com";
 export const FORECAST_SENDER = "Vrolen Forecast <notifications@forecast.vrolen.com>";
+
+export function ownerSessionSeconds(env:Pick<CloudflareIdentityEnv,'PRIVATE_ACCESS'|'OWNER_ONLY_ACCEPTANCE'|'OWNER_DEV_SESSION_UNTIL'>,now=Date.now()) {
+  const until=typeof env.OWNER_DEV_SESSION_UNTIL==='string'?Date.parse(env.OWNER_DEV_SESSION_UNTIL):NaN;
+  return env.PRIVATE_ACCESS==='closed'&&env.OWNER_ONLY_ACCEPTANCE==='true'&&Number.isFinite(until)&&until>now&&until<=now+7*86400000?172800:3600;
+}
 
 export function cloudflareConfiguration(env: CloudflareIdentityEnv) {
   if (env.PRIVATE_ACCESS !== "closed") throw new Error("Private deployment must remain closed");
@@ -36,7 +42,9 @@ export function cloudflareConfiguration(env: CloudflareIdentityEnv) {
   if (!!env.GOOGLE_CLIENT_ID !== !!env.GOOGLE_CLIENT_SECRET ||
       (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_ID !== FORECAST_GOOGLE_CLIENT))
     throw new Error("Configure the separate forecast Google client");
-  return { origin: FORECAST_ORIGIN, secret: env.BETTER_AUTH_SECRET, local: false };
+  const sessionSeconds=ownerSessionSeconds(env);
+  return { origin: FORECAST_ORIGIN, secret: env.BETTER_AUTH_SECRET, local: false, sessionSeconds,
+    ...(sessionSeconds===172800?{ownerSessionEmail:FORECAST_OWNER}:{}) };
 }
 
 export function createCloudflareIdentity(env: CloudflareIdentityEnv, deliver: MailDelivery) {

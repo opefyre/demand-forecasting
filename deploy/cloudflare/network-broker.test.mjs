@@ -35,6 +35,12 @@ test('private network diagnostics expose only controlled failure categories, nev
   await assert.rejects(dns.broker.exchange(http),error=>networkFailureReason(error)==='dns');
   assert.equal(f.calls.length,0);
 });
+test('DNS uses native manual mode and rejects redirects without following them',async()=>{
+  const f=fixture();await f.broker.publicHost('api.worldbank.org');
+  assert.equal(f.calls[0][1].redirect,'manual');
+  f.broker.fetcher=async()=>new Response(null,{status:302,headers:{location:'https://other.example/dns'}});
+  await assert.rejects(f.broker.publicHost('api.worldbank.org'),error=>networkFailureReason(error)==='redirect');
+});
 test('connection reads match the exact configuration and reject private, alternate or write destinations',async()=>{
   const f=fixture();assert.equal(allowedRequest(f.job,http),true);
   for(const change of [{url:'http://erp.example/export.json'},{url:'https://erp.example/other'}, {method:'POST'}, {url:'https://u:p@erp.example/export.json'},{url:'https://erp.example/export.json#fragment'}])

@@ -21,6 +21,20 @@ test('even a signed-in outsider or owner without MFA cannot reach company data',
     assert.equal((await edge.fetch(request('/api/auth/runtime'),f.env)).status,user.mfa_required?403:401);
   }
 });
+test('owner session renewal stays secure and never becomes JSON or an outsider cookie',async()=>{
+  const f=setup();
+  const cookie='__Secure-better-auth.session_token=synthetic-test-token; Max-Age=172800; Path=/; HttpOnly; Secure; SameSite=Lax';
+  const make=(email,status=200)=>({status,body:{user:{email,mfa_required:false,session_id:'private-session'},csrf:'test-csrf'},cookies:[cookie,
+    'unrelated=value; HttpOnly; Secure','__Secure-better-auth.session_token=unsafe; Secure']});
+  f.env.IDENTITY.owner=async()=>make('opefyre@gmail.com');
+  const response=await edge.fetch(request('/api/auth/session'),f.env);
+  assert.deepEqual(response.headers.getSetCookie(),[cookie]);
+  assert.doesNotMatch(await response.text(),/synthetic-test-token|private-session|cookies/);
+  for(const value of [make('outsider@example.test'),make('opefyre@gmail.com',401)]){
+    f.env.IDENTITY.owner=async()=>value;
+    assert.equal((await edge.fetch(request('/api/auth/session'),f.env)).headers.get('set-cookie'),null);
+  }
+});
 test('owner runtime inspection reads private status without starting an engine',async()=>{
   const f=setup({email:'opefyre@gmail.com',mfa_required:false});let reads=0;
   f.env.ENGINE={status:async()=>{reads++;return {running:false,busy:false,idle_timeout_ms:300000};}};
