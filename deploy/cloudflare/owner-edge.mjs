@@ -21,11 +21,22 @@ export async function ownerRequest(request,env) {
     if(result.status!==200||who?.email?.toLowerCase()!==owner)return json({detail:'Sign in to continue'},401);
     if(who.mfa_required)return json({detail:'Verify two-factor authentication first'},403);
     if(url.pathname==='/api/auth/runtime'){
-      if(request.method!=='GET'||url.search||!env.ENGINE)return json({detail:'Not found'},404);
+      if(request.method!=='GET'||url.search&&! (url.search==='?check_sources=1'&&who.role==='admin')||!env.ENGINE)return json({detail:'Not found'},404);
       const state=await env.ENGINE.status();
       if(typeof state.running!=='boolean'||typeof state.busy!=='boolean'||state.idle_timeout_ms!==300000)
         return json({detail:'Engine status is unavailable'},503);
       const value={running:state.running,busy:state.busy,idle_timeout_ms:state.idle_timeout_ms};
+      if(url.search==='?check_sources=1'){
+        const probe=await env.ENGINE.sourceProbe();
+        value.source_probe={ready:probe.ready===true,...(probe.ready===false&&['policy','dns_request','dns','unavailable'].includes(probe.reason)?{reason:probe.reason}:{})};
+      }
+      const failure=state.source_failure;
+      const check=state.source_check;
+      if(who.role==='admin'&&['json','html','xlsx','other'].includes(check?.format)&&Number.isInteger(check.status)&&check.status>=200&&check.status<=599&&/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(check.checked_at))
+        value.source_check={status:check.status,format:check.format,checked_at:check.checked_at};
+      if(who.role==='admin'&&failure&&['policy','attempt','access','revision','dns','redirect','unavailable','access_service','revision_service','dns_request','provider_request','provider_http'].includes(failure.reason)&&
+        typeof failure.checked_at==='string'&&/^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/.test(failure.checked_at))
+        value.source_failure={reason:failure.reason,checked_at:failure.checked_at,...(Number.isInteger(failure.status)&&failure.status>=400&&failure.status<=599?{status:failure.status}:{})};
       if(request.headers.get('accept')?.includes('text/html'))return new Response(
         '<!doctype html><meta charset="utf-8"><title>Forecast engine</title><h1>Forecast engine</h1><pre>'+JSON.stringify(value,null,2)+'</pre>',
         {headers:{'Content-Type':'text/html; charset=utf-8'}});

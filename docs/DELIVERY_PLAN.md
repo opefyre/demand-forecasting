@@ -73,8 +73,17 @@ table and global forms. Pending edits/validation cannot be skipped, and missing
 Persian order-status labels are fixed. Interface 278, cloud controller 46, cold
 cloud workflow 21 and company sales/factor 23 tests pass. See
 CLOUD_SALES_JOURNEY_ACCEPTANCE.md for exact browser evidence and remaining gates.
-Current next task: connect and verify the cloud's relevant live monthly factor
-feeds, then finish the combined correction/revision, order update, factor-aware
+Factor connection/design slice, 10 October: the forecast factor step and selected
+factor settings now use shared global panels, grids, forms and tokenized responsive
+headings. Desktop/mobile and translated form controls were inspected in a
+disposable two-company fixture. Connect now fetches before enabling its schedule,
+avoiding a first-refresh/revision race. Private controlled diagnostics identify a
+live cloud DNS-request failure; **cloud monthly feeds are not verified connected**.
+Host provider parsers and the exact offline deployed image pass the new success
+regression. Interface 280, controller 51 and focused backend 53 checks pass.
+See CLOUD_FACTOR_ACCEPTANCE.md for evidence and boundaries.
+Current next task: resolve and verify the cloud's DNS-request failure, then refresh
+the monthly feeds after their existing cooldowns; finish correction/revision, orders, factor-aware
 grouped models and review/export UI journey, including mobile/error/reload paths.
 Real client accuracy and an explicitly authorised live multi-person pilot remain
 separate. AI and new provider credential setup remain separately gated.

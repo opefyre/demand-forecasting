@@ -133,9 +133,9 @@ export function Grid({ columns = 2, actionColumn = false, children }) {
 export function Actions({ children }) {
   return <div className="ui-actions">{children}</div>;
 }
-export function FieldGroup({ title, children }) {
+export function FieldGroup({ title, children, disabled = false }) {
   return (
-    <fieldset className="ui-field-group">
+    <fieldset className="ui-field-group" disabled={disabled}>
       {title&&<legend>{title}</legend>}
       <Stack>{children}</Stack>
     </fieldset>

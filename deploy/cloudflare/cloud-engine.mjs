@@ -7,11 +7,13 @@ export class ForecastEngine extends DurableObject {
   execute(job) { return this.controller.execute(job); }
   alarm() { return this.controller.alarm(); }
   status() { return this.controller.status(); }
+  sourceProbe() { return this.controller.sourceProbe(); }
   fetch() { return closed(); }
 }
 export class ForecastRunner extends WorkerEntrypoint {
   engine() { return this.env.ENGINE.get(this.env.ENGINE.idFromName('forecast-engine-v1')); }
   execute(job) { return this.engine().execute(job); }
   status() { return this.engine().status(); }
+  sourceProbe() { return this.engine().sourceProbe(); }
 }
 export default {fetch:closed};

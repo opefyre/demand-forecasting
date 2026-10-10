@@ -288,7 +288,7 @@ html,.ui-chat-transcript,.ui-chat-history-list {scroll-behavior:var(--motion-scr
 }
 .ui-panel {display:grid;gap:var(--component-gap);min-width:0;margin:0;padding:var(--panel-padding);background:var(--color-surface);border:0;border-radius:var(--panel-radius);font-size:var(--type-body);line-height:var(--line-body);}
 .ui-panel-header {display:flex;align-items:center;justify-content:space-between;gap:var(--component-gap);flex-wrap:wrap;min-width:0;min-height:var(--action-height);}
-.ui-panel-heading {display:grid;gap:var(--heading-gap);min-width:0;flex:1;}
+.ui-panel-heading {display:grid;gap:var(--heading-gap);min-width:min(100%,var(--panel-heading-min-width));flex:1;}
 .ui-panel-title {margin:0;font-size:var(--type-heading-section);font-weight:var(--weight-heading);line-height:var(--line-heading);letter-spacing:normal;}
 .ui-panel-description {margin:0;color:var(--color-muted);font-size:var(--type-body);line-height:var(--line-body);}
 .ui-stack {display:grid;grid-template-columns:minmax(0,1fr);gap:var(--component-gap);min-width:0;}

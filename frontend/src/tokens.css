@@ -137,6 +137,7 @@
   --field-gap: var(--space-4);
   --action-gap: var(--space-2);
   --heading-gap: var(--space-2);
+  --panel-heading-min-width: 12rem;
   --type-heading-section: var(--type-18);
   --type-body: var(--type-14);
   --type-label: var(--type-14);

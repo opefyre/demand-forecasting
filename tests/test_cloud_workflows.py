@@ -130,10 +130,24 @@ class ColdWorkflowTests(unittest.TestCase):
             {'status':429,'body':base64.b64encode(b'{}').decode()})
         self.assertEqual(state['status'],'queued')
         saved=self.workspace().live_sources.state('industry');self.assertEqual(saved['status'],'failed');self.assertTrue(saved['cooldown_until'])
+        self.assertTrue(any(item.get('category')=='source' for item in self.calls))
         count=len(self.calls);result,value,_=self.command('POST','/connections/external-sources/industry/refresh')
         self.assertEqual(result['api_status'],400,value);self.assertTrue(result['committed']);self.assertEqual(len(self.calls),count)
         schedules=descriptors(self.workspace())['schedules'];self.assertEqual(len(schedules),1)
         self.assertEqual(schedules[0]['subject'],'owner-a');self.assertGreater(schedules[0]['due'],datetime.now(timezone.utc).timestamp()*1000)
+
+    def test_monthly_commodity_refresh_reaches_relay_and_survives_cold_restore(self):
+        from app.commodity_prices import LANDING,SERIES
+        from tests.test_live_sources import URL,workbook
+        def reply(item):
+            self.assertEqual(item['category'],'source')
+            raw=f'<a href="{URL}">Monthly prices</a>'.encode() if item['url']==LANDING else workbook()
+            return {'status':200,'body':base64.b64encode(raw).decode()}
+        self.command('POST','/connections/external-sources/commodities/refresh',handler=reply)
+        workspace=self.workspace()
+        self.assertEqual(workspace.live_sources.state('commodities')['status'],'healthy')
+        self.assertEqual(len(workspace.factors.list()),len(SERIES))
+        self.assertEqual([item['url'] for item in self.calls],[LANDING,URL])
 
     def test_input_schedule_is_durable_rechecks_owner_and_never_auto_accepts(self):
         _,connection,_=self.command('POST','/connections/inputs',{'name':'Sales feed','provider':'http','role':'history',

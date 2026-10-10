@@ -6,27 +6,28 @@ import {X} from '@phosphor-icons/react';
 import {futureAssumptions} from './factor-assumptions.mjs';
 import {planningBasis,planningMonth} from './planning-calendar.mjs';
 import {FactorPreparation} from './factor-preparation.jsx';
+import {Panel,FieldGroup,Grid,DefinitionList} from './ui-layout.jsx';
 const factorMethods=new Set(['Ridge + drivers','Elastic Net + drivers','Histogram gradient boosting','LightGBM + drivers','Random forest','Extra trees']);
 
 export function FactorSettings({factor,chosen,periods,ui,expanded,onToggle,onChange,onRemove,disabled,basis}) {
-  const {Field,Pick}=ui;
-  return <section className="factor-scenario-driver">
-    <div className="section-heading">
-      <button className="home-text-link" aria-expanded={expanded} onClick={onToggle}><strong>{chosen.name}</strong><small>{chosen.geography} · {chosen.unit}</small>{chosen.normalization?.factor_details?.kind==='exchange_rate'&&<small>{chosen.normalization.factor_details.market.replaceAll('_',' ')} · {chosen.normalization.factor_details.side}</small>}</button>
-      <button className="icon-button" aria-label={uiText('Remove {{name}}',{name:chosen.name})} title={uiText("Remove factor")} disabled={disabled} onClick={onRemove}><X size={18}/></button>
-    </div>
-    {expanded&&<div className="factor-link-fields">
+  const {Field,Pick,Button}=ui;
+  return <Panel title={chosen.name} actions={<>
+      <Button aria-expanded={expanded} onClick={onToggle}>{uiText('Details')}</Button>
+      <Button aria-label={uiText('Remove {{name}}',{name:chosen.name})} title={uiText("Remove factor")} disabled={disabled} onClick={onRemove}><X aria-hidden="true"/></Button>
+    </>}>
+    <DefinitionList rows={[[uiText('Location'),chosen.geography],[uiText('Unit'),chosen.unit],...(chosen.normalization?.factor_details?.kind==='exchange_rate'?[[uiText('Exchange rate'),chosen.normalization.factor_details.market.replaceAll('_',' ')+' · '+chosen.normalization.factor_details.side]]:[])]}/>
+    {expanded&&<FieldGroup disabled={disabled}>
       {chosen.calendar==='jalali'&&<label className="check-line"><input type="checkbox" checked={!!factor.calendarAccepted} onChange={e=>onChange({calendarAccepted:e.target.checked})}/>{uiText("At each lag cutoff, use the last complete Persian month. This is not a Gregorian monthly average.")}</label>}
       {chosen.public_vintage&&<label className="check-line"><input type="checkbox" checked={factor.timingAccepted} onChange={e=>onChange({timingAccepted:e.target.checked})}/>{uiText("Use each historical version after its labelled month ended. Exact release dates are unverified.")}</label>}
       {chosen.live_what_if&&<label className="check-line"><input type="checkbox" checked={factor.timingAccepted} onChange={e=>onChange({timingAccepted:e.target.checked})}/>{uiText("Use downloaded history for a what-if comparison. Past accuracy and forecast ranges will not be shown.")}</label>}
-      <div className="form-grid">
+      <Grid>
         <Field title={uiText("Use observations from")} help={uiText("Two months earlier links October demand to August's factor, only if published before October began.")}><Pick label={uiText('Observation timing for {{name}}',{name:chosen.name})} value={factor.lag} options={Array.from({length:12},(_,i)=>[String(i+1),uiText('{{count}} months earlier',{count:i+1})])} onChange={lag=>onChange({lag})}/></Field>
         {!factor.monthly&&<Field title={uiText("Future assumption")} help={uiText("Used only where the required future observation is unavailable. Published values take priority.")}><input aria-label={uiText('Future assumption for {{name}}',{name:chosen.name})} inputMode="decimal" value={factor.value} placeholder={chosen.unit} onChange={e=>onChange({value:e.target.value})}/></Field>}
-      </div>
+      </Grid>
       <label className="check-line"><input type="checkbox" checked={factor.monthly} onChange={e=>onChange({monthly:e.target.checked})}/>{uiText("Set values by month")}</label>
-      {factor.monthly&&<div className="form-grid">{periods.map(period=><Field key={period} title={planningMonth(period,basis)}><input aria-label={uiText('{{name}} assumption for {{month}}',{name:chosen.name,month:planningMonth(period,basis)})} inputMode="decimal" value={factor.monthlyValues[period]??''} placeholder={uiText("Not provided")} onChange={e=>onChange({monthlyValues:{...factor.monthlyValues,[period]:e.target.value}})}/></Field>)}</div>}
-    </div>}
-  </section>;
+      {factor.monthly&&<Grid>{periods.map(period=><Field key={period} title={planningMonth(period,basis)}><input aria-label={uiText('{{name}} assumption for {{month}}',{name:chosen.name,month:planningMonth(period,basis)})} inputMode="decimal" value={factor.monthlyValues[period]??''} placeholder={uiText("Not provided")} onChange={e=>onChange({monthlyValues:{...factor.monthlyValues,[period]:e.target.value}})}/></Field>)}</Grid>}
+    </FieldGroup>}
+  </Panel>;
 }
 
 export function FactorLink({run,api,ui,canEdit,onSaved,onManageSources,initialSnapshot,initialProfileSeriesId,requiredSeriesId,autoOpen=false,onDismiss,buttonLabel='Add forecast factors',saveLabel='Calculate comparison'}) {

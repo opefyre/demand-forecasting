@@ -39,6 +39,11 @@ test('cold status does not wake; successful work is durable before it becomes id
   await f.controller.execute({...f.job,attempt:'5'.repeat(32),job_id:'6'.repeat(32)}).catch(()=>{});
   assert.equal(f.events.filter(e=>e[0]==='start').length,1,'warm instance reused without a pool');
 });
+test('fixed public source probe never wakes computation or writes company state',async()=>{
+  const f=fixture();let calls=0;
+  const controller=new CloudEngineController(f.ctx,f.env,{fetcher:async url=>{assert.match(url,/name=api.worldbank.org/);calls++;return Response.json({Answer:[{type:1,data:'8.8.8.8'}]});}});
+  assert.deepEqual(await controller.sourceProbe(),{ready:true});assert.equal(calls,1);assert.equal(f.events.length,0);assert.equal(f.values.size,0);
+});
 test('a busy engine rejects a second caller without destroying the active attempt',async()=>{
   const f=fixture();f.ctx.container.running=true;f.values.set('active',{attempt:'9'.repeat(32),deadline:Date.now()+60000});
   await assert.rejects(f.controller.execute(f.job),/busy/);assert.equal(f.ctx.container.running,true);assert.equal(f.events.includes('destroy'),false);assert.equal(f.values.get('active').attempt,'9'.repeat(32));
@@ -127,6 +132,8 @@ test('private relay mediates one source request, preserves failed-source state a
   const requests=[],fetcher=async url=>{requests.push(url);return url.includes('dns-query')?Response.json({Answer:[{type:1,data:'8.8.8.8'}]}):new Response('unavailable',{status:503});};
   const controller=new CloudEngineController(f.ctx,f.env,{fetcher}),result=await controller.execute(job);
   assert.equal(answered.status,503);assert.equal(requests.length,2);assert.equal(result.api_status,502);assert.equal(result.committed,true);
+  assert.equal((await controller.status()).source_failure.reason,'provider_http');
+  assert.equal((await controller.status()).source_check.status,503);
   assert.equal(f.backup.size,1);assert.ok(result.artifacts['company-schedules.json']);
   assert.equal(f.events.find(e=>e[0]==='start')[1].enableInternet,false);
   assert.equal((await controller.status()).busy,false);

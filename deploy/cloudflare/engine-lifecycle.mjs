@@ -1,4 +1,4 @@
-import {NetworkBroker} from './network-broker.mjs';
+import {NetworkBroker,networkFailureReason} from './network-broker.mjs';
 import {companyRoute} from './company-api.mjs';
 const ID=/^[a-f0-9]{32}$/,RUN=/^(?:[a-f0-9]{12}|[a-f0-9]{32})$/,COMPANY=/^[A-Za-z0-9_-]{1,128}$/;
 const SLEEP_MS=5*60*1000;
@@ -96,7 +96,20 @@ export class CloudEngineController {
               const next=await request('/network/'+job.attempt+'/next');
               const item=(await next.json()).request;
               if(item){
-                const task=(async()=>{let answer;try{answer=await broker.exchange(item);}catch{answer={error:true};}
+                const task=(async()=>{let answer;try{answer=await broker.exchange(item);
+                  if(item.category==='source'){
+                    const type=answer.headers?.['content-type']||'';
+                    await this.ctx.storage.put('source_check',{status:answer.status,format:type.includes('json')?'json':type.includes('html')?'html':type.includes('spreadsheet')?'xlsx':'other',checked_at:new Date().toISOString()});
+                    if(answer.status>=400)await this.ctx.storage.put('source_failure',{reason:'provider_http',status:answer.status,checked_at:new Date().toISOString()});
+                    else await this.ctx.storage.delete('source_failure');
+                  }
+                }catch(error){
+                  answer={error:true};
+                  // Private owner diagnostic only: controlled code, no URL,
+                  // headers, request/response body, credentials or exception text.
+                  if(item.category==='source')await this.ctx.storage.put('source_failure',{
+                    reason:networkFailureReason(error),checked_at:new Date().toISOString()});
+                }
                   if(!relayStopped)await request('/network/'+job.attempt+'/'+item.id,{method:'PUT',body:JSON.stringify(answer)});
                 })();pending.add(task);task.finally(()=>pending.delete(task)).catch(()=>{});
               }else await new Promise(resolve=>setTimeout(resolve,100));
@@ -173,6 +186,12 @@ export class CloudEngineController {
     });
   }
   // Inspecting status never starts a stopped container.
-  async status() { return {running:!!this.ctx.container?.running,busy:!!await this.ctx.storage.get('active'),idle_timeout_ms:SLEEP_MS}; }
+  async sourceProbe(){
+    // Fixed public host only; no company inputs, credentials, provider API,
+    // forecast, replay or container wake. Used by fresh-MFA owner diagnostics.
+    try{await new NetworkBroker(this.ctx,this.env,{},this.networkOptions).publicHost('api.worldbank.org');return {ready:true};}
+    catch(error){return {ready:false,reason:networkFailureReason(error)};}
+  }
+  async status() { const failure=await this.ctx.storage.get('source_failure'),check=await this.ctx.storage.get('source_check');return {running:!!this.ctx.container?.running,busy:!!await this.ctx.storage.get('active'),idle_timeout_ms:SLEEP_MS,...(failure?{source_failure:failure}:{}),...(check?{source_check:check}:{})}; }
   fetch() { return closed(); }
 }

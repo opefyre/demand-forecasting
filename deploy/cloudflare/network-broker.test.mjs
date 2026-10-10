@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {allowedRequest,publicAddress,NetworkBroker} from './network-broker.mjs';
+import {allowedRequest,publicAddress,NetworkBroker,networkFailureReason} from './network-broker.mjs';
 const jsonBody=value=>Buffer.from(JSON.stringify(value)).toString('base64');
 function fixture(path='/connections/inputs/abc/fetch') {
   const values=new Map(),calls=[];
@@ -19,6 +19,22 @@ function fixture(path='/connections/inputs/abc/fetch') {
   return {broker,job,env,values,calls,ctx};
 }
 const http={kind:'http',category:'connection',config:{provider:'http',url:'https://erp.example/export.json'},url:'https://erp.example/export.json',method:'GET',body:''};
+test('default transport never invokes the Worker fetch global with the broker as receiver',async()=>{
+  const original=globalThis.fetch,f=fixture();let calls=0;
+  globalThis.fetch=function(url){assert.notEqual(this,f.broker);calls++;return Promise.resolve(url.includes('dns-query')?Response.json({Answer:[{type:1,data:'8.8.8.8'}]}):Response.json({ok:true}));};
+  try{
+    f.broker=new NetworkBroker(f.ctx,f.env,f.job);
+    assert.equal((await f.broker.exchange(http)).status,200);assert.equal(calls,2);
+  }finally{globalThis.fetch=original;}
+});
+test('private network diagnostics expose only controlled failure categories, never exception contents',async()=>{
+  assert.equal(networkFailureReason(new Error('private credential and URL')),'unavailable');
+  const f=fixture();f.env.IDENTITY.operation=async()=>({status:200,body:{allowed:false}});
+  await assert.rejects(f.broker.exchange(http),error=>networkFailureReason(error)==='access');
+  const dns=fixture();dns.broker.fetcher=async()=>Response.json({Answer:[]});
+  await assert.rejects(dns.broker.exchange(http),error=>networkFailureReason(error)==='dns');
+  assert.equal(f.calls.length,0);
+});
 test('connection reads match the exact configuration and reject private, alternate or write destinations',async()=>{
   const f=fixture();assert.equal(allowedRequest(f.job,http),true);
   for(const change of [{url:'http://erp.example/export.json'},{url:'https://erp.example/other'}, {method:'POST'}, {url:'https://u:p@erp.example/export.json'},{url:'https://erp.example/export.json#fragment'}])

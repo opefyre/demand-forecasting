@@ -14,7 +14,7 @@ from tests.test_company_context import ALL,VIEW
 from app.company_jobs import execute_company_job
 
 
-def run(*,notifications=False):
+def run(*,notifications=False,factors=False):
     import uvicorn
     fixture=PublicSalesTests();fixture.setUp()
     if notifications:
@@ -47,6 +47,15 @@ def run(*,notifications=False):
         _,dataset,_=fixture.history(multiplier)
         snapshot=fixture.orders(dataset)
         fixture.calculate(dataset,snapshot)
+        if factors:
+            # Disposable UI data only; no external request or production seed.
+            from app.commodity_prices import parse_prices
+            from tests.test_live_factor_alignment import prices, CAPTURE
+            raw=prices()
+            definitions={'worldbank_'+key:{**row,'provider':'World Bank','frequency':'monthly','geography':'Global reference'}
+                         for key,row in list(parse_prices(raw,CAPTURE).items())[:3]}
+            with patch('app.live_sources.now',return_value=CAPTURE):
+                fixture.ws.live_sources.save('commodities',definitions,raw,'xlsx','https://example.invalid/fixture')
     fixture.company='tehran_a';fixture.permissions=ALL.copy();fixture.role='planner'
     # Business input pulls use a synthetic in-memory remote, never a real account.
     from app.business_connections import BusinessConnections,ConnectionInput
@@ -126,4 +135,4 @@ def run(*,notifications=False):
 
 if __name__=='__main__':
     import sys
-    run(notifications='--notifications' in sys.argv)
+    run(notifications='--notifications' in sys.argv,factors='--factors' in sys.argv)

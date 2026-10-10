@@ -3,7 +3,12 @@
 const MAX=20*1024*1024;
 const decode=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 const encode=bytes=>{let s='';for(let i=0;i<bytes.length;i+=8192)s+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(s);};
-const deny=()=>{throw new Error('Private outside request denied');};
+export class PrivateNetworkError extends Error {
+  constructor(reason='policy'){super('Private outside request denied');this.reason=reason;}
+}
+export const networkFailureReason=error=>error instanceof PrivateNetworkError?error.reason:'unavailable';
+const deny=(reason='policy')=>{throw new PrivateNetworkError(reason);};
+async function checkedCall(reason,work){try{return await work();}catch(error){if(error instanceof PrivateNetworkError)throw error;deny(reason);}}
 export function publicAddress(value) {
   if(typeof value!=='string')return false;
   // IPv4 only for the pinned TCP bridge; reject IPv6/mapped/ambiguous formats.
@@ -69,25 +74,27 @@ async function bounded(response,limit=MAX) {
   const bytes=new Uint8Array(size);let i=0;for(const chunk of chunks){bytes.set(chunk,i);i+=chunk.length;}return bytes;
 }
 export class NetworkBroker {
-  constructor(ctx,env,job,{fetcher=fetch,connector=null}={}){this.ctx=ctx;this.env=env;this.job=job;this.fetcher=fetcher;this.connector=connector;this.sockets=new Map();this.calls=0;}
+  // Keep the Worker global receiver: a stored bare fetch would be invoked as
+  // broker.fetch(). This guard is separate from diagnosing upstream failures.
+  constructor(ctx,env,job,{fetcher=(...args)=>fetch(...args),connector=null}={}){this.ctx=ctx;this.env=env;this.job=job;this.fetcher=fetcher;this.connector=connector;this.sockets=new Map();this.calls=0;}
   async authorize() {
     const job=this.job,active=await this.ctx.storage.get('active');
-    if(active?.attempt!==job.attempt||job.deadline<=Date.now())deny();
+    if(active?.attempt!==job.attempt||job.deadline<=Date.now())deny('attempt');
     const grant=job.payload.principal;
     const operation=grant.scheduled?'schedules/authorize':'work/authorize';
-    const result=await this.env.IDENTITY.operation(operation,grant);
-    if(result.status!==200||!result.body.allowed||!grant.required_scopes?.every(s=>result.body.permissions?.includes(s)))deny();
-    const fence=await this.env.STORAGE.authorizeAttempt(job.company_id,job.job_id,job.attempt);
-    if(!fence)deny();
+    const result=await checkedCall('access_service',()=>this.env.IDENTITY.operation(operation,grant));
+    if(result.status!==200||!result.body.allowed||!grant.required_scopes?.every(s=>result.body.permissions?.includes(s)))deny('access');
+    const fence=await checkedCall('revision_service',()=>this.env.STORAGE.authorizeAttempt(job.company_id,job.job_id,job.attempt));
+    if(!fence)deny('revision');
   }
   async publicHost(host) {
     if(!/^[a-z0-9][a-z0-9.-]{0,252}$/i.test(host)||host.endsWith('.local')||host==='localhost'||!host.includes('.'))deny();
     if(/^\d+[.\d]*$/.test(host)){if(!publicAddress(host))deny();return host;}
-    const response=await this.fetcher('https://cloudflare-dns.com/dns-query?name='+encodeURIComponent(host)+'&type=A',
-      {headers:{accept:'application/dns-json'},redirect:'error',signal:AbortSignal.timeout(5000)});
-    if(!response.ok)deny();const value=JSON.parse(new TextDecoder().decode(await bounded(response,32768)));
+    const response=await checkedCall('dns_request',()=>this.fetcher('https://cloudflare-dns.com/dns-query?name='+encodeURIComponent(host)+'&type=A',
+      {headers:{accept:'application/dns-json'},redirect:'error',signal:AbortSignal.timeout(5000)}));
+    if(!response.ok)deny('dns');const value=JSON.parse(new TextDecoder().decode(await bounded(response,32768)));
     const addresses=value.Answer?.filter(r=>r.type===1).map(r=>r.data);
-    if(!addresses?.length||addresses.some(a=>!publicAddress(a)))deny();return addresses[0];
+    if(!addresses?.length||addresses.some(a=>!publicAddress(a)))deny('dns');return addresses[0];
   }
   async exchange(item) {
     if(++this.calls>2000||!allowedRequest(this.job,item))deny();
@@ -118,9 +125,9 @@ export class NetworkBroker {
       headers.set('authorization','Bearer '+this.env.OPENAI_API_KEY);
       headers.delete('openai-organization');headers.delete('openai-project');
     } else await this.publicHost(u.hostname);
-    const response=await this.fetcher(u.href,{method:item.method,headers,body:item.method==='GET'?undefined:body,
-      redirect:'manual',signal:AbortSignal.timeout(item.category==='ai'?60000:30000)});
-    if(response.status>=300&&response.status<400)deny();
+    const response=await checkedCall('provider_request',()=>this.fetcher(u.href,{method:item.method,headers,body:item.method==='GET'?undefined:body,
+      redirect:'manual',signal:AbortSignal.timeout(item.category==='ai'?60000:30000)}));
+    if(response.status>=300&&response.status<400)deny('redirect');
     const bytes=await bounded(response),kept={};
     for(const name of ['content-type','link','retry-after'])if(response.headers.has(name))kept[name]=response.headers.get(name);
     return {status:response.status,headers:kept,body:encode(bytes)};

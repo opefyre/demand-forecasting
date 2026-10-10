@@ -11,6 +11,12 @@ import {Collection,SearchControl,ConnectionRecord} from './ui-layout.jsx';
 const sourceAppearance={servix:[CurrencyDollar,'Exchange-rate quotes'],iran_cpi:[ChartLine,'Monthly price index'],commodities:[Drop,'Monthly market data'],supply:[GlobeHemisphereWest,'Monthly market data'],hormuz:[Boat,'Daily ship traffic'],inflation:[Bank,'Annual context'],industry:[Factory,'Annual context']};
 
 const time = value => value ? new Date(value).toLocaleString(i18n.language==='fa'?'fa-IR-u-ca-gregory-nu-latn':'en-GB', {dateStyle:'medium', timeStyle:'short'}) : uiText('Not checked yet');
+export async function connectSource(api,id){
+  // First capture records last_attempt; enabling afterwards schedules the NEXT
+  // check, rather than racing an immediate alarm against this explicit fetch.
+  await api(`/api/live-sources/${id}/refresh`,{});
+  await api(`/api/live-sources/${id}`,{enabled:true},'PUT');
+}
 export function LiveSources({api, ui, canAdmin, supplemental=[]}) {
   const {Button, Modal, Field, Pick, ErrorBox, Table, Help} = ui;
   const [data,setData]=useState(null), [error,setError]=useState(''), [busy,setBusy]=useState('');
@@ -50,7 +56,7 @@ export function LiveSources({api, ui, canAdmin, supplemental=[]}) {
         meta={cooling?uiText('Retry after {{date}}',{date:time(row.cooldown_until)}):row.last_success?uiText('Checked {{date}}',{date:time(row.last_success)}):hasData?uiText("A saved source version is available"):uiText("No data fetched")}
         actions={<>
           {needsPermission&&canAdmin?<Button onClick={()=>details(row)}>{uiText("Review access")}</Button>:row.key_required&&!row.credential_configured&&canAdmin?<Button onClick={()=>{setError('');setConnect(true);}}><Plug size={18}/>{uiText("Connect")}</Button>:canAdmin&&<>
-            <Button disabled={!!busy||working||cooling} onClick={()=>action(row.id,async()=>{await api(`/api/live-sources/${row.id}`,{enabled:true},'PUT');await api(`/api/live-sources/${row.id}/refresh`,{});})} title={cooling?uiText('Retry after {{date}}. Open Details for the last failure.',{date:time(row.cooldown_until)}):uiText("Fetch the latest available source data and enable automatic refresh")}><ArrowClockwise size={18}/>{busy===row.id||working?uiText("Checking…"):hasData?uiText("Refresh"):uiText("Connect")}</Button>
+            <Button disabled={!!busy||working||cooling} onClick={()=>action(row.id,()=>connectSource(api,row.id))} title={cooling?uiText('Retry after {{date}}. Open Details for the last failure.',{date:time(row.cooldown_until)}):uiText("Fetch the latest available source data and enable automatic refresh")}><ArrowClockwise size={18}/>{busy===row.id||working?uiText("Checking…"):hasData?uiText("Refresh"):uiText("Connect")}</Button>
             {row.enabled&&<Button disabled={!!busy} title={uiText("Pause automatic refresh")} aria-label={uiText('Pause {{name}}',{name:sourceCaption(row,uiText)})} onClick={()=>action(row.id,()=>api(`/api/live-sources/${row.id}`,{enabled:false},'PUT'))}><Pause size={18}/></Button>}
             {!row.enabled&&hasData&&<Button disabled={!!busy} title={uiText("Resume automatic refresh")} aria-label={uiText('Resume {{name}}',{name:sourceCaption(row,uiText)})} onClick={()=>action(row.id,()=>api(`/api/live-sources/${row.id}`,{enabled:true},'PUT'))}><Play size={18}/></Button>}
           </>}

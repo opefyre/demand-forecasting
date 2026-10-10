@@ -46,11 +46,6 @@
 .forecast-result-heading {display:flex;align-items:center;gap:var(--space-2);color:var(--color-muted);}
 .forecast-result-row {display:flex;justify-content:space-between;align-items:center;gap:var(--space-4);}
 .forecast-result-row small {display:block;color:var(--color-muted);margin-top:var(--space-1);}
-.forecast-factor-selection,.forecast-factor-review,.forecast-factor-settings {display:grid;gap:var(--space-4);min-width:0;}
-.forecast-factor-selection .forecast-method small {display:block;}
-.forecast-factor-settings {border:0;margin:0;padding:0;}
-.forecast-factor-selection>.btn,.forecast-factor-review>.btn {justify-self:start;}
-.forecast-factor-selection>.home-text-link {justify-self:start;}
 .model-estimate {display:grid;gap:var(--space-4);}
 .model-order-action {display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap;}
 .scenario-chart {height:var(--layout-273723a0);width:100%;}

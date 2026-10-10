@@ -6,14 +6,16 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {createServer} from 'vite';
 import postcss from 'postcss';
 
-let server,Collection,ConnectionRecord,SalesFiles,Customers,OrderBooks,OrderRows,OrderReview,OrderTable,LiveSources,FolderInputs,InputConnections,ConnectionRowReview,reviewPayload,appendOrder;
+let server,Collection,ConnectionRecord,SalesFiles,Customers,OrderBooks,OrderRows,OrderReview,OrderTable,LiveSources,FolderInputs,InputConnections,ConnectionRowReview,reviewPayload,appendOrder,ForecastFactors,FactorSettings,connectSource;
 before(async()=>{
   server=await createServer({server:{middlewareMode:true,hmr:false,watch:null},appType:'custom'});
   ({Collection,ConnectionRecord}=await server.ssrLoadModule('/src/ui-layout.jsx'));
   ({SalesFiles}=await server.ssrLoadModule('/src/sales-files.jsx'));
   ({Customers}=await server.ssrLoadModule('/src/customers.jsx'));
   ({OrderBooks,OrderRows,OrderReview,OrderTable,appendOrder}=await server.ssrLoadModule('/src/order-books.jsx'));
-  ({LiveSources}=await server.ssrLoadModule('/src/live-sources.jsx'));
+  ({LiveSources,connectSource}=await server.ssrLoadModule('/src/live-sources.jsx'));
+  ({ForecastFactors}=await server.ssrLoadModule('/src/forecast-factors.jsx'));
+  ({FactorSettings}=await server.ssrLoadModule('/src/factor-links.jsx'));
   ({FolderInputs}=await server.ssrLoadModule('/src/folder-inputs.jsx'));
   ({InputConnections}=await server.ssrLoadModule('/src/business-connections.jsx'));
   ({ConnectionRowReview,reviewPayload}=await server.ssrLoadModule('/src/connection-review.jsx'));
@@ -27,6 +29,23 @@ const ui={
   Table:({headers,children,empty})=>React.createElement('table',null,React.createElement('thead',null,React.createElement('tr',null,headers.map((h,i)=>React.createElement('th',{key:i},h)))),React.createElement('tbody',null,empty?React.createElement('tr',null,React.createElement('td',{colSpan:headers.length},empty)):children)),
 };
 const common={api:async()=>({}),ui,datasets:[],canAdmin:true,canEdit:true,embedded:true,date:String,fmt:String,search:'',onSearch:()=>{}};
+test('Connect captures first, then enables the next scheduled check; failed requests are not replayed',async()=>{
+  const calls=[];await connectSource(async(...args)=>calls.push(args),'supply');
+  assert.deepEqual(calls,[['/api/live-sources/supply/refresh',{}],['/api/live-sources/supply',{enabled:true},'PUT']]);
+  const failed=[];await assert.rejects(connectSource(async(...args)=>{failed.push(args);throw Error('access changed');},'supply'));
+  assert.equal(failed.length,1);
+});
+test('factor wizard and selected source settings use the global layout and disabled form contract',async()=>{
+  const html=renderToStaticMarkup(React.createElement(ForecastFactors,{...common,dataset:{id:'history'},onReady:()=>{}}));
+  assert.match(html,/class="ui-stack"/);assert.match(html,/ui-panel-header/);assert.doesNotMatch(html,/style=|section-heading|forecast-factor-/);
+  const chosen={name:'Copper',geography:'Global reference market',unit:'$/mt',live_what_if:true};
+  const factor={lag:'2',monthly:true,monthlyValues:{},timingAccepted:false};
+  const fields=renderToStaticMarkup(React.createElement(FactorSettings,{chosen,factor,periods:['2026-11-01'],ui,expanded:true,disabled:true,onChange:()=>{}}));
+  for(const marker of['ui-panel','ui-panel-title','ui-grid','ui-definition-list','ui-field-group','disabled=""'])assert.ok(fields.includes(marker),marker);
+  assert.doesNotMatch(fields,/style=|section-heading|factor-link-fields|form-grid|factor-scenario-driver/);
+  const source=await readFile(new URL('forecast-factors.jsx',import.meta.url),'utf8');
+  assert.match(source,/<Grid actionColumn/);assert.match(source,/<FieldGroup disabled=/);assert.match(source,/<Disclosure/);
+});
 test('customer imports send no order dates; order imports preserve explicit dates',()=>{
   assert.deepEqual(reviewPayload({mapping:{customer:'A'},as_of:'',valid_until:''}),{mapping:{customer:'A'},as_of:null,valid_until:null});
   assert.deepEqual(reviewPayload({as_of:'2026-10-09',valid_until:'2026-11-01'}),{as_of:'2026-10-09',valid_until:'2026-11-01'});
