@@ -7,6 +7,44 @@ from app.forecast_inputs import input_context, factor_options, preview_inputs, s
 
 
 class ForecastInputTests(FactorLinkTests):
+    def test_preview_and_save_prepare_context_once_without_changing_review(self):
+        with patch('app.forecast_inputs.input_context', wraps=input_context) as prepare:
+            review = preview_inputs(self.store,self.factors,self.dataset['id'],self.payload)
+            self.assertEqual(prepare.call_count,1)
+        context=input_context(self.store,self.dataset['id'])
+        from app.factor_links import preview_link
+        self.assertEqual(review,preview_link(context,self.store,self.factors,self.payload))
+        body={**self.payload,'reviewed':True,'review_token':review['review_token'],
+              'request_id':str(uuid.uuid4())}
+        with patch('app.forecast_inputs.input_context', wraps=input_context) as prepare, \
+                patch('app.forecast_inputs.preview_link',side_effect=AssertionError('Save must not preview twice')):
+            saved=save_inputs(self.store,self.factors,self.dataset['id'],body)
+            self.assertEqual(prepare.call_count,1)
+        self.assertEqual(saved['import_provenance']['alignment'],review)
+
+    def test_save_rechecks_readiness_changed_since_preview(self):
+        review=preview_inputs(self.store,self.factors,self.dataset['id'],self.payload)
+        live=type('Live',(),{'listing':lambda _: {'sources':[{'id':'servix','refresh_overdue':True,
+            'series':[{'id':self.snapshot['id']}]}]}})()
+        options={'snapshots':[{'id':self.snapshot['id'],'live_what_if':True,'public_vintage':False}]}
+        with patch('app.forecast_inputs.choices',return_value=options), \
+                patch('app.forecast_inputs.save_link',side_effect=AssertionError('Stale source must not save')):
+            with self.assertRaisesRegex(ValueError,'Refresh the source'):
+                save_inputs(self.store,self.factors,self.dataset['id'],{**self.payload,'reviewed':True,
+                    'review_token':review['review_token'],'request_id':str(uuid.uuid4())},live)
+
+    def test_source_integrity_is_rechecked_after_preview(self):
+        review=preview_inputs(self.store,self.factors,self.dataset['id'],self.payload)
+        path=self.store.root / (self.dataset['sources']['history']+'.bin')
+        original=path.read_bytes()
+        try:
+            path.write_bytes(original+b'\nchanged')
+            with self.assertRaises(ValueError):
+                save_inputs(self.store,self.factors,self.dataset['id'],{**self.payload,'reviewed':True,
+                    'review_token':review['review_token'],'request_id':str(uuid.uuid4())})
+        finally:
+            path.write_bytes(original)
+
     def test_stale_live_sources_are_disabled_and_cannot_be_previewed(self):
         options={'snapshots':[{'id':self.snapshot['id'],'live_what_if':True,'public_vintage':False}]}
         live=type('Live',(),{'listing':lambda _: {'sources':[{'id':'servix','refresh_overdue':True,'series':[{'id':self.snapshot['id']}]}]}})()

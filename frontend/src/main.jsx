@@ -441,8 +441,8 @@ function Table({ headers, children, empty }) {
     </>
   );
 }
-function Tabs({ value, onChange, items }) {
-  return <PageTabs value={value} onChange={onChange} items={items}/>;
+function Tabs({ value, onChange, items, ...props }) {
+  return <PageTabs value={value} onChange={onChange} items={items} {...props}/>;
 }
 function Pill({ children, tone = "" }) {
   return <span className={`pill ${tone}`}>{children}</span>;
@@ -988,9 +988,13 @@ function DataPage({
   const [search,setSearch] = useState('');
   const [orderDataset,setOrderDataset] = useState(null);
   const [showArchived,setShowArchived]=useState(false);
+  const [openingData,setOpeningData]=useState(null);
+  const openingDataRef=useRef(false);
   const viewConnected=(kind,id)=>{setOrderDataset(id||null);setView(kind);};
   const visibleDatasets = datasets.filter(d=>d.sources?.history&&!d.scenario_provenance&&!d.sources.operations&&(showArchived||!d.lifecycle?.archived)).filter(d => d.name.toLowerCase().includes(search.toLowerCase()));
   const loadSaved = async (d) => {
+    if(openingDataRef.current)return;
+    openingDataRef.current=true;setOpeningData(d.id);
     setError("");
     try {
       const sources = {};
@@ -1004,6 +1008,8 @@ function DataPage({
       setImporting(true);
     } catch (e) {
       setError(e.message);
+    } finally {
+      openingDataRef.current=false;setOpeningData(null);
     }
   };
   const reviewConnection = async (id) => {
@@ -1034,6 +1040,7 @@ function DataPage({
       <Tabs
         value={view}
         onChange={setView}
+        disabled={!!openingData}
         items={[
           ["files", "Your files"],
           ["customers", "Customers"],
@@ -1082,8 +1089,9 @@ function DataPage({
           notify={notify}
         />
       ) : <SalesFiles datasets={visibleDatasets} search={search} onSearch={setSearch} ui={inventoryUi} date={date} fmt={fmt} onReview={loadSaved}
+        opening={openingData}
         api={companyMode()?api:null} canEdit={canEdit} onChanged={refresh} showArchived={showArchived} onArchived={setShowArchived}
-        actions={canEdit&&<Button kind="primary" onClick={()=>{setSelected(null);setImporting(true);}}><Plus/>{pendingImport(localState.getItem('demandlab.importDraft')).exists?uiText('Resume import'):uiText('Import data')}</Button>}/>}
+        actions={canEdit&&<Button kind="primary" disabled={!!openingData} onClick={()=>{setSelected(null);setImporting(true);}}><Plus/>{pendingImport(localState.getItem('demandlab.importDraft')).exists?uiText('Resume import'):uiText('Import data')}</Button>}/>}
     </Page>
   );
 }

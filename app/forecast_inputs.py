@@ -59,7 +59,10 @@ def input_context(store, identifier):
 
 
 def factor_options(store, factors, identifier, live=None):
-    context = input_context(store, identifier)
+    return _factor_options(input_context(store, identifier), store, factors, live)
+
+
+def _factor_options(context, store, factors, live):
     options = choices(context, store, factors)
     from .factor_preparation import connected_source_readiness
     states = live.listing()['sources'] if live else []
@@ -70,10 +73,14 @@ def factor_options(store, factors, identifier, live=None):
     return options
 
 
-def preview_inputs(store, factors, identifier, payload, live=None):
+def _review_context(store, factors, identifier, payload, live):
     if payload.get('series_ids') is not None or payload.get('preparation') is not None:
         raise ValueError('New forecast factors apply to the selected sales dataset. Use result comparisons for narrower groups.')
-    options = factor_options(store, factors, identifier, live)
+    # Reuse only this request's validated context. Never retain a company source
+    # or readiness decision across requests. Alignment/save still verifies the
+    # exact source digests, publication dates and approved review token itself.
+    context = input_context(store, identifier)
+    options = _factor_options(context, store, factors, live)
     requested = payload.get('links') or [{'snapshot_id':payload.get('snapshot_id')}]
     if not isinstance(requested, list) or any(not isinstance(row,dict) for row in requested):
         raise ValueError('Choose a list of forecast factors.')
@@ -83,9 +90,16 @@ def preview_inputs(store, factors, identifier, payload, live=None):
             raise ValueError('Source versions changed. Review the live factors again.')
         if snapshot.get('can_use') is False:
             raise ValueError(snapshot['readiness_note'])
-    return preview_link(input_context(store, identifier), store, factors, payload)
+    return context
+
+
+def preview_inputs(store, factors, identifier, payload, live=None):
+    context = _review_context(store, factors, identifier, payload, live)
+    return preview_link(context, store, factors, payload)
 
 
 def save_inputs(store, factors, identifier, payload, live=None):
-    preview_inputs(store, factors, identifier, payload, live)
-    return save_link(input_context(store, identifier), store, factors, payload, forecast_input=True)
+    context = _review_context(store, factors, identifier, payload, live)
+    # save_link already recalculates alignment and validates approval. A separate
+    # preview would repeat the same work without adding an integrity check.
+    return save_link(context, store, factors, payload, forecast_input=True)

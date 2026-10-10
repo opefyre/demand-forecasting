@@ -114,6 +114,21 @@ test('files show period/product counts and the real review action without duplic
   assert.match(html,/October sales/);assert.match(html,/2026-01-01/);assert.match(html,/2026-07-31/);
   assert.match(html,/>12</);assert.match(html,/Review data/);assert.doesNotMatch(html,/<h[123]|Start with your historical data/);
 });
+test('opening saved inputs shows progress on the chosen row and locks conflicting actions',async()=>{
+  const row={id:'d1',name:'October sales',review:{summary:{start:'2026-01-01',end:'2026-07-31',series:12}}};
+  const html=renderToStaticMarkup(React.createElement(SalesFiles,{...common,datasets:[row,{...row,id:'d2'}],opening:'d1',onReview:()=>{}}));
+  assert.match(html,/<button[^>]*disabled[^>]*aria-busy="true"[^>]*>Loading…<\/button>/);
+  assert.match(html,/<button[^>]*disabled[^>]*aria-busy="false"[^>]*>Review data<\/button>/);
+  const source=await readFile(new URL('./main.jsx',import.meta.url),'utf8');
+  assert.match(source,/if\(openingDataRef\.current\)return/);
+  assert.match(source,/finally \{\s*openingDataRef\.current=false;setOpeningData\(null\)/);
+  assert.match(source,/opening=\{openingData\}/);
+  assert.match(source,/kind="primary" disabled=\{!!openingData\}/);
+  assert.match(source,/function Tabs\(\{ value, onChange, items, \.\.\.props \}\)/);
+  assert.match(source,/PageTabs value=\{value\} onChange=\{onChange\} items=\{items\} \{\.\.\.props\}/);
+  const menu=await readFile(new URL('./resource-lifecycle.jsx',import.meta.url),'utf8');
+  assert.match(menu,/DropdownMenu\.Trigger asChild><button[^>]*disabled=\{disabled\}/);
+});
 test('read-only Data views never expose create/save actions',()=>{
   for(const Component of[Customers,OrderBooks,FolderInputs,InputConnections]){
     const html=renderToStaticMarkup(React.createElement(Component,{...common,canEdit:false,canAdmin:false}));

@@ -126,6 +126,22 @@ company isolation or access; then corrections/revisions and advanced grouped-fac
 mobile/error/reload acceptance. Raw capture receipts remain uninspected; direct API
 navigation was blocked, not bypassed. Other provider/client/AI gates stay open.
 
+Review latency/input-navigation slice, 10 October: factor review/save now reuse one
+request-local validated context, without cross-request/company caching or another
+preview before saving. The 804-row host benchmark measures preview 1.13→0.88 seconds
+and save 2.60→1.13 seconds; these are not cloud end-to-end timings. Stale source,
+changed bytes, exact approvals and immutable saved inputs remain checked. Saved
+input opening now gives translated progress and locks conflicting actions using
+the shared global controls, with no added appearance rules. Desktop and Persian
+mobile versions navigation checked; original cloud records preserved. Interface
+288, host company/factor/cloud 72 and exact offline Linux image four tests pass.
+Dedicated private edge/engine deployed; temporary registry login removed and build
+VM stopped. See CLOUD_REVIEW_LATENCY.md for measurements and boundaries.
+Next substantial work: reduce measured calculation/projection work while proving
+identical quantities and evidence, then finish corrected-input/revision and
+advanced grouped-factor mobile/error/reload acceptance. Full-product/legacy design,
+raw capture receipt, provider/AI/client and multi-person acceptance remain open.
+
 ## Earlier delivery history
 
 Latest delivery, 7 October — guided read recovery across sales demand, order-import

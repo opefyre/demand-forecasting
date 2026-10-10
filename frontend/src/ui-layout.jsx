@@ -83,12 +83,14 @@ export function PageTabs({
   onChange,
   items,
   label = uiText("View options"),
+  disabled = false,
 }) {
   return (
     <nav className="ui-page-nav" aria-label={label}>
       {items.map(([id, title]) => (
         <button
           type="button"
+          disabled={disabled}
           key={id}
           aria-current={value === id ? "page" : undefined}
           data-selected={value === id}
