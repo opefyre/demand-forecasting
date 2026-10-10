@@ -25,6 +25,7 @@ import {forecastGroups} from './forecast-groups.mjs';
 import {MethodComparison,methodName} from './method-comparison.jsx';
 import {ActualResults} from './actuals.jsx';
 import {ResourceMenu} from './resource-lifecycle.jsx';
+import {OrderUpdate} from './order-update.jsx';
 
 const number = n => n == null ? uiText('Unknown') : new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 2 }).format(n);
 const title = value => value.replaceAll('_', ' ').replace(/^./, c => c.toUpperCase());
@@ -53,6 +54,7 @@ export function SalesDemand({ api, ui, run, runs = [], openRun, importNew, navig
   const [sort,setSort] = useState('name'),[coverage,setCoverage]=useState(''),[measure,setMeasure]=useState('total');
   const pendingView=useRef(null);
   const currentRun=useRef(run?.run_id);currentRun.current=run?.run_id;
+  const openingOrders=useRef(false);
   function restoreSettings(s){setCustomer(s.customer);setSku(s.sku);setPeriod(s.period);setUnit(s.unit);setCoverage(s.coverage);setDisplay(s.display);setView(s.view);setSort(s.sort);setMeasure(s.measure);}
   function applyView(saved){
     if(!snapshots.some(s=>s.id===saved.snapshot_id))throw new Error('That order version is unavailable. No filters were changed.');
@@ -98,13 +100,18 @@ export function SalesDemand({ api, ui, run, runs = [], openRun, importNew, navig
   }
   useEffect(() => setPage(0), [customer, sku, period, unit, view, selected,sort,coverage,display,measure]);
   async function start(sample) {
+    if(openingOrders.current||!canEdit)return;
+    openingOrders.current=true;
+    const id=run.run_id;
     setError('');
     try {
-      setEditing(selected && !sample
+      const draft=selected && !sample
         ? orderRevision(await api(`/api/sales/inputs/${selected}`))
-        : {inputs: await api(`/api/sales/runs/${run.run_id}/${sample ? 'sample' : 'starter'}`)});
+        : {inputs: await api(`/api/sales/runs/${id}/${sample ? 'sample' : 'starter'}`)};
+      if(currentRun.current===id)setEditing(draft);
     }
-    catch(e) { setError(e); }
+    catch(e) { if(currentRun.current===id)setError(e); }
+    finally {openingOrders.current=false;}
   }
   const rows = sortDemand((outlook?.rows || []).filter(r => (!customer || r.customer === customer) && (!sku || r.sku === sku) && (!period || r.period === period) && r.unit === unit && (!coverage||coverageStatus(r)===coverage)),sort);
   const loadState=demandLoadState({loading,listing,selected,outlook,error});
@@ -128,10 +135,6 @@ export function SalesDemand({ api, ui, run, runs = [], openRun, importNew, navig
   }
   const newForecast=canEdit&&startNewForecast&&<Button kind="primary" data-action="new-forecast" onClick={()=>startNewForecast()}><Plus/>{uiText('New forecast')}</Button>;
   if (!run) return <Page title={uiText('Sales forecast')} actions={newForecast}><section className="surface demand-empty"><UsersThree size={40}/><p>{uiText("No forecasts yet")}</p></section></Page>;
-  if (editing) return <DemandImport api={api} ui={ui} run={run} initial={editing} onCancel={() => setEditing(null)} onSaved={async value => {
-    localState.setItem(`demandlab.orders.${run.run_id}`, value.id);
-    setEditing(null); await refresh(run.run_id);
-  }}/>;
   return <Page title={showHeading&&uiText('Sales forecast')} actions={<>{outlook&&!comparing&&<><SavedDemandViews api={api} ui={ui} runId={run.run_id} snapshotId={selected} settings={viewSettings} onApply={applyView} canEdit={canEdit||companyMode()}/><Button onClick={() => setExporting(true)}><DownloadSimple/>{uiText('Export demand')}</Button></>}{newForecast}</>} controls={
     <div className="compact-toolbar demand-context">
       {canEdit&&startUpdate&&!run.base_run_id&&!run.scenario_name&&<button className="home-text-link" title={uiText("Review updated sales, factors and orders; keep this forecast unchanged")} onClick={()=>startUpdate(run.run_id)}>{uiText("Update forecast")}</button>}
@@ -150,6 +153,9 @@ export function SalesDemand({ api, ui, run, runs = [], openRun, importNew, navig
       {outlook&&!comparing && <div className="demand-context-actions">{canEdit && <Button onClick={() => start(false)}>{outlook.fresh ? uiText("Update orders") : uiText("Review orders")}</Button>}{companyMode()?<Button onClick={()=>setActualsOpen(true)}>{uiText('Actual results')}</Button>:navigate && <button className="home-text-link" onClick={()=>navigate('forecast')}>{uiText("How was this calculated?")}</button>}{!showHeading&&<Button onClick={()=>setExporting(true)}>{uiText("Export demand")}</Button>}</div>}
     </div>}>
     <ErrorBox error={error} onReload={reloadSaved} busy={listing||loading}/>
+    {editing&&<OrderUpdate key={run.run_id} api={api} ui={ui} run={run} initial={editing} canEdit={canEdit} onClose={()=>setEditing(null)} onSaved={async value=>{
+      localState.setItem(`demandlab.orders.${run.run_id}`,value.id);setEditing(null);await refresh(run.run_id);
+    }}/>}
     <Modal open={actualsOpen} onClose={()=>setActualsOpen(false)} title={uiText('Actual results')} wide fixed>
       {actualsOpen&&<ActualResults ui={ui} api={api} run={run} plans={[]} canEdit={canEdit} embedded
         fmt={number} date={value=>new Intl.DateTimeFormat(i18n.language).format(new Date(value))}/>}</Modal>

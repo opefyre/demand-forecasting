@@ -12,7 +12,8 @@ import {
 } from "@phosphor-icons/react";
 import { ChatSurface, ChatMessage } from "./ui-chat.jsx";
 import { ChatHistory, ChatHistoryToggle } from "./ui-chat-history.jsx";
-import { remembered, DemandImport } from "./sales-demand";
+import { remembered } from "./sales-demand";
+import { OrderUpdate } from "./order-update.jsx";
 import { orderRevision } from "./order-revision.mjs";
 import { AssistantFactorScenario } from "./assistant-factor-scenario";
 import { FactorLink } from "./factor-links.jsx";
@@ -521,21 +522,6 @@ export function AssistantWorkspace({
         setRepeatInitial(null);
       },
     });
-  if (orderEditing && run)
-    return (
-      <DemandImport
-        api={api}
-        ui={ui}
-        run={run}
-        initial={orderEditing}
-        onCancel={() => setOrderEditing(null)}
-        onSaved={async (value) => {
-          localState.setItem(`demandlab.orders.${run.run_id}`, value.id);
-          setOrderEditing(null);
-          openRun(run.run_id, "demand");
-        }}
-      />
-    );
   const tools = [
     ...(canEdit && renderImport
       ? [
@@ -622,6 +608,9 @@ export function AssistantWorkspace({
   const readOnlyChat = openedChat && openedChat.status !== "active";
   return (
     <>
+      {orderEditing&&run&&<OrderUpdate key={run.run_id} api={api} ui={ui} run={run} initial={orderEditing} canEdit={canEdit} onClose={()=>setOrderEditing(null)} onSaved={async value=>{
+        localState.setItem(`demandlab.orders.${run.run_id}`,value.id);setOrderEditing(null);await openRun(run.run_id,'demand');
+      }}/>}
       <Modal
         title={uiText("Move chat to Trash?")}
         open={!!trashing}

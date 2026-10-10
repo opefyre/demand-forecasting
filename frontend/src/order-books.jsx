@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Plus, Trash } from "@phosphor-icons/react";
-import { t as uiText, unitLabel } from "./localization.mjs";
+import { t as uiText, unitLabel, i18n } from "./localization.mjs";
 import { Actions, Grid, Stack, Disclosure, Collection, FieldGroup } from "./ui-layout.jsx";
 import { forecastInputs } from "./forecast-start.mjs";
 
@@ -11,9 +11,10 @@ export function appendOrder(inputs) {
 }
 export function OrderTable({ inputs, ui, empty, onEdit, onRemove, disabled = false, renderDetails }) {
   const { Button, Table } = ui;
+  const amount=value=>new Intl.NumberFormat(i18n.language,{maximumFractionDigits:3}).format(value);
   return <Table headers={[uiText('Order line'),uiText('Customer / product'),uiText('Due date'),uiText('Ordered'),uiText('Already fulfilled'),uiText('Cancelled'),uiText('Status'),'']} empty={empty}>
     {inputs?.orders.map((row,index)=><React.Fragment key={index}>
-      <tr><td>{row.reference||'—'}</td><td><strong>{row.customer}</strong><span className="ui-record-meta">{row.sku}</span></td><td>{row.due_date}</td><td>{row.ordered} {unitLabel(row.unit)}</td><td>{row.fulfilled} {unitLabel(row.unit)}</td><td>{row.cancelled} {unitLabel(row.unit)}</td><td>{uiText(row.status==='confirmed'?'Confirmed':row.status==='unconfirmed'?'Unconfirmed':'Cancelled')}</td><td><div className="ui-record-actions">
+      <tr><td>{row.reference||'—'}</td><td><strong>{row.customer}</strong><span className="ui-record-meta">{row.sku}</span></td><td><bdi>{row.due_date}</bdi></td><td>{amount(row.ordered)} {unitLabel(row.unit)}</td><td>{amount(row.fulfilled)} {unitLabel(row.unit)}</td><td>{amount(row.cancelled)} {unitLabel(row.unit)}</td><td>{uiText(row.status==='confirmed'?'Confirmed':row.status==='unconfirmed'?'Unconfirmed':'Cancelled')}</td><td><div className="ui-record-actions">
         {onEdit&&<Button disabled={disabled} aria-label={uiText('Edit order')+' · '+(row.reference||row.customer+' · '+row.sku)} onClick={()=>onEdit(index,row)}>{uiText('Edit')}</Button>}
         {onRemove&&<Button disabled={disabled} aria-label={uiText('Remove order')+' · '+(row.reference||row.customer+' · '+row.sku)} onClick={()=>onRemove(index)}><Trash/></Button>}
       </div></td></tr>

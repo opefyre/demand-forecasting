@@ -1,5 +1,9 @@
 // Authored interface copy only. Source names, IDs, values and original evidence stay intact.
 export const faCompletion={
+ 'Edit orders':'ویرایش سفارش‌ها',
+ 'Save reviewed orders':'ذخیرهٔ سفارش‌های بررسی‌شده',
+ 'Complete monthly commitments':'تعهد کامل ماهانه',
+ 'No commitments':'تعهدی ثبت نشده است',
  'Compare available methods':'مقایسهٔ روش‌های موجود',
  'Demand comparison':'مقایسهٔ تقاضا',
  'Compare with orders':'مقایسه با سفارش‌ها',

@@ -669,6 +669,13 @@ after the core release, only if they improve this single forecasting purpose.
 
 ## Current position and preservation
 
+10 October unified order update: active manual and assistant order updates now
+reuse the forecast wizard's editor in the shared fixed dialog. Reviewed quantities,
+original revisions, company boundaries and read-only permissions are verified;
+see UNIFIED_ORDER_UPDATES.md. Next: advanced factor scenario/batch consolidation,
+cloud calculation latency and the complete bilingual acceptance journey. This
+does not certify real-client accuracy or every screen/provider.
+
 10 October shared-order follow-up: proposal/order-comparison surfaces and Approvals
 now reuse the global framework. Stable method colours/patterns and a missing
 planning-preview request ID are fixed. The local bilingual mobile journey through
