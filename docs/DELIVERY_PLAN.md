@@ -98,6 +98,22 @@ Real client accuracy and an explicitly authorised live multi-person pilot remain
 separate. AI and new provider credential setup remain separately gated.
 Do not open public access automatically or change the independent local demo.
 
+Advanced factor design/workflow slice, 10 October: comparison, grouped-factor,
+recommendation and customer/product exposure forms now consume the shared design
+components; 52 obsolete CSS lines are removed. Factor review/save locks wizard
+navigation and planning edits. A disposable two-company workflow reused orders,
+reviewed factor assumptions and saved two methods under one group; filtered CSV
+values match the dashboard and reload preserves the forecast. Interface 284,
+focused backend 30 and alignment seven tests pass. See FACTOR_WORKFLOW_DESIGN.md
+for exact boundaries. After normal cooldowns, actual World Bank commodity and
+NY Fed supply captures succeeded in cloud; saved observations through September
+2026 render privately. Read-only conflict recovery clears stale action warnings
+without repeating writes; active schedules avoid redundant enable writes.
+Next: capture-receipt inspection and one grouped cloud forecast using these live
+snapshots with saved orders and matching exports, followed by corrections/revisions
+and advanced grouped-factor mobile/error/reload acceptance. Full advanced-screen
+acceptance and real-client accuracy are not established by the synthetic workflow.
+
 ## Earlier delivery history
 
 Latest delivery, 7 October — guided read recovery across sales demand, order-import

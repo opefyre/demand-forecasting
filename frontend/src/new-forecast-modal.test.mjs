@@ -64,3 +64,15 @@ test('the wizard cannot navigate backwards or dismiss while order validation is 
   assert.match(source,/onPendingEditChange=\{setOrdersEditing\}/);
   assert.match(source,/disabled=\{working\|\|ordersEditing\|\|!canEdit/);
 });
+test('factor review and saving also lock wizard navigation, settings and dismissal',async()=>{
+  const source=await readFile(new URL('new-forecast.jsx',import.meta.url),'utf8');
+  assert.match(source,/const working=busy\|\|ordersBusy\|\|factorsBusy/);
+  assert.match(source,/onWorkingChange=\{setFactorsBusy\}/);
+  assert.match(source,/disabled=\{working\|\|!canEdit/);
+  assert.match(source,/async function next\(continueStep=true\)\{\s*if\(working\)return/);
+  assert.match(source,/onSaved=\{async d=>\{setBusy\(true\);try\{/);
+  assert.match(source,/await refresh\(\);\}finally\{setBusy\(false\);\}/);
+  const factors=await readFile(new URL('forecast-factors.jsx',import.meta.url),'utf8');
+  assert.match(factors,/onWorkingChange\?\.\(busy\)/);
+  assert.match(factors,/return\(\)=>onWorkingChange\?\.\(false\)/);
+});

@@ -153,9 +153,9 @@ export function DefinitionList({ rows }) {
     </dl>
   );
 }
-export function Disclosure({ title, children }) {
+export function Disclosure({ title, children, open, onToggle }) {
   return (
-    <details className="ui-disclosure">
+    <details className="ui-disclosure" open={open} onToggle={onToggle}>
       <summary>{title}</summary>
       <Stack>{children}</Stack>
     </details>

@@ -14,7 +14,7 @@ from tests.test_company_context import ALL,VIEW
 from app.company_jobs import execute_company_job
 
 
-def run(*,notifications=False,factors=False):
+def run(*,notifications=False,factors=False,complete_factors=False):
     import uvicorn
     fixture=PublicSalesTests();fixture.setUp()
     if notifications:
@@ -51,7 +51,13 @@ def run(*,notifications=False,factors=False):
             # Disposable UI data only; no external request or production seed.
             from app.commodity_prices import parse_prices
             from tests.test_live_factor_alignment import prices, CAPTURE
-            raw=prices()
+            if complete_factors:
+                import pandas as pd
+                start=(pd.Timestamp(fixture.today.replace(day=1))-pd.DateOffset(months=40)).strftime('%Y-%m')
+                end=(pd.Timestamp(fixture.today.replace(day=1))-pd.DateOffset(months=1)).strftime('%Y-%m')
+                raw=prices(end,start=start)
+            else:
+                raw=prices()
             definitions={'worldbank_'+key:{**row,'provider':'World Bank','frequency':'monthly','geography':'Global reference'}
                          for key,row in list(parse_prices(raw,CAPTURE).items())[:3]}
             with patch('app.live_sources.now',return_value=CAPTURE):
@@ -135,4 +141,4 @@ def run(*,notifications=False,factors=False):
 
 if __name__=='__main__':
     import sys
-    run(notifications='--notifications' in sys.argv,factors='--factors' in sys.argv)
+    run(notifications='--notifications' in sys.argv,factors='--factors' in sys.argv,complete_factors='--complete-factors' in sys.argv)

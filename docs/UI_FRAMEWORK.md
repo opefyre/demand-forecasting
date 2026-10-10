@@ -52,3 +52,12 @@ This verifies all Settings sections and their forms, not a completed migration o
 every other screen. Other active screens still have legacy page-specific layout
 rules; tokenized values alone must not be described as a unified framework.
 Future migrations must consume these shared components rather than add overrides.
+
+## Advanced factor migration — 10 October
+
+Factor linking, grouped factor comparisons, preparation recommendations and
+customer/product exposure profiles now consume the same shared forms, panels,
+actions and disclosures. Fifty-two obsolete appearance rules were removed; fixed
+dialogs and the global table-scroll behavior replace competing layouts.
+See [factor workflow checkpoint](FACTOR_WORKFLOW_DESIGN.md) for measured mobile
+profile checks, calculation/export evidence and the remaining browser boundaries.

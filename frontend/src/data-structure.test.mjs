@@ -34,6 +34,8 @@ test('Connect captures first, then enables the next scheduled check; failed requ
   assert.deepEqual(calls,[['/api/live-sources/supply/refresh',{}],['/api/live-sources/supply',{enabled:true},'PUT']]);
   const failed=[];await assert.rejects(connectSource(async(...args)=>{failed.push(args);throw Error('access changed');},'supply'));
   assert.equal(failed.length,1);
+  const enabled=[];await connectSource(async(...args)=>enabled.push(args),'supply',{enabled:true});
+  assert.deepEqual(enabled,[['/api/live-sources/supply/refresh',{}]]);
 });
 test('factor wizard and selected source settings use the global layout and disabled form contract',async()=>{
   const html=renderToStaticMarkup(React.createElement(ForecastFactors,{...common,dataset:{id:'history'},onReady:()=>{}}));
@@ -49,6 +51,20 @@ test('factor wizard and selected source settings use the global layout and disab
 test('customer imports send no order dates; order imports preserve explicit dates',()=>{
   assert.deepEqual(reviewPayload({mapping:{customer:'A'},as_of:'',valid_until:''}),{mapping:{customer:'A'},as_of:null,valid_until:null});
   assert.deepEqual(reviewPayload({as_of:'2026-10-09',valid_until:'2026-11-01'}),{as_of:'2026-10-09',valid_until:'2026-11-01'});
+});
+test('advanced factor workflows share fixed dialogs, layouts and CSS ownership',async()=>{
+  const legacy=/factor-link-fields|factor-add-row|factor-scope-list|factor-link-modal|factor-batch-modal|factor-batch-groups|source-preparation|source-suggestion|source-exposures|source-material-tags|factor-profile-fields/;
+  for(const name of ['factor-links.jsx','factor-batch.jsx','factor-preparation.jsx','factor-profile-editor.jsx']){
+    const source=await readFile(new URL(name,import.meta.url),'utf8');
+    assert.doesNotMatch(source,legacy,name);assert.doesNotMatch(source,/style=|size=\{18\}/,name);
+    assert.match(source,/from '\.\/ui-layout.jsx'/,name);
+    if(name!=='factor-preparation.jsx')assert.match(source,/<Modal[^>]*\bfixed\b/,name);
+  }
+  const css=await readFile(new URL('workspace.css',import.meta.url),'utf8');assert.doesNotMatch(css,legacy);
+  const {PreparationResults}=await server.ssrLoadModule('/src/factor-preparation.jsx');
+  const html=renderToStaticMarkup(React.createElement(PreparationResults,{report:{recommendations:[{factor_id:'copper',name:'Copper',snapshot_id:'s',can_prepare:false,what_if:true,note:'Missing required history.',reason:'Imported material.'}]},selected:[],onSelect:()=>{},ui}));
+  for(const marker of ['ui-stack','ui-panel','ui-panel-header','ui-panel-title','ui-actions','ui-disclosure','ui-check','disabled=""'])assert.ok(html.includes(marker),marker);
+  assert.doesNotMatch(html,/style=|source-suggestion/);assert.match(html,/Missing required history/);
 });
 test('View orders opens the imported dataset, not an unrelated first order book',()=>{
   const datasets=[{id:'first',name:'First sales',sources:{history:'one'}},{id:'imported',name:'Imported sales',sources:{history:'two'}}];
@@ -168,4 +184,11 @@ test('long dataset names cannot enlarge the shared collection on narrow screens'
   for(const name of['ui-collection','ui-stack','ui-disclosure'])assert.match(css,new RegExp('\\.'+name+' \\{[^}]*grid-template-columns:minmax\\(0,1fr\\)'));
   assert.match(css,/\.ui-collection-controls>\.select-control \{[^}]*min-width:0/);
   assert.match(css,/\.ui-collection-body table \{min-width:var\(--collection-table-min-width\)/);
+});
+test('source action conflicts reload saved state and clear the warning without replaying writes',async()=>{
+  const source=await readFile(new URL('live-sources.jsx',import.meta.url),'utf8');
+  const reload=source.slice(source.indexOf('async function reloadSaved()'),source.indexOf('async function loadObservations()'));
+  assert.match(reload,/await load\(\);setError\(''\)/);
+  assert.doesNotMatch(reload,/connectSource|refresh|action\(/);
+  assert.match(source,/<ErrorBox error=\{error\} onReload=\{reloadSaved\} busy=\{reloading\}/);
 });

@@ -19,8 +19,9 @@ export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,
   const [source,setSource]=useState(draft?.source||''),[saved,setSaved]=useState(null),[step,setStep]=useSmoothState(draft?.step||0),[importing,setImporting]=useSmoothState(false);
   const [methods,setMethods]=useState(draft?.methods||['recommended']),[jobs,setJobs]=useState(draft?.jobs||[]),[busy,setBusy]=useState(false),[error,setError]=useState(null);
   const [ordersBusy,setOrdersBusy]=useState(false);
+  const [factorsBusy,setFactorsBusy]=useState(false);
   const [ordersEditing,setOrdersEditing]=useState(false);
-  const working=busy||ordersBusy;
+  const working=busy||ordersBusy||factorsBusy;
   useEffect(()=>{onWorkingChange?.(working);return()=>onWorkingChange?.(false);},[working,onWorkingChange]);
   const submitting=useRef(false);
   const [summaries,setSummaries]=useState({});
@@ -41,6 +42,7 @@ export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,
     return allowed.length===previous.length?previous:allowed.length?allowed:['model:Ridge + drivers'];
   });},[whatIf,hasFactors]);
   async function next(continueStep=true){
+    if(working)return;
     if(step!==1){setStep(step+1);return;}
     setBusy(true);setError(null);
     try{const d=await api('/api/datasets/'+dataset.id+'/forecast-settings',{...settings,request_id:crypto.randomUUID()});
@@ -111,9 +113,9 @@ export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,
       </>}
       {step===1&&dataset&&<>
         
-        {settings&&<Grid><Field title={uiText('Forecast horizon')}><input type="number" min="1" max="24" disabled={busy||!canEdit} value={settings.horizon} onChange={e=>setSettings(s=>({...s,horizon:Number(e.target.value)}))}/></Field><Field title={uiText('Planning months')}><Pick disabled={busy||!canEdit||hasFactors} label={uiText('Planning months')} value={settings.month_basis} options={[["gregorian",uiText('Gregorian months')],["jalali",uiText('Persian months')]]} onChange={v=>setSettings(s=>({...s,month_basis:v}))}/></Field><Field title={uiText('Holiday calendar')}><Pick disabled={busy||!canEdit} label={uiText('Holiday calendar')} value={settings.calendar_country} options={[["IR",uiText('Iran')],["",uiText('No public holidays')]]} onChange={v=>setSettings(s=>({...s,calendar_country:v}))}/></Field></Grid>}
-        {settingsDirty&&<Button disabled={busy||!canEdit||!Number.isInteger(settings.horizon)||settings.horizon<1||settings.horizon>24} onClick={()=>next(false)}>{uiText('Apply changes')}</Button>}
-        {(dataset.settings?.frequency||'monthly')!=='monthly'?<p className="table-note">{uiText('Live factor matching needs monthly sales. You can still forecast this history without extra live factors.')}</p>:dataset.import_provenance?.type==='forecast_factors'?<Button disabled={!canEdit} onClick={()=>{setSource(dataset.parent_dataset_id);setSaved(null);setSalesInputId(null);setFactorsReady(true);setMethods(['recommended']);}}>{uiText('Change factors')}</Button>:<ForecastFactors key={dataset.id} dataset={dataset} api={api} ui={ui} canEdit={canEdit&&!settingsDirty&&!busy} onReady={setFactorsReady} navigate={()=>{setDataView?.('external');navigate('data');}} onSaved={async d=>{setSaved(d);setSource(d.id);setSalesInputId(null);setFactorsReady(true);setMethods(['model:Ridge + drivers']);await refresh();}}/>}
+        {settings&&<Grid><Field title={uiText('Forecast horizon')}><input type="number" min="1" max="24" disabled={working||!canEdit} value={settings.horizon} onChange={e=>setSettings(s=>({...s,horizon:Number(e.target.value)}))}/></Field><Field title={uiText('Planning months')}><Pick disabled={working||!canEdit||hasFactors} label={uiText('Planning months')} value={settings.month_basis} options={[["gregorian",uiText('Gregorian months')],["jalali",uiText('Persian months')]]} onChange={v=>setSettings(s=>({...s,month_basis:v}))}/></Field><Field title={uiText('Holiday calendar')}><Pick disabled={working||!canEdit} label={uiText('Holiday calendar')} value={settings.calendar_country} options={[["IR",uiText('Iran')],["",uiText('No public holidays')]]} onChange={v=>setSettings(s=>({...s,calendar_country:v}))}/></Field></Grid>}
+        {settingsDirty&&<Button disabled={working||!canEdit||!Number.isInteger(settings.horizon)||settings.horizon<1||settings.horizon>24} onClick={()=>next(false)}>{uiText('Apply changes')}</Button>}
+        {(dataset.settings?.frequency||'monthly')!=='monthly'?<p className="table-note">{uiText('Live factor matching needs monthly sales. You can still forecast this history without extra live factors.')}</p>:dataset.import_provenance?.type==='forecast_factors'?<Button disabled={!canEdit} onClick={()=>{setSource(dataset.parent_dataset_id);setSaved(null);setSalesInputId(null);setFactorsReady(true);setMethods(['recommended']);}}>{uiText('Change factors')}</Button>:<ForecastFactors key={dataset.id} dataset={dataset} api={api} ui={ui} canEdit={canEdit&&!settingsDirty&&!busy} onReady={setFactorsReady} onWorkingChange={setFactorsBusy} navigate={()=>{setDataView?.('external');navigate('data');}} onSaved={async d=>{setBusy(true);try{setSaved(d);setSource(d.id);setSalesInputId(null);setFactorsReady(true);setMethods(['model:Ridge + drivers']);await refresh();}finally{setBusy(false);}}}/>}
       </>}
       {step===2&&dataset&&<ForecastOrders key={dataset.id} api={api} ui={ui} dataset={dataset} snapshotId={salesInputId} canEdit={canEdit} onWorkingChange={setOrdersBusy} onPendingEditChange={setOrdersEditing} onReady={id=>{setSalesInputId(id);if(id)setStep(3);}}/>}
       {step===3&&<>

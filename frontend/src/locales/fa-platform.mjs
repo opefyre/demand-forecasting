@@ -1,4 +1,6 @@
 export const faPlatform = {
+  "Edit factors for {{name}}": "ویرایش عوامل برای {{name}}",
+  "Remove group {{name}}": "حذف گروه {{name}}",
   "Reopen workspace": "باز کردن دوبارهٔ محیط کار",
   "The sign-in screen could not load. Reload to try again.": "صفحهٔ ورود بارگیری نشد. دوباره بارگیری کنید.",
   "Reload": "بارگیری دوباره",

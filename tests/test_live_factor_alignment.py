@@ -21,11 +21,11 @@ from tests import test_factor_links as fixtures
 CAPTURE = '2026-10-03T12:00:00+00:00'
 
 
-def prices(end='2026-09'):
+def prices(end='2026-09', *, start='2023-11'):
     book = openpyxl.Workbook(); sheet = book.active; sheet.title = 'Monthly Prices'
     sheet.append([None] + [v[0] for v in SERIES.values()])
     sheet.append([None] + [v[1] for v in SERIES.values()])
-    for i, month in enumerate(pd.period_range('2023-11', end, freq='M')):
+    for i, month in enumerate(pd.period_range(start, end, freq='M')):
         sheet.append([month.strftime('%YM%m')] + [80 + i + j for j in range(len(SERIES))])
     content = BytesIO(); book.save(content); book.close()
     return content.getvalue()

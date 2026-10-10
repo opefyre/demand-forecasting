@@ -6,11 +6,12 @@ import {futureAssumptions} from './factor-assumptions.mjs';
 import {planningMonth} from './planning-calendar.mjs';
 import {Stack,Grid,Actions,PanelHeader,FieldGroup,Disclosure} from './ui-layout.jsx';
 
-export function ForecastFactors({dataset,api,ui,canEdit,onSaved,onReady,navigate}){
+export function ForecastFactors({dataset,api,ui,canEdit,onSaved,onReady,onWorkingChange,navigate}){
   const {Button,ErrorBox,Table,Help,Pick}=ui;
   const [options,setOptions]=useState(null),[error,setError]=useState(null),[busy,setBusy]=useState(false);
   const [selected,setSelected]=useState([]),[expanded,setExpanded]=useSmoothState(''),[review,setReview]=useState(null),[approved,setApproved]=useState(false);
   const [add,setAdd]=useState('');
+  useEffect(()=>{onWorkingChange?.(busy);return()=>onWorkingChange?.(false);},[busy,onWorkingChange]);
   const attempt=useRef(null);
   const endpoint='/api/datasets/'+dataset.id+'/forecast-factors';
   useEffect(()=>{let live=true;onReady(true);api(endpoint).then(r=>{if(live)setOptions(r);}).catch(e=>{if(live)setError(e);});return()=>{live=false;};},[dataset.id]);
@@ -47,7 +48,7 @@ export function ForecastFactors({dataset,api,ui,canEdit,onSaved,onReady,navigate
       </tr>)}</Table>
       {review.retrospective&&<p className="table-note">{uiText('Downloaded history supports a what-if forecast, not a claim of past accuracy. Choose a factor-aware method next.')}</p>}
       <Disclosure title={uiText('Historical matching')}><Table headers={[uiText('Factor'),uiText('Month'),uiText('Observation'),uiText('Value')]}>{review.rows.filter(row=>row.kind==='history').map(row=><tr key={row.snapshot_id+row.sales_month}><td>{row.factor}</td><td>{planningMonth(row.sales_month,basis)}</td><td>{row.observation_period}</td><td>{row.value??'—'}</td></tr>)}</Table></Disclosure>
-      <label className="check-line"><input type="checkbox" disabled={busy||!canEdit||review.missing>0} checked={approved} onChange={e=>setApproved(e.target.checked)}/>{uiText('I reviewed locations, dates and future assumptions.')}</label>
+      <label className="ui-check"><input type="checkbox" disabled={busy||!canEdit||review.missing>0} checked={approved} onChange={e=>setApproved(e.target.checked)}/>{uiText('I reviewed locations, dates and future assumptions.')}</label>
       <Actions><Button kind="primary" disabled={!approved||busy||!canEdit||review.missing>0} onClick={()=>act(async()=>{
         attempt.current ||= crypto.randomUUID();const saved=await api(endpoint,{...body(),reviewed:true,review_token:review.review_token,request_id:attempt.current});await onSaved(saved);onReady(true);
       })}>{uiText(busy?'Saving…':'Use these factors')}</Button></Actions>

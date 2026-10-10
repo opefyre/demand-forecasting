@@ -3,16 +3,17 @@ import {t as uiText,pluralSuffix} from './localization.mjs';
 import React,{useState,useRef,useEffect} from 'react';
 import {X,PencilSimple} from '@phosphor-icons/react';
 import {FactorLink} from './factor-links.jsx';
+import {Stack,Grid,Actions,Disclosure} from './ui-layout.jsx';
 
 export function BatchGroupTable({groups,run,ui,onEdit,onRemove,disabled}){
   const {Table}=ui;
-  return <div className="factor-batch-groups"><Table headers={[uiText("Customer / product"),uiText("Factors"),uiText("Method"),'']}>
+  return <Table headers={[uiText("Customer / product"),uiText("Factors"),uiText("Method"),'']}>
     {groups.map(d=>{const a=d.scenario_provenance.alignment,ids=a.series_ids;
       return <tr key={d.id}><td>{ids.map(id=><div key={id}>{run.metadata?.[id]?.customer} · {run.metadata?.[id]?.sku||id}</div>)}</td>
-        <td data-label="Factors">{(a.factors||[a]).map(f=>f.factor).join(' + ')}</td><td data-label="Method">{a.method==='factor_test'?uiText("Test factors"):a.method==='recommended'?uiText("Automatic"):a.method.replace(/^model:/,'')}</td>
-        <td>{onEdit&&ids.length===1&&<button className="icon-button" disabled={disabled} aria-label={'Edit factors for '+ids[0]} title={uiText("Edit factors")} onClick={()=>onEdit(ids[0])}><PencilSimple size={18}/></button>}
-          {onRemove&&<button className="icon-button" disabled={disabled} aria-label={'Remove group '+ids.join(', ')} title={uiText("Keep baseline instead")} onClick={()=>onRemove(d.id)}><X size={18}/></button>}</td></tr>;})}
-  </Table></div>;
+        <td>{(a.factors||[a]).map(f=>f.factor).join(' + ')}</td><td>{a.method==='factor_test'?uiText("Test factors"):a.method==='recommended'?uiText("Automatic"):a.method.replace(/^model:/,'')}</td>
+        <td><Actions>{onEdit&&ids.length===1&&<button className="btn secondary" disabled={disabled} aria-label={uiText('Edit factors for {{name}}',{name:ids[0]})} title={uiText("Edit factors")} onClick={()=>onEdit(ids[0])}><PencilSimple aria-hidden="true"/></button>}
+          {onRemove&&<button className="btn secondary" disabled={disabled} aria-label={uiText('Remove group {{name}}',{name:ids.join(', ')})} title={uiText("Keep baseline instead")} onClick={()=>onRemove(d.id)}><X aria-hidden="true"/></button>}</Actions></td></tr>;})}
+  </Table>;
 }
 
 export function FactorBatch({run,api,ui,canEdit,onSaved,onManageSources,onManageProfiles,buttonLabel='Add forecast factors',autoOpen=false,onDismiss,allowedSeriesIds}){
@@ -38,25 +39,25 @@ export function FactorBatch({run,api,ui,canEdit,onSaved,onManageSources,onManage
   async function act(work){setBusy(true);setError('');try{await work();}catch(e){setError(e.message);}finally{setBusy(false);}}
   const unchanged=Object.keys(run.series||{}).filter(id=>id!=='__all__'&&!groups.some(g=>g.scenario_provenance.alignment.series_ids.includes(id))).length;
   return <>
-    {!autoOpen&&<Button disabled={!canEdit} onClick={show}>{buttonLabel}</Button>}
-    <Modal open={open&&!active} title={uiText("Customer/product factors")} description={uiText("Review each group, then calculate one monthly forecast.")} wide className="factor-link-modal factor-batch-modal" dismissible={!busy} onClose={close}>
+    {!autoOpen&&<Button disabled={!canEdit} onClick={show}>{uiText(buttonLabel)}</Button>}
+    <Modal open={open&&!active} fixed title={uiText("Customer/product factors")} description={uiText("Review each group, then calculate one monthly forecast.")} wide dismissible={!busy} onClose={close}><Stack>
       <ErrorBox error={error}/>
       {busy&&!groups.length?<p role="status">{uiText("Loading saved profiles…")}</p>:<>
-        {!!choices.length?<div className="factor-add-row"><Field title={uiText("Customer / product")}><Pick label={uiText("Customer/product factors")} disabled={busy||!canEdit} value={selected} options={choices} onChange={setSelected}/></Field>
-          <Button disabled={!selected||busy||!canEdit||groups.length>=20&&!groups.some(g=>g.scenario_provenance.alignment.series_ids.includes(selected))} onClick={()=>setActive(selected)}>{uiText("Review factors")}</Button></div>:
+        {!!choices.length?<Grid><Field title={uiText("Customer / product")}><Pick label={uiText("Customer/product factors")} disabled={busy||!canEdit} value={selected} options={choices} onChange={setSelected}/></Field>
+          <Actions><Button disabled={!selected||busy||!canEdit||groups.length>=20&&!groups.some(g=>g.scenario_provenance.alignment.series_ids.includes(selected))} onClick={()=>setActive(selected)}>{uiText("Review factors")}</Button></Actions></Grid>:
           <p>{uiText("No customer/product forecast is available.")}</p>}
         {!!groups.length&&<BatchGroupTable groups={groups} run={run} ui={ui} disabled={busy||!canEdit} onEdit={id=>setActive(id)} onRemove={id=>change(groups.filter(g=>g.id!==id))}/>}
         <p className="table-note">{unchanged}{' '}{uiText("customer/product")}{pluralSuffix(unchanged)}{' '}{uiText("keep their baseline. Orders are reviewed next.")}</p>
         {!!groups.length&&<Button disabled={busy||!canEdit} onClick={()=>act(async()=>{setReport(await api('/api/runs/'+run.run_id+'/factor-batch/preview',{dataset_ids:groups.map(g=>g.id)}));setApproved(false);})}>{uiText("Review batch")}</Button>}
-        {report&&<label className="check-line"><input type="checkbox" disabled={busy||!canEdit} checked={approved} onChange={e=>setApproved(e.target.checked)}/>{uiText("I reviewed these groups and the products keeping their baseline.")}</label>}
+        {report&&<label className="ui-check"><input type="checkbox" disabled={busy||!canEdit} checked={approved} onChange={e=>setApproved(e.target.checked)}/>{uiText("I reviewed these groups and the products keeping their baseline.")}</label>}
       </>}
-      <div className="dialog-actions"><Button disabled={busy} onClick={close}>{uiText("Close")}</Button>{report&&<Button kind="primary" disabled={!approved||busy||!canEdit} onClick={()=>act(async()=>{
+      <Actions><Button disabled={busy} onClick={close}>{uiText("Close")}</Button>{report&&<Button kind="primary" disabled={!approved||busy||!canEdit} onClick={()=>act(async()=>{
         request.current ||= crypto.randomUUID();const saved=await api('/api/runs/'+run.run_id+'/factor-batch',{
           dataset_ids:groups.map(g=>g.id),review_token:report.review_token,reviewed:true,request_id:request.current});
         await onSaved(saved,request.current);change([]);close();
-      })}>{busy?uiText("Starting…"):uiText("Calculate monthly forecast")}</Button>}</div>
-      {onManageProfiles&&<details className="help-details"><summary>{uiText("Save reusable factor choices")}</summary><p>{uiText("Set customer defaults or product overrides in Customers.")}</p><Button disabled={busy} onClick={()=>{close();onManageProfiles();}}>{uiText("Open Customers")}</Button></details>}
-    </Modal>
+      })}>{busy?uiText("Starting…"):uiText("Calculate monthly forecast")}</Button>}</Actions>
+      {onManageProfiles&&<Disclosure title={uiText("Save reusable factor choices")}><p>{uiText("Set customer defaults or product overrides in Customers.")}</p><Button disabled={busy} onClick={()=>{close();onManageProfiles();}}>{uiText("Open Customers")}</Button></Disclosure>}
+    </Stack></Modal>
     {active&&<FactorLink key={active} run={run} api={api} ui={ui} canEdit={canEdit} autoOpen initialProfileSeriesId={profiles.some(p=>p.series_id===active)?active:undefined} requiredSeriesId={active}
       onDismiss={()=>setActive('')} saveLabel="Add to monthly forecast" onManageSources={()=>{setActive('');close();onManageSources?.();}}
       onSaved={async d=>{const ids=d.scenario_provenance?.alignment?.series_ids;
@@ -68,7 +69,7 @@ export function FactorBatch({run,api,ui,canEdit,onSaved,onManageSources,onManage
 export function BatchEvidence({scenario,run,ui}){
   if(scenario?.type!=='factor_batch')return null;
   const groups=scenario.alignment.groups.map(g=>({id:g.dataset_id,scenario_provenance:{alignment:g.alignment}}));
-  return <details className="surface disclosure"><summary>{uiText("Customer/product factors")}</summary><div className="detail-body">
+  return <Disclosure title={uiText("Customer/product factors")}>
     <BatchGroupTable groups={groups} run={run} ui={ui}/><p className="table-note">{scenario.alignment.unchanged_series_ids.length}{' '}{uiText("other products retain their baseline. Each group was calculated separately. No combined accuracy score or portfolio range is claimed.")}</p>
-  </div></details>;
+  </Disclosure>;
 }
