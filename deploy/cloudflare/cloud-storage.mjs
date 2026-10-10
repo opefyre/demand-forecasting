@@ -2,6 +2,7 @@ import { DurableObject, WorkerEntrypoint } from 'cloudflare:workers';
 import { companyRoute, savedResponse, sameReportDay } from './company-api.mjs';
 import {managementRoute,managementResponse} from './management-api.mjs';
 import { validateRecovery } from './recovery-ledger.mjs';
+import {persistBackup} from './backup-retention.mjs';
 
 const FORECAST_DEADLINE_MS = 12 * 60 * 1000;
 const ID = /^[a-f0-9]{32}$/;
@@ -93,6 +94,7 @@ export class ForecastCloud extends DurableObject {
         this.sql.exec('INSERT INTO revisions(company,id,object_key,created_at) VALUES(?,?,?,?)', company, revision, objectKey, now());
         this.sql.exec('INSERT INTO companies(company,revision,object_key) VALUES(?,?,?) ON CONFLICT(company) DO UPDATE SET revision=excluded.revision,object_key=excluded.object_key,view_key=NULL', company, revision, objectKey);
       });
+      await this.persistRecovery(company);
       return { revision };
     });
   }
@@ -101,7 +103,9 @@ export class ForecastCloud extends DurableObject {
   // ForecastStorage, the app gateway or any HTTP endpoint. Cloudflare operators
   // may bind a separate rehearsal Worker; it cannot replace the live ledger.
   async recoverySnapshot(company) {
-    return this.serialized(async()=>{
+    return this.serialized(()=>this.recoveryValue(company));
+  }
+  async recoveryValue(company) {
       if(!COMPANY.test(company))throw new CloudStorageError(400,'Invalid company');
       const value={version:1,company_id:company,captured_at:now(),
         head:this.head(company),revisions:this.rows('SELECT * FROM revisions WHERE company=?',company),
@@ -110,6 +114,21 @@ export class ForecastCloud extends DurableObject {
       validateRecovery(value,company);
       value.bookmark=await this.ctx.storage.getCurrentBookmark();
       return value;
+  }
+  async persistRecovery(company) {
+    if(!this.head(company))return {verified:false,phase:'empty'};
+    let result;
+    try {result=await persistBackup(this.env.BACKUPS,await this.recoveryValue(company));}
+    catch {result={verified:false,phase:'replication',attempted_at:now()};}
+    // A replica failure must not misreport a committed forecast as failed or
+    // replay a write. Native SQLite recovery and immutable ZIP backups remain.
+    await this.ctx.storage.put('recovery:'+company,result);
+    return result;
+  }
+  async captureBackup(company) {
+    return this.serialized(async()=>{
+      if(!COMPANY.test(company))throw new CloudStorageError(400,'Invalid company');
+      return this.persistRecovery(company);
     });
   }
   async authorizeAttempt(company,id,attempt) {
@@ -297,6 +316,7 @@ export class ForecastCloud extends DurableObject {
       this.sql.exec("UPDATE jobs SET state='failed',message=? WHERE id=? AND attempt=? AND state='running'",
         error instanceof CloudStorageError ? error.message : 'Forecast execution unavailable. Review and retry.',row.id,attempt);
     } finally {
+      await this.captureBackup(row.company);
       // One more bounded alarm drains queued work, then no idle polling occurs.
       await this.armNext();
     }

@@ -722,7 +722,8 @@ function App({ access }) {
                   {access.user.name} · {uiText(label(access.user.role))}
                 </span>
                 <button
-                  className="text-btn"
+                  className="text-button"
+                  type="button"
                   onClick={async () => {
                     try {
                       await api(access.mode==='better_auth'?'/api/login/sign-out':"/api/auth/logout", {});

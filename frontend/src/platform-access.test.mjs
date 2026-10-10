@@ -65,6 +65,20 @@ test("new access screens reuse global panels and forms without inline styles", (
   assert.match(html, /autoComplete="current-password"/);
   assert.doesNotMatch(html, /style=/);
 });
+test('sign-in uses the shared entry surface and action-menu contract',async()=>{
+  const {EntrySurface}=await server.ssrLoadModule('/src/ui-layout.jsx');
+  const html=renderToStaticMarkup(React.createElement(EntrySurface,{brand:'DemandLab',icon:()=>null},React.createElement(IdentityLogin,{api:common.api})));
+  assert.match(html,/class="ui-entry"/);assert.match(html,/class="ui-panel ui-entry-surface"/);
+  assert.doesNotMatch(html,/style=|access-card|access-screen/);
+  const source=await readFile(new URL('access-management.jsx',import.meta.url),'utf8');
+  assert.match(source,/<ActionMenu name=/);assert.doesNotMatch(source,/select-menu|select-option|Dropdown\.Content/);
+});
+test('shared brand fonts are bundled assets, not missing cloud root paths',async()=>{
+  const css=await readFile(new URL('workspace.css',import.meta.url),'utf8');
+  assert.match(css,/\.\.\/\.\.\/app\/static\/fonts\/instrument-sans/);
+  assert.match(css,/\.\.\/\.\.\/app\/static\/fonts\/vazirmatn/);
+  assert.doesNotMatch(css,/url\(["']\/fonts\//);
+});
 test("Google-only administrator can start enrollment without an invented password", () => {
   const html = renderToStaticMarkup(
     React.createElement(IdentityLogin, {

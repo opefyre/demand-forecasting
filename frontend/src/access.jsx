@@ -2,6 +2,7 @@ import { t as uiText } from "./localization.mjs";
 import React, { useEffect, useState, lazy, Suspense } from "react";
 import { ChartLineUp, ArrowRight } from "@phosphor-icons/react";
 import { useInterfaceLanguage } from "./language-settings.jsx";
+import {EntrySurface} from './ui-layout.jsx';
 const IdentityLogin = lazy(() =>
   import("./identity-login.jsx").then((module) => ({
     default: module.IdentityLogin,
@@ -55,11 +56,7 @@ export function AccessGate({ api, onSession, children }) {
   const failed =
     new URLSearchParams(location.search).get("signin") === "failed";
   return (
-    <main className="access-screen">
-      <section className="access-card">
-        <div className="access-brand">
-          <ChartLineUp size={28} weight="bold" /> DemandLab
-        </div>
+    <EntrySurface brand="DemandLab" icon={ChartLineUp}>
         {session?.mode !== "better_auth" && (
           <h1>
             {session ? uiText("Welcome back") : uiText("Opening workspace")}
@@ -104,7 +101,6 @@ export function AccessGate({ api, onSession, children }) {
         ) : (
           <p role="status">{uiText("Checking access…")}</p>
         )}
-      </section>
-    </main>
+    </EntrySurface>
   );
 }

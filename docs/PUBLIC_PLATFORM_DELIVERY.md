@@ -1,5 +1,18 @@
 # Public platform delivery
 
+## Current acceptance checkpoint — 10 October
+
+- [x] Private cloud restore into separate identity database and durable ledger.
+- [x] Three restored forecasts and 18 exports match the verified originals.
+- [x] Latest/referenced backups retained; redundant ledger history expires after 30 days.
+- [x] Four-role permission matrix across 169 routes in compiled native identity tests.
+- [x] Shared sign-in/recovery/MFA structures, management menus and bundled brand fonts.
+- [ ] Full bilingual cloud sales journey and explicitly authorized multi-person pilot.
+- [ ] Agreed recovery targets and authorized promotion/schedule re-enablement.
+
+See [retention, role and design evidence](CLOUD_RETENTION_ROLE_ACCEPTANCE.md).
+No public launch, new live users or automatic AI/provider permission implied.
+
 Approved scope: sales/demand forecasting only. Reuse maintained open-source
 packages; retain licences and attribution. No SAML or messaging commands in v1.
 

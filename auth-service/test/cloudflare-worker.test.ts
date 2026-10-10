@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto";
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import { createAuthCore } from "../src/auth-core.js";
 import { FORECAST_ORIGIN } from "../src/cloudflare.js";
+import {permissions} from '../src/policy.js';
 type WorkerFetcher = { fetch(input: string, init?: RequestInit): Promise<Response> };
 
 test("identity deployment has no public URL, routes, cron, engine or existing database bindings", async () => {
@@ -79,7 +80,7 @@ test("built identity Worker denies every HTTP route while private RPC checks nat
     }, async () => {});
     const password = "Synthetic-" + randomBytes(24).toString("hex"); // pragma: allowlist secret — random disposable test password
     const people: { user: string; cookie: string; session: string }[] = [];
-    for (const name of ["one", "two", "viewer"]) {
+    for (const name of ["one", "two", "viewer", "planner", "approver"]) {
       const user = await fixture.api.signUpEmail({ body: { name, email: name + "@example.test", password } });
       await db.prepare('UPDATE "user" SET "emailVerified"=1 WHERE id=?').bind(user.user.id).run();
       const response = await fixture.handler(new Request(FORECAST_ORIGIN + "/api/login/sign-in/email", {
@@ -98,12 +99,28 @@ test("built identity Worker denies every HTTP route while private RPC checks nat
     const other = await fixture.api.createOrganization({ body: { name: "Synthetic two", slug: "synthetic-two", userId: people[0].user } });
     await fixture.api.addMember({ body: { organizationId: company.id, userId: people[1].user, role: "admin" } });
     await fixture.api.addMember({ body: { organizationId: company.id, userId: people[2].user, role: "viewer" } });
+    await fixture.api.addMember({ body: { organizationId: company.id, userId: people[3].user, role: "planner" } });
+    await fixture.api.addMember({ body: { organizationId: company.id, userId: people[4].user, role: "approver" } });
     const members: { id: string; user: string }[] = (await db.prepare('SELECT id,"userId" AS user FROM "member" WHERE "organizationId"=?').bind(company.id).all<{ id: string; user: string }>()).results;
     const call = async (operation: string, body: Record<string, unknown>) => (await (await caller.fetch("https://local.test/", {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ operation, body }),
     })).json()) as { status: number; body: any };
     const adminBody = { company_id: company.id, cookie: people[0].cookie };
     const viewerBody = { company_id: company.id, cookie: people[2].cookie };
+    const contract=JSON.parse(await readFile(new URL('../../app/cloud_api_contract.json',import.meta.url),'utf8'));
+    for(const [role,index] of [['admin',0],['viewer',2],['planner',3],['approver',4]] as const) {
+      const identityResult=await call('identity',{company_id:company.id,cookie:people[index].cookie});
+      assert.equal(identityResult.status,200);const principal=identityResult.body;
+      assert.equal(principal.role,role);assert.equal(principal.mfa_required,false);
+      for(const entry of contract) {
+        const result=await call('work/authorize',{...principal,required_scopes:entry.scopes});
+        assert.equal(result.body.allowed,entry.scopes.length>0&&entry.scopes.every((s:string)=>permissions[role].includes(s)),role+' '+entry.method+' '+entry.path);
+      }
+      if(role!=='admin') {
+        assert.equal((await call('members/list',{company_id:company.id,cookie:people[index].cookie})).status,403);
+        assert.equal((await call('identity',{company_id:other.id,cookie:people[index].cookie})).status,403);
+      }
+    }
     const viewerIdentity=(await call('identity',viewerBody)).body;
     const staleRole=await call('work/authorize',{...viewerIdentity,role:'admin',required_scopes:['reports:read']});
     assert.equal(staleRole.body.allowed,true);assert.equal(staleRole.body.role,'viewer','Queued work uses the live role, not its saved role');

@@ -32,7 +32,7 @@ test('native cloud restore preserves completed work and pauses all restored exec
     await obj.run();return Response.json({done:true});}};`;
   const runtime=new Miniflare(convertV4MiniflareOptions({telemetry:{enabled:false},workers:[
     {name:'review',modules:true,compatibilityDate:'2026-10-09',compatibilityFlags:['nodejs_compat'],script:build,
-      bindings:{PRIVATE_ACCESS:'closed',REHEARSAL_ID:'dr-20261010',REHEARSAL_COMPANY:company,AUTH_RECOVERY_KEY:authKey,VAULT_RECOVERY_KEY:vault.toString('hex')},
+      bindings:{PRIVATE_ACCESS:'closed',REHEARSAL_ENABLED:'true',REHEARSAL_ID:'dr-20261010',REHEARSAL_COMPANY:company,AUTH_RECOVERY_KEY:authKey,VAULT_RECOVERY_KEY:vault.toString('hex')},
       d1Databases:{IDENTITY_REVIEW_DB:'review-identity'},r2Buckets:{FILES:'review-files',BACKUPS:'review-backups'},
       durableObjects:{REVIEW:{className:'RecoveryRehearsal',useSQLite:true},SOURCE:{className:'Source',scriptName:'source',useSQLite:true}}},
     {name:'source',modules:true,compatibilityDate:'2026-10-09',script:source,durableObjects:{SOURCE:{className:'Source',useSQLite:true}}},

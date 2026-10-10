@@ -46,34 +46,49 @@ require fresh sign-in/recovery and operator review before enabling any schedules
   `secrets/recovery-20261010-yFxW29WE/` directory. Never publish SQL exports,
   restored databases, ledger payloads or credentials.
 
-The disabled checked-in configuration explicitly has an empty trigger list, no
-public routes and no engine, provider or mail service binding. The operator
-temporarily approved a one-minute trigger on this Worker only; after completion,
-remove that trigger and both temporary decryption secrets.
+The disabled checked-in configuration has an empty trigger list, no public routes
+and no engine, provider or mail binding. The earlier trigger did not produce a
+receipt. The completed rehearsal instead used an authenticated, private service
+binding through Wrangler's official local operator interface. No operator Worker
+or public endpoint was created. Both temporary decryption secrets are removed.
 
 ## Verification
 
-43 cloud controller/gateway/recovery tests pass. The compiled native-runtime
-recovery test also passes, including restored running/queued jobs, a due schedule,
-MFA decryption, wrong-company denial and repeat-run safety. Identity type checks
-pass. The authentication suite passes 27 checks with four optional tests skipped;
-the skipped native recovery and storage checks pass when run separately. No UI
-components or design styles were added or changed.
+46 cloud controller/gateway/recovery checks pass. Each compiled native identity,
+storage and recovery suite passes two checks. The identity suite tests all four
+roles against the 169-route permission inventory. Identity type checks pass;
+the authentication suite passes 27 checks with four optional checks skipped.
+The native identity/storage/recovery checks pass separately; PostgreSQL is not
+the deployed Cloudflare database. Python backup/restore passes 13 checks.
+Shared-design corrections and retention evidence are recorded in
+[CLOUD_RETENTION_ROLE_ACCEPTANCE.md](CLOUD_RETENTION_ROLE_ACCEPTANCE.md).
 
-## Remote result: partial, not accepted
+## Remote result: verified
 
 The new cloud D1 database contains one user, one company, one member and one MFA
 record, with zero sessions, reset tokens or active API keys. A read-only count
 query confirms no database changes during verification.
 
-The approved temporary trigger was created at 16:04:42 UTC. Deployment
-`f38ff016-21ad-496e-9ffe-a0d41f8a3690` reports both `fetch` and `scheduled`
-handlers, the correct private bindings and enabled rehearsal variable. At
-16:35:09 UTC, neither the ledger snapshot nor completion receipt existed in R2.
-The dashboard reported no invocations/events; its event-history page warns that
-new Workers may take 30 minutes to appear. This does not establish a root cause
-or certify the forecast-ledger restore. No successful cloud ledger restore,
-remote vault decryption or remote MFA decryption is claimed.
+The earlier temporary trigger had no completion receipt. Its failure cause is
+not established. A direct private operator invocation completed at
+`2026-10-10T16:47:09.374Z`, restoring the actual cloud archive and ledger into the
+isolated resources above. Receipt: `verified: true`, 20 revisions, 41 job records,
+36 completed jobs and 120 company-bound references. Remote MFA-secret and company
+vault-key decryption passed, including wrong-company denial. Zero sessions or
+provider tokens restored; zero engine/provider calls; live ledger unchanged.
+
+Committed revision: `fbcb713929b045c58825f9503285a6fa`.
+Archive SHA-256: `6c3f5d99a77c471bd766b88f31c9dc8c1450cb3fa5fa416c75d5c0f3b4e922ad`.
+Ledger SHA-256: `652c46ff56c8ebcc746cd9633581469d80c90dec9caa8deb827a1ab6d2fb694a`.
+
+The same verified archive was restored into a private offline review. Three saved
+forecasts (`4bc668601e37`, `a9df1110b127`, `19ade25fd9d6`) each preserve 108 rows,
+3,982.844528790624 tonnes total demand, 2,099.364 confirmed outstanding tonnes
+and 1,837.768528790624 calculated remaining tonnes. Exact saved calculation
+objects, customer/order inputs and six exports per forecast match the original.
+CSV/JSON compare byte-for-byte; XLSX compares every workbook member except the
+non-business creation timestamp. Eighteen exports verified without recalculation.
+These are fictional Tehran acceptance inputs, not proof of client accuracy.
 
 Cleanup is verified: the rehearsal is disabled, the Cloudflare API returns an
 empty trigger list and the official secret-list command returns `[]`. Both
@@ -82,18 +97,18 @@ private database and encrypted probe as isolated evidence, with no executing
 schedule or public URL. The original company vault/authentication keys remain
 unchanged in their normal private locations.
 
-Disabled rehearsal deployment: `5f76d659-619a-432a-a96c-8f794544bbb3`, followed
-by the two secret-removal deployments. The app's private storage Worker is
-`7e7cb0dc-ce57-40eb-bb1d-5688efb205e2`; it adds only the operator's read-only
-snapshot and a size bound that correctly counts Persian text bytes. Its schema,
-resource bindings and public-access policy are unchanged. Domain, identity,
-engine, email, other Cloudflare services and local-demo data are unchanged.
-The diagnostic log listener is stopped. Local health remains 200 and anonymous
-cloud customer access remains 401.
+Final disabled rehearsal deployment: `f39367b1-3562-4053-a8a9-43ca12075050`.
+An operator call now returns `verified: false, phase: disabled`; secret list is
+`[]`. Storage deployment `1f955e8d-ead4-4f39-8193-c8f2893a3363` adds private
+latest/history ledger replication. Its schema, resources and access remain
+unchanged. No live identity, engine or mail changes. Other Cloudflare services and
+local demo data are unchanged. Local health is 200; anonymous customer access 401.
 
 ## Remaining acceptance boundaries
 
-This is a cloud restore rehearsal, not a production cutover. Before client access:
-agree backup retention and recovery targets; rehearse authorized promotion and
-schedule re-enablement; complete role-based workflow tests and client source
-reconciliation. Do not enable AI, add users or expose access as part of recovery.
+This is a cloud restore rehearsal, not a production cutover or provider-wide
+disaster test. Retention and automated role checks are complete. Before client
+access: agree recovery-time/data-loss targets, explicitly approve promotion and
+schedule re-enablement, complete the full bilingual cloud sales journey and
+client-source reconciliation. Do not enable AI, add users or open access through
+recovery work.

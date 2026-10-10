@@ -1,12 +1,12 @@
 @font-face {
   font-family: Instrument;
-  src: url("/fonts/instrument-sans-latin-wght-normal.woff2") format("woff2");
+  src: url("../../app/static/fonts/instrument-sans-latin-wght-normal.woff2") format("woff2");
   font-weight: 400 700;
   font-display: swap;
 }
 @font-face {
   font-family: Vazirmatn;
-  src: url("/fonts/vazirmatn-arabic-wght-normal.woff2") format("woff2");
+  src: url("../../app/static/fonts/vazirmatn-arabic-wght-normal.woff2") format("woff2");
   font-weight: 100 900;
   font-display: swap;
 }
@@ -23,42 +23,11 @@
   --soft: var(--color-soft);
   --radius: var(--radius-7769e817);
 }
-.access-screen {
-  min-height: var(--layout-728c5727);
-  display: grid;
-  place-items: center;
-  padding: var(--space-6);
-}
-.access-card {
-  width: var(--layout-7735fa20);
-  background: var(--layout-018fa96a);
-  padding: var(--space-8);
-  border-radius: var(--radius-67931646);
-}
-.access-brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-8);
-  font-size: var(--type-20);
-  font-weight: var(--weight-284b7e6d);
-}
-.access-card h1 {
-  margin-bottom: var(--space-3);
-}
-.access-card p {
-  color: var(--color-c4bf5122);
-  line-height: var(--layout-ec6c168f);
-  margin-bottom: var(--space-6);
-}
-.access-card .btn {
-  width: 100%;
-}
 .account-status {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
-  margin-left: auto;
+  gap: var(--action-gap);
+  margin-inline-start: auto;
   font-size: var(--type-14);
 }
 @media (max-width: 600px) {
@@ -70,9 +39,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  .access-card {
-    padding: var(--space-6);
   }
 }
 .today-context {

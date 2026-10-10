@@ -27,6 +27,7 @@
   --motion-scroll-behavior: smooth;
   --motion-control-transition: background-color var(--motion-control) var(--motion-ease), color var(--motion-control) var(--motion-ease), border-color var(--motion-control) var(--motion-ease), box-shadow var(--motion-control) var(--motion-ease), opacity var(--motion-fast) var(--motion-ease), filter var(--motion-fast) var(--motion-ease), scale var(--motion-fast) var(--motion-ease);
   --viewport-height: 100dvh;
+  --entry-measure: 480px;
   --page-padding: var(--space-8);
   --page-gap: var(--space-6);
   --collection-control-width: 320px;

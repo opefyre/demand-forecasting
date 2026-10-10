@@ -128,6 +128,10 @@ test('native company ledger: durable checkpoints, roles, deduplication, cancella
     assert.equal((await call({op:'stage',credentials:planner})).status,403);
     assert.equal((await call({op:'stage',credentials:{...admin,mfa_required:true}})).status,403);
     const first=await call({op:'stage',credentials:admin});assert.equal(first.status,200);
+    const backupBucket=await runtime.getR2Bucket('BACKUPS','storage') as any;
+    const recovery=await(await backupBucket.get('companies/tehran_a/recovery/latest.json')).json();
+    assert.equal(recovery.head.revision,first.body.revision);
+    assert.equal(recovery.company_id,'tehran_a');assert.ok(recovery.bookmark);
     assert.equal((await call({op:'stage',credentials:admin})).status,409);
     assert.equal((await call({op:'stage',credentials:other})).status,200);
     assert.equal((await call({op:'submit',credentials:{company_id:'tehran_a',role:'viewer'},payload,request_id:'viewer-request'})).status,403);
@@ -137,6 +141,9 @@ test('native company ledger: durable checkpoints, roles, deduplication, cancella
     assert.equal((await call({op:'stage',credentials:admin,revision:first.body.revision})).status,409);
     await call({op:'drain'});
     const job=(await call({op:'jobs',credentials:planner})).body[0];assert.equal(job.state,'succeeded');
+    const ledgerBackup=await(await backupBucket.get('companies/tehran_a/recovery/latest.json')).json();
+    assert.equal(ledgerBackup.jobs.find((row:any)=>row.id===job.id).state,'succeeded');
+    assert.equal(JSON.parse(ledgerBackup.jobs[0].grant_json).session_id,undefined);
     const calls=await call({op:'engine_count'});
     assert.deepEqual(await call({op:'artifact',credentials:planner,id:job.id,name:'result.json'}),{company:'tehran_a',total:49});
     assert.equal((await call({op:'artifact',credentials:other,id:job.id,name:'result.json'})).detail,'Forecast result not found');

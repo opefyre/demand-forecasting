@@ -131,7 +131,9 @@ export function IdentityLogin({ user, api, onSignedIn }) {
       ? t(
           enrolling
             ? "Set up two-factor authentication"
-            : "Enter your authentication code",
+            : recoveryCode
+              ? "Recovery code"
+              : "Enter your authentication code",
         )
       : step === "recover"
         ? t("Reset your password")

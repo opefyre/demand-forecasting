@@ -56,9 +56,19 @@ forecast and a 108-row CSV export. Five-minute durable idle shutdown, cold wake
 with identical export and same-day saved-report reading without a wake are
 verified. All other people remain denied. See
 CLOUD_OWNER_ACCEPTANCE.md for exact evidence and unresolved gates.
-Current next task: reduce cold Automatic runtime
-(roughly nine minutes on the smallest engine), verify recovery/off-device restore
-and explicitly configure approved live providers. AI remains separately gated.
+Recovery/retention/role acceptance, 10 October: private cloud rehearsal recovered
+20 revisions and 36 completed jobs; three forecasts and 18 exports match their
+original values. Latest backup and historical forecast archives have no expiry;
+only redundant ledger history expires after 30 days. All four roles are tested
+against the 169-route inventory in the compiled native identity runtime. Shared
+login/recovery/MFA surfaces, management menus, text actions and bundled brand
+fonts correct design discrepancies. Temporary recovery access is disabled and
+keys removed. See CLOUD_RETENTION_ROLE_ACCEPTANCE.md and
+CLOUD_DISASTER_RECOVERY_REHEARSAL.md for evidence and acceptance boundaries.
+Current next task: complete the owner-only bilingual cloud sales journey, including
+correction, partial orders, factors, grouped models, review/approval and filtered
+exports, with mobile/error/reload paths. Real client accuracy and a live
+multi-person pilot remain separate. AI/providers remain separately gated.
 Do not open public access automatically or change the independent local demo.
 
 ## Earlier delivery history

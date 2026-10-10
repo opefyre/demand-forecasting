@@ -30,6 +30,12 @@ export function ConnectionRecord({name,icon:Icon,provider,category,status,tone,m
 }
 
 // Shared layout primitives. Pages supply content, never their own appearance.
+export function EntrySurface({brand,icon:Icon,children}) {
+  return <main className="ui-entry"><section className="ui-panel ui-entry-surface">
+    <div className="ui-entry-brand"><Icon aria-hidden="true"/>{brand}</div>
+    <Stack>{children}</Stack>
+  </section></main>;
+}
 export function Page({ title, actions, controls, children }) {
   return (
     <section className="ui-page">

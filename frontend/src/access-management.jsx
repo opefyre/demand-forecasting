@@ -1,6 +1,5 @@
-import React, { useEffect, useState, useRef } from "react";
-import * as Dropdown from "@radix-ui/react-dropdown-menu";
-import { DotsThree, Plus, Copy } from "@phosphor-icons/react";
+import React, { useEffect, useState } from "react";
+import { Plus, Copy } from "@phosphor-icons/react";
 import { t } from "./localization.mjs";
 import {
   Panel,
@@ -8,7 +7,7 @@ import {
   Grid,
   Actions,
   FieldGroup,
-  useMenuHandoff,
+  ActionMenu,
 } from "./ui-layout.jsx";
 
 const roles = {
@@ -20,37 +19,7 @@ const roles = {
 const roleLabel = (role) => t(roles[role] || role);
 
 function RowMenu({ name, options, busy }) {
-  const handoff = useMenuHandoff();
-  const trigger = useRef(null);
-  return (
-    <Dropdown.Root>
-      <Dropdown.Trigger
-        ref={trigger}
-        className="btn secondary"
-        aria-label={t("Actions for {{name}}", { name })}
-        disabled={busy}
-      >
-        <DotsThree />
-      </Dropdown.Trigger>
-      <Dropdown.Portal>
-        <Dropdown.Content
-          className="select-menu"
-          sideOffset={5}
-          onCloseAutoFocus={handoff.close}
-        >
-          {options.map(([label, action]) => (
-            <Dropdown.Item
-              className="select-option"
-              key={label}
-              onSelect={() => handoff.select(trigger.current, action)}
-            >
-              {t(label)}
-            </Dropdown.Item>
-          ))}
-        </Dropdown.Content>
-      </Dropdown.Portal>
-    </Dropdown.Root>
-  );
+  return <ActionMenu name={name} items={options} disabled={busy}/>;
 }
 
 export function PeopleSettings({ api, ui, access }) {
