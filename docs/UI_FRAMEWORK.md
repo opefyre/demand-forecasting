@@ -80,3 +80,14 @@ checks reject root-level Radix-select aliases and duplicate picker ownership.
 Factor review now shows Checking… and clears prior approval before a new request.
 Change factors is locked during pending wizard operations. Shared brand colours,
 control dimensions, spacing, motion and reduced-motion behavior are retained.
+
+## Monthly cloud recovery — 10 October
+
+Monthly loading/status/factor steps use shared Page, Panel and Actions, without
+full-width orphan buttons or misleading history-only labels. The saved-order
+reuse dialog consumes the same fixed Modal, Stack, DefinitionList, Table,
+Disclosure, checkbox and Actions contracts. Persian counts/quantities/units use
+the existing locale service; business identifiers remain unchanged. No appearance
+rules were added. See MONTHLY_CLOUD_RECOVERY.md for recovery and test boundaries.
+The older assistant saved-order proposal and order-comparison surfaces still
+require migration; this is not acceptance of every legacy screen.

@@ -30,6 +30,22 @@ const number = (value) =>
     ? uiText("Not present")
     : new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 2 }).format(value);
 export const updateHorizons = () => Array.from({length:24},(_,i)=>[String(i+1),number(i+1)]);
+// A status refresh must not replace unsaved form choices. Reinitialise only
+// when entering a different saved step or input version.
+export const updateSettingsKey = session => JSON.stringify([session?.id,session?.dataset_id,session?.stage]);
+export function savedForecastUpdate(storage,page,canEdit) {
+  if(page!=='demand'||!canEdit)return null;
+  try{const id=storage.getItem('demandlab.forecastUpdate');return /^[a-f0-9]{32}$/.test(id||'')?id:null;}
+  catch{return null;}
+}
+export const updateNeedsPolling=session=>!!session&&['calculating','factor_calculating'].includes(session.stage)
+  && !['succeeded','failed','cancelled','interrupted'].includes(session.job?.state);
+export function FactorChoice({hasFactors,children,tools,ui,disabled,onKeep}) {
+  return <Panel title={uiText(hasFactors?'Review included factors':'Include external factors?')}>
+    {children}
+    <Actions>{tools}<ui.Button disabled={disabled} onClick={onKeep}>{uiText(hasFactors?'Keep included factors':'Keep calculated baseline')}</ui.Button></Actions>
+  </Panel>;
+}
 
 export function UpdateProgress({ stage }) {
   return <Steps items={stages} current={position[stage]} label={uiText("Forecast update progress")}/>;
@@ -63,6 +79,7 @@ export function MonthlyRefresh({
   const request = useRef(null),
     alive = useRef(true);
   const [statusRevision,setStatusRevision]=useState(0);
+  const settingsKey=updateSettingsKey(session);
   async function load() {
     const value = await api("/api/forecast-updates/" + id);
     if (alive.current) {setSession(value);setError('');setStatusRevision(v=>v+1);}
@@ -95,23 +112,19 @@ export function MonthlyRefresh({
         }
       })
       .catch((e) => live && setError(e));
-    if (session.stage === "forecast") {
-      const settings = datasets.find(
-        (d) => d.id === session.dataset_id,
-      )?.settings;
-      setMonths(String(settings?.horizon || 6));
-      setMethod(settings?.method_selection || "recommended");
-    }
     return () => {
       live = false;
     };
   }, [session?.run_id, session?.dataset_id, session?.stage,statusRevision]);
+  useEffect(()=>{
+    if(session?.stage!=='forecast')return;
+    const settings=datasets.find(d=>d.id===session.dataset_id)?.settings;
+    setMonths(String(session.months||settings?.horizon||6));
+    setMethod(session.method||settings?.method_selection||'recommended');
+    setChecked(false);
+  },[settingsKey]);
   useEffect(() => {
-    if (
-      !session ||
-      !["calculating", "factor_calculating"].includes(session.stage)
-    )
-      return;
+    if (!updateNeedsPolling(session)) return;
     let live = true,
       timer;
     const poll = async () => {
@@ -129,7 +142,7 @@ export function MonthlyRefresh({
       live = false;
       clearTimeout(timer);
     };
-  }, [session?.stage, id]);
+  }, [session?.stage,session?.job?.state, id]);
   async function act(action, extra = {}) {
     if (busy) return;
     setBusy(true);
@@ -225,10 +238,9 @@ export function MonthlyRefresh({
     );
   if (!session)
     return (
-      <Page title={uiText('Update forecast')}>
+      <Page title={uiText('Update forecast')} actions={<Button kind="ghost" onClick={onClose}><ArrowLeft/>{uiText('Back to forecast')}</Button>}>
         <ErrorBox error={error} busy={busy} onReload={async()=>{if(busy)return;setBusy(true);try{await load();}catch(e){setError(e);}finally{setBusy(false);}}}/>
         {!error&&<p role="status">{uiText('Opening forecast update…')}</p>}
-        <Button onClick={onClose}>{uiText('Back to forecast')}</Button>
       </Page>
     );
   const stage = session.stage,
@@ -340,7 +352,7 @@ export function MonthlyRefresh({
         </Panel>
       )}
       {waiting && (
-        <Panel title={stage === "calculating"
+        <Panel title={job?.state==='succeeded'?uiText('Forecast calculated'):stage === "calculating"
               ? uiText("Calculating your forecast")
               : uiText("Calculating the factor comparison")}>
           <p role="status">
@@ -387,14 +399,7 @@ export function MonthlyRefresh({
         </Panel>
       )}
       {stage === "factors" && run && (
-        <Panel title={uiText("Include external factors?")} description={uiText("Compare relevant sources such as exchange rates or global supply. Review timing and future assumptions before applying them.")}>
-          <LiveCheck
-            sources={session.live_sources}
-            ui={ui}
-            onManage={manageSources}
-          />
-          <Actions>
-            <FactorBatch
+        <FactorChoice hasFactors={!!source?.settings?.drivers?.length} ui={ui} disabled={busy||!canEdit} onKeep={click('no_factors',{reviewed:true})} tools={<FactorBatch
               run={run}
               api={api}
               ui={ui}
@@ -413,14 +418,9 @@ export function MonthlyRefresh({
                   );
                 await act("factor_job", { job_id: job.id });
               }}
-            />
-            <Button
-              disabled={busy || !canEdit}
-              onClick={click("no_factors", { reviewed: true })}
-            >{uiText("Keep calculated baseline")}</Button>
-          </Actions>
-          <p className="table-note">{uiText("Connected data is not automatically used. A comparison shows possible impact, not proof of improved accuracy.")}</p>
-        </Panel>
+            />}>
+          <LiveCheck sources={session.live_sources} ui={ui} onManage={manageSources}/>
+        </FactorChoice>
       )}
       {stage === "orders" && run && (
         <Panel title={uiText("Review current customer orders")} description={uiText("Use confirmed orders for each customer, product and month. The forecast covers expected demand that is not ordered yet.")}>
@@ -504,11 +504,11 @@ export function MonthlyRefresh({
           )}
         </Panel>
       )}
-      <Button kind="ghost"
+      <Actions><Button kind="ghost"
         disabled={busy}
         onClick={async () => {if(busy)return;setBusy(true);setError('');try{await load();}catch(e){setError(e.message);}finally{setBusy(false);}}}
       >
-        <ArrowClockwise />{uiText("Check latest status")}</Button>
+        <ArrowClockwise />{uiText("Check latest status")}</Button></Actions>
     </Page>
   );
 }

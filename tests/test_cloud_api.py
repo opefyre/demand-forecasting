@@ -362,6 +362,148 @@ class CloudApiTests(unittest.TestCase):
             finally: workspaces.close()
         finally: fixture.tearDown()
 
+    def test_monthly_cold_recovery_keeps_factors_and_requires_current_orders_for_export(self):
+        from copy import deepcopy
+        from datetime import timedelta
+        from io import BytesIO
+        import pandas as pd
+        import shutil
+        fixture=sales_fixture.PublicSalesTests();fixture.setUp()
+        try:
+            source,dataset,_=fixture.history();orders=fixture.orders(dataset)
+            parent,_=fixture.calculate(dataset,orders,['model:Last observed'])
+            base_id=parent['jobs'][0]['run_id'];original=deepcopy(fixture.ws.load_run(base_id))
+            original_bytes=fixture.ws.datasets.source(source['id'])[1]
+            history=pd.read_csv(BytesIO(original_bytes),dtype={'sku':str})
+            history['fx_assumption']=history.groupby('customer').cumcount()+100
+            history.loc[(history.customer=='Aftab')&(history.date==history.date.max()),'quantity']=26
+            uploaded=fixture.ws.datasets.upload('corrected-factor-history.csv',history.to_csv(index=False).encode(),'history')
+            future=pd.DataFrame({'date':pd.date_range(fixture.today.replace(day=1),periods=3,freq='MS').strftime('%Y-%m-%d'),
+                                 'fx_assumption':[136,138,140]})
+            future_source=fixture.ws.datasets.upload('reviewed-factor-assumptions.csv',future.to_csv(index=False).encode(),'future')
+            settings=dataset['settings']|{'drivers':['fx_assumption'],'future_date_col':'date',
+                'future_driver_policy':'require','evidence_policy':'reviewed_what_if'}
+            corrected=fixture.ws.datasets.save('Tehran corrected history and factors',
+                {'history':uploaded['id'],'future':future_source['id']},settings,'synthetic_sample',True,parent_dataset_id=dataset['id'])
+            shutil.copytree(fixture.root/'companies',self.root/'monthly-input/data/companies')
+            archive=self.root/'monthly-input.zip';capture(self.root/'monthly-input','tehran_a',archive)
+            checkpoint=archive.read_bytes()
+            response,state,_,checkpoint=self.command('POST','/forecast-updates',
+                {'run_id':base_id,'request_id':'monthly-cold-start'},checkpoint)
+            self.assertEqual(response.json()['api_status'],201,state)
+            path='/forecast-updates/'+state['id'];sequence=0
+            def step(action,**values):
+                nonlocal checkpoint,state,sequence
+                sequence+=1
+                body={'revision':state['revision'],'request_id':'monthly-step-'+str(sequence), 'action':action,**values}
+                response,new,_,updated=self.command('POST',path+'/steps',body,checkpoint)
+                self.assertEqual(response.json()['api_status'],200,new)
+                state,checkpoint=new,updated
+                # Every read restores a fresh company from the durable checkpoint.
+                response,resumed,_,unchanged=self.command('GET',path,None,checkpoint)
+                self.assertEqual(response.json()['api_status'],200,resumed)
+                self.assertEqual(resumed['revision'],state['revision']);self.assertEqual(unchanged,checkpoint)
+                return body
+            body=step('history',dataset_id=corrected['id'],reviewed=True)
+            response,_,_,_=self.command('POST',path+'/steps',body|{'request_id':'monthly-stale-tab'},checkpoint)
+            self.assertEqual(response.json()['api_status'],400,'Another tab cannot replay an old revision')
+            response,_,_,_=self.command('POST',path+'/steps',{'action':'calculate','revision':state['revision'],
+                'request_id':'monthly-missing-future','months':4,'method':'model:Ridge + drivers','reviewed':True},checkpoint)
+            self.assertEqual(response.json()['api_status'],400,'No fabricated fourth-month factor value')
+            step('calculate',months=3,method='model:Ridge + drivers',reviewed=True)
+            self.assertEqual(state['job']['state'],'succeeded',state)
+            step('calculated');new_id=state['run_id']
+            step('no_factors',reviewed=True)
+            self.assertEqual(state['stage'],'orders')
+            response,_,_,_=self.command('GET',path+'/export?mode=combined_demand&kind=json',None,checkpoint)
+            self.assertEqual(response.json()['api_status'],400,'Opening a result does not approve orders')
+            inputs=deepcopy(fixture.ws.sales.list(base_id)[0]['inputs']);inputs['run_id']=new_id
+            inputs['valid_until']=str(fixture.today+timedelta(days=7))
+            def save_orders(request_id):
+                nonlocal checkpoint
+                body={'inputs':inputs,'request_id':request_id};target='/runs/'+new_id+'/order-snapshots'
+                response,review,_,checkpoint=self.command('POST',target+'/preview',body,checkpoint)
+                self.assertEqual(response.json()['api_status'],200,review)
+                response,saved,_,checkpoint=self.command('POST',target,body|{'review_token':review['review_token']},checkpoint)
+                self.assertEqual(response.json()['api_status'],201,saved)
+                return saved
+            saved=save_orders('monthly-orders-first');step('orders',snapshot_id=saved['id'])
+            report=state['comparison'];self.assertEqual(report['overlapping_rows'],12)
+            step('review',reviewed=True,review_token=report['review_token']);self.assertTrue(state['ready'])
+            expected={(r['customer'],r['sku'],r['period']):r['after_to_serve'] for r in report['rows']}
+            for kind in ('json','csv','xlsx'):
+                response,_,_,unchanged=self.command('GET',path+'/export?mode=combined_demand&kind='+kind,None,checkpoint)
+                self.assertEqual(response.json()['api_status'],200);self.assertEqual(unchanged,checkpoint)
+                raw=self.client.get('/output/'+self.attempts[-1]+'/artifact/api-download.bin').content
+                if kind=='json':rows=json.loads(raw)
+                elif kind=='csv':rows=pd.read_csv(BytesIO(raw),dtype={'sku':str}).to_dict('records')
+                else:rows=pd.read_excel(BytesIO(raw),dtype={'sku':str}).to_dict('records')
+                self.assertEqual(len(rows),12)
+                for row in rows:self.assertAlmostEqual(row['quantity'],expected[(row['customer'],row['sku'],row['period'])],places=9)
+            # A later order review invalidates the old approval even after cold restore.
+            inputs['orders'][0]['ordered']=30
+            newer=save_orders('monthly-orders-newer')
+            response,resumed,_,_=self.command('GET',path,None,checkpoint)
+            self.assertFalse(resumed['ready']);self.assertIn('Orders changed',resumed['attention'])
+            response,_,_,_=self.command('GET',path+'/export?mode=combined_demand&kind=json',None,checkpoint)
+            self.assertEqual(response.json()['api_status'],400)
+            step('orders',snapshot_id=newer['id']);step('review',reviewed=True,review_token=state['comparison']['review_token'])
+            with patch('app.sales_demand.run_today',return_value=fixture.today+timedelta(days=8)):
+                response,resumed,_,_=self.command('GET',path,None,checkpoint)
+                self.assertFalse(resumed['ready']);self.assertIn('expired',resumed['attention'])
+            response,_,_,_=self.command('GET',path,None,checkpoint,who=dict(self.who,subject='another-planner'))
+            self.assertEqual(response.json()['api_status'],404)
+            restored=self.root/'monthly-restored.zip';restored.write_bytes(checkpoint)
+            restore(restored,self.root/'monthly-restored','tehran_a')
+            workspaces=CompanyWorkspaces(self.root/'monthly-restored/data/companies')
+            try:
+                ws=workspaces.for_principal(self.who);run=ws.load_run(new_id)
+                self.assertEqual(run['input_manifest']['settings']['drivers'],['fx_assumption'])
+                self.assertEqual(run['input_manifest']['settings']['evidence_policy'],'reviewed_what_if')
+                self.assertEqual(ws.datasets.get(run['dataset_id'])['sources']['future'],future_source['id'])
+                self.assertEqual(ws.datasets.source(future_source['id'])[1],future.to_csv(index=False).encode())
+                self.assertEqual(ws.load_run(base_id),original)
+                self.assertEqual(ws.datasets.source(source['id'])[1],original_bytes)
+            finally:workspaces.close()
+        finally:fixture.tearDown()
+
+    def test_monthly_stopped_job_recovers_after_restore_without_replaying_calculation(self):
+        from app.company_context import personal_owner
+        from app.company_workflows import monthly
+        from app.monthly_refresh import StartUpdate,UpdateStep
+        import shutil
+        fixture=sales_fixture.PublicSalesTests();fixture.setUp()
+        try:
+            _,dataset,_=fixture.history();group,_=fixture.calculate(dataset,fixture.orders(dataset),['model:Last observed'])
+            service=monthly(fixture.ws,lambda *_:None);owner=personal_owner(self.who)
+            state=service.start(owner,StartUpdate(run_id=group['jobs'][0]['run_id'],request_id='interrupted-monthly-start'))
+            state=service.step(state['id'],owner,UpdateStep(revision=0,action='history',dataset_id=dataset['id'],
+                reviewed=True,request_id='interrupted-monthly-history'))
+            state=service.step(state['id'],owner,UpdateStep(revision=state['revision'],action='calculate',months=2,
+                method='model:Recent average',reviewed=True,request_id='interrupted-monthly-calculate'))
+            fixture.ws.jobs.cancel(state['job_id'])
+            shutil.copytree(fixture.root/'companies',self.root/'stopped-input/data/companies')
+            archive=self.root/'stopped-input.zip';capture(self.root/'stopped-input','tehran_a',archive);checkpoint=archive.read_bytes()
+            path='/forecast-updates/'+state['id']
+            response,resumed,_,_=self.command('GET',path,None,checkpoint)
+            self.assertEqual(response.json()['api_status'],200,resumed);self.assertEqual(resumed['job']['state'],'cancelled')
+            response,state,_,checkpoint=self.command('POST',path+'/steps',{'revision':state['revision'],
+                'action':'retry_calculation','request_id':'restore-stopped-review'},checkpoint)
+            self.assertEqual(response.json()['api_status'],200,state);self.assertEqual(state['stage'],'forecast')
+            self.assertEqual((state['months'],state['method']),(2,'model:Recent average'))
+            body={'revision':state['revision'],'action':'calculate','months':2,'method':'model:Recent average',
+                  'request_id':'restore-calculation-retry','reviewed':False}
+            response,_,_,_=self.command('POST',path+'/steps',body,checkpoint)
+            self.assertEqual(response.json()['api_status'],400,'A stopped job cannot bypass a fresh confirmation')
+            body['reviewed']=True
+            response,state,view,checkpoint=self.command('POST',path+'/steps',body,checkpoint)
+            self.assertEqual(response.json()['api_status'],200,state);self.assertEqual(state['job']['state'],'succeeded')
+            before=len(view['views']['/jobs']['jobs'])
+            response,retried,view,checkpoint=self.command('POST',path+'/steps',body,checkpoint)
+            self.assertEqual(response.json()['api_status'],200,retried)
+            self.assertEqual(retried['job']['id'],state['job']['id']);self.assertEqual(len(view['views']['/jobs']['jobs']),before)
+        finally:fixture.tearDown()
+
     def test_settings_and_personal_views_use_original_permission_and_owner_gates(self):
         admin=dict(self.who,role='admin',permissions=self.who['permissions']+['settings:manage'])
         response,site,view,checkpoint=self.command('PUT','/settings/site',{'name':'Tehran test factory','province':'Tehran','timezone':'Asia/Tehran'},who=admin)

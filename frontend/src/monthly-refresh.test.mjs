@@ -4,11 +4,15 @@ import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {createServer} from 'vite';
 
-let server,Progress,Comparison,Exports,Live,Repeat,Handoff,i18n,horizons;
+let server,Progress,Comparison,Exports,Live,Repeat,Handoff,i18n,horizons,settingsKey,FactorChoice,savedUpdate,needsPolling,ReuseReport,sourceOptions;
 before(async()=>{server=await createServer({server:{middlewareMode:true,hmr:false,watch:null},appType:'custom'});
   ({UpdateProgress:Progress,UpdateComparison:Comparison,UpdateExports:Exports}=await server.ssrLoadModule('/src/monthly-refresh.jsx'));
   ({LiveCheck:Live}=await server.ssrLoadModule('/src/monthly-refresh.jsx'));
   ({updateHorizons:horizons}=await server.ssrLoadModule('/src/monthly-refresh.jsx'));
+  ({updateSettingsKey:settingsKey,FactorChoice}=await server.ssrLoadModule('/src/monthly-refresh.jsx'));
+  ({savedForecastUpdate:savedUpdate}=await server.ssrLoadModule('/src/monthly-refresh.jsx'));
+  ({updateNeedsPolling:needsPolling}=await server.ssrLoadModule('/src/monthly-refresh.jsx'));
+  ({OrderReuseReport:ReuseReport,orderSourceOptions:sourceOptions}=await server.ssrLoadModule('/src/order-reuse.jsx'));
   ({RepeatUploadReview:Repeat}=await server.ssrLoadModule('/src/repeat-upload-review.jsx'));
   ({DemandHandoff:Handoff}=await server.ssrLoadModule('/src/demand-handoff.jsx'));
   ({i18n}=await server.ssrLoadModule('/src/localization.mjs'));
@@ -73,4 +77,57 @@ test('Persian horizon labels keep numeric request values unchanged',async()=>{
   await i18n.changeLanguage('fa');
   try {assert.equal(horizons().length,24);assert.deepEqual(horizons()[5],['6','۶']);assert.equal(Number(horizons()[23][0]),24);}
   finally {await i18n.changeLanguage('en');}
+});
+test('read-only refresh cannot reset unsaved forecast choices; another step or input can',()=>{
+  const session={id:'a',dataset_id:'history',stage:'forecast',revision:1};
+  assert.equal(settingsKey(session),settingsKey({...session,live_sources:[],attention:'Updated',revision:2}));
+  assert.notEqual(settingsKey(session),settingsKey({...session,dataset_id:'revised'}));
+  assert.notEqual(settingsKey(session),settingsKey({...session,stage:'calculating'}));
+  assert.notEqual(settingsKey(session),settingsKey({...session,id:'another'}));
+});
+test('reload reopens only the company-scoped saved update on Forecast with write access',()=>{
+  const storage={getItem:key=>key==='demandlab.forecastUpdate'?'a'.repeat(32):null};
+  assert.equal(savedUpdate(storage,'demand',true),'a'.repeat(32));
+  assert.equal(savedUpdate(storage,'today',true),null);
+  assert.equal(savedUpdate(storage,'data',true),null);
+  assert.equal(savedUpdate(storage,'demand',false),null);
+  assert.equal(savedUpdate({getItem:()=>'<unsafe>'},'demand',true),null);
+  assert.equal(savedUpdate({getItem:()=>{throw Error('blocked');}},'demand',true),null);
+});
+test('completed or stopped calculations do not poll, wake the engine or conflict with review writes',()=>{
+  for(const stage of ['calculating','factor_calculating']){
+    for(const state of ['queued','running'])assert.equal(needsPolling({stage,job:{state}}),true);
+    for(const state of ['succeeded','failed','cancelled','interrupted'])assert.equal(needsPolling({stage,job:{state}}),false);
+  }
+  for(const stage of ['history','forecast','factors','orders','review','ready'])assert.equal(needsPolling({stage}),false);
+  assert.equal(needsPolling(null),false);
+});
+test('already included factors are never described as a history-only baseline',async()=>{
+  const html=renderToStaticMarkup(React.createElement(FactorChoice,{hasFactors:true,ui}));
+  assert.match(html,/Review included factors/);assert.match(html,/Keep included factors/);
+  assert.match(html,/ui-panel/);assert.match(html,/ui-actions/);
+  assert.doesNotMatch(html,/Include external factors|Keep calculated baseline|style=/);
+  await i18n.changeLanguage('fa');
+  try{const fa=renderToStaticMarkup(React.createElement(FactorChoice,{hasFactors:true,ui}));
+    assert.match(fa,/بررسی عوامل لحاظ‌شده/);assert.doesNotMatch(fa,/Keep included factors|Review included factors/);
+  }finally{await i18n.changeLanguage('en');}
+});
+test('same-name order sources remain distinguishable without changing their saved IDs',()=>{
+  const rows=[{id:'a'.repeat(32),name:'Tehran',as_of:'2026-10-10'},{id:'b'.repeat(32),name:'Tehran',as_of:'2026-10-10'},
+    {id:'c'.repeat(32),name:'Mehr',as_of:'2026-10-10'}];
+  const options=sourceOptions(rows);
+  assert.deepEqual(options.map(([key])=>key),rows.map(r=>r.id));
+  assert.equal(new Set(options.map(([,label])=>label)).size,3);
+  assert.equal(options[2][1],'Mehr · 2026-10-10');
+});
+test('order reuse review uses shared layout and Persian quantities without translating business identities',async()=>{
+  await i18n.changeLanguage('fa');
+  try{
+    const report={customer_count:5,order_count:79,unit:'tonnes',as_of:'2026-10-10',valid_until:'2026-10-17',month_basis:'jalali',warnings:[],
+      months:[{period:'2026-03-21',added:false,booked:200,remaining:180,total:400}],outside_open_orders:[{reference:'Mehr-001',period:'2026-02-20',quantity:20}]};
+    const html=renderToStaticMarkup(React.createElement(ReuseReport,{report,ui}));
+    assert.match(html,/ui-stack/);assert.match(html,/ui-definition-list/);assert.match(html,/ui-disclosure/);
+    assert.match(html,/۷۹/);assert.match(html,/تن/);assert.match(html,/Mehr-001/);
+    assert.doesNotMatch(html,/order-comparison-table|style=|tonnes/);
+  }finally{await i18n.changeLanguage('en');}
 });

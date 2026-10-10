@@ -81,7 +81,7 @@ import { Customers } from "./customers";
 import {OrderBooks} from './order-books.jsx';
 import { HelpPage } from "./help";
 import { Home } from "./home";
-import {MonthlyRefresh} from './monthly-refresh';
+import {MonthlyRefresh,savedForecastUpdate} from './monthly-refresh';
 import {NewForecast} from './new-forecast.jsx';
 import {SettingsWorkspace} from './settings-workspace.jsx';
 import {FORECAST_DRAFT_KEY,readForecastDraft,forecastInputs} from './forecast-start.mjs';
@@ -486,7 +486,7 @@ function App({ access }) {
     else localState.removeItem("demandlab.activePlan");
   }, [chosenPlan]);
   const [jobRevision, setJobRevision] = useState(0);
-  const [updates,setUpdates]=useState([]),[updateId,setUpdateId]=useState(null);
+  const [updates,setUpdates]=useState([]),[updateId,setUpdateId]=useState(()=>savedForecastUpdate(localState,initial,canEdit));
   const updateAttempt=useRef(null);
   useEffect(()=>{if(updateId)localState.setItem('demandlab.forecastUpdate',updateId);else localState.removeItem('demandlab.forecastUpdate');},[updateId]);
   const [dataView, setDataView] = useSmoothState(initial==='customers'?"customers":"files");

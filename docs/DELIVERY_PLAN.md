@@ -172,6 +172,19 @@ acceptance with corrected history, retained live factors and current orders,
 including interruption/reload, stale approvals and advanced factor/revision mobile
 paths. Broader legacy design/provider/AI/client/multi-person gates remain open.
 
+Monthly cloud recovery slice, 10 October: reload restores the scoped saved update;
+status reads preserve unsaved choices; completed/stopped jobs cease polling and
+stopped retries retain settings but require renewed confirmation. Included factors
+are no longer described as absent. The fixed order-reuse review uses the shared
+framework and translated quantities; duplicate source labels are distinguishable.
+Interface 299 and focused host checks 31 pass, with cold restored corrected
+history/factors/orders, exact three-format planning exports, stale/expired orders
+and interrupted-job retry coverage. See MONTHLY_CLOUD_RECOVERY.md for boundaries.
+Next substantial build: unify monthly/recurring drafts with the grouped forecast
+contract—one named revision, multiple methods, reviewed customer/orders before
+calculation—then finish remaining order/assistant/revision screen migrations and
+bilingual/mobile recovery. Provider/AI/client/multi-person gates remain separate.
+
 ## Earlier delivery history
 
 Latest delivery, 7 October — guided read recovery across sales demand, order-import
