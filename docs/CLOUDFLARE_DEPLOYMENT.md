@@ -82,11 +82,13 @@ Delivery requires TLS: a receiving server that lacks encryption will fail rather
 than receive password-reset/invitation mail unencrypted. Open/click tracking was not enabled.
 These are Resend's current generated records, not guessed legacy SPF/MX templates.
 
-User action: the prepared Resend key form is left open with name
-**forecast-production**, permission **Sending access**, domain **forecast.vrolen.com**.
-Click **Add**, copy its one-time value privately into `secrets/forecast-resend-api.txt`,
-then tell Codex it is saved. Do not reuse the full-access Finkavo key or paste a key
-into chat. No new key has been created by Codex at this checkpoint.
+On 2026-10-10, after explicit action-time approval, the **forecast-production** key
+was created with **Sending access** restricted to **forecast.vrolen.com**. Its
+one-time value was saved directly to ignored `secrets/forecast-resend-api.txt`
+with mode 0600, without displaying it in chat or tool output. The copied value
+was cleared from the clipboard. Final key-detail metadata confirms the domain
+and permission; existing Finkavo keys were not changed. The new key has not yet
+been installed in Cloudflare or used to send mail.
 
 After domain verification and key storage: wire it using the existing maintained
 mailer/provider solution, send one setup test to the owner, and verify actual
