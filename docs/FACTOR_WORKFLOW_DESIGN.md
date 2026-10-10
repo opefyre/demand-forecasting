@@ -98,3 +98,62 @@ exports. Finish input corrections/revisions and advanced grouped-factor mobile,
 error and reload paths using the same shared design system. Servix credentials,
 IMF usage permission, cloud AI eligibility, real-client accuracy and an explicitly
 authorised multi-person pilot remain separate gates.
+
+## Follow-up: actual cloud factor-aware forecast — 10 October
+
+Completed **Tehran · Live market comparison** in the real private cloud workspace:
+the existing fictional Tehran history (804 rows, five customers, four products,
+18 series), all 79 saved order lines and October 2026–March 2027. Original
+forecasts and input/order records are preserved.
+
+Reviewed downloaded New York Fed GSCPI and World Bank Brent with two-month lags.
+Explicit future assumptions: GSCPI 0 and Brent 100 USD/bbl. Review showed GSCPI
+1.06 for October from a saved observation; later GSCPI periods and all Brent
+future periods used assumptions. Brent's downloaded history was acknowledged as
+what-if evidence. This does not prove factory exposure, original-release dates
+or client forecast accuracy.
+
+Ridge and Elastic Net completed under one forecast group. The full six-month CSV
+(`forecast-methods (2).csv`) totals **4070.5619980699475 tonnes** for Linear model +
+factors and **4030.236969004698** for Selective linear model. All six monthly
+quantities match the rendered comparison after rounding. Aftab Printing / FOOD-110
+/ November yields 29.318714413537293 and 29.808453061194214 respectively; the
+filtered CSV contains exactly that month. Persian single-model results show zero
+open orders and 29.32 tonnes expected demand. Reload preserves the saved group.
+
+### Design / workflow
+
+- The long factor picker extended above the screen because root tokens referenced
+  component-local Radix measurements. These now resolve on the shared menu with
+  a tokenized height ceiling and scrolling. All picker appearance has one global
+  owner; 42 competing CSS lines removed, no authored inline appearance added.
+- Desktop menu boundaries: approximately 150–483px within a 736px viewport.
+  Picking GSCPI/Brent opened the intended forms.
+- Review clears old approval and shows Checking…. Actual preview/save locked
+  Back, Continue, dismissal and planning edits. The additional Change factors
+  guard is regression-tested; its slow-write browser path was not re-injected.
+- Mobile results dialog: 358×680 within 390×844, internal scrolling, no page
+  overflow. Persian RTL results/customer picker fit (menu x199–371). Temporary
+  viewport/language changes were reset. Shared brand and motion contracts retained.
+
+### Verification / remaining boundaries
+
+Interface **287 tests**, forecast-input/live-alignment **44 tests** (including
+inherited factor-link tests), production build and whitespace checks pass.
+Existing dependency/deprecation warnings remain. Edge only, version
+**5fb55812-0580-4f32-bc91-2cff97e3e053**; closed access and owner-only acceptance
+unchanged. Anonymous company API: 401; independent local demo: 200. No identity,
+storage configuration, numerical engine image, secret or other service changed.
+Local evidence: `screenshots/cloud-live-factor-comparison.jpg` and
+`screenshots/cloud-live-factor-persian-mobile.jpg`.
+
+Cloud review/save/calculation had noticeable waits. Company projections are rebuilt
+after writes and grouped models execute synchronously: profiling candidates, not
+proven attribution of the entire delay. No pending write was replayed.
+Raw cloud-capture receipt inspection remains open: direct browser API navigation
+was blocked, not bypassed. Passing integrity tests are not independent inspection
+of cloud raw objects.
+
+Next: measured cloud latency reductions with unchanged calculations/security,
+then corrections/revisions and advanced grouped-factor mobile/error/reload
+acceptance. Provider, AI, real-client accuracy and multi-person pilot gates remain.

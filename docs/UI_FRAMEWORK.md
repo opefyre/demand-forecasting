@@ -61,3 +61,22 @@ actions and disclosures. Fifty-two obsolete appearance rules were removed; fixed
 dialogs and the global table-scroll behavior replace competing layouts.
 See [factor workflow checkpoint](FACTOR_WORKFLOW_DESIGN.md) for measured mobile
 profile checks, calculation/export evidence and the remaining browser boundaries.
+
+## Shared picker repair — 10 October
+
+The live-source list exposed a global sizing defect: root-level aliases referenced
+Radix measurements that exist only on the open menu. The computed height was
+unbounded, clipping the first options above the viewport. The shared picker now
+resolves runtime measurements on its own content node, with a tokenized 340px
+ceiling and internal scrolling. Menu, option and scroll-button appearance have
+one owner in `ui-framework.css`; 42 competing legacy CSS lines were removed.
+No page overrides or authored inline styles were introduced.
+
+Browser verification at 1512×736: the long factor menu stayed between approximately
+150px and 483px, with computed maximum height 340px. GSCPI and Brent were selected
+by their visible names and the corresponding factor forms appeared. New regression
+checks reject root-level Radix-select aliases and duplicate picker ownership.
+
+Factor review now shows Checking… and clears prior approval before a new request.
+Change factors is locked during pending wizard operations. Shared brand colours,
+control dimensions, spacing, motion and reduced-motion behavior are retained.

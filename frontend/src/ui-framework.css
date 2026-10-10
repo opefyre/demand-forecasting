@@ -1,4 +1,11 @@
 /* Global component contracts, not page-specific overrides. */
+/* Radix measures each open picker. Resolve its runtime variables here, not at
+   :root: they only exist on the content node. Long lists scroll in the viewport. */
+.select-menu {background:var(--color-surface);box-shadow:var(--menu-shadow);border-radius:var(--control-radius);padding:var(--space-1);z-index:var(--layer-picker);min-width:var(--radix-select-trigger-width);max-width:var(--picker-max-width);max-height:min(var(--radix-select-content-available-height,var(--picker-max-height)),var(--picker-max-height));overflow:hidden;}
+.select-option {padding:var(--control-padding);min-height:var(--action-height);font-size:var(--type-control);display:flex;align-items:center;justify-content:space-between;gap:var(--field-gap);border-radius:var(--control-radius);cursor:pointer;outline:0;overflow-wrap:anywhere;}
+.select-option[data-highlighted] {background:var(--color-soft);color:var(--color-text);}
+.select-option[data-state="checked"] {color:var(--color-text);font-weight:var(--weight-heading);}
+.select-scroll {display:grid;place-items:center;font-size:var(--type-body);height:var(--picker-scroll-height);color:var(--color-muted);}
 .ui-entry {min-height:var(--viewport-height);display:grid;place-items:center;padding:var(--page-padding);}
 .ui-entry-surface {width:100%;max-width:var(--entry-measure);}
 .ui-entry-brand {display:flex;align-items:center;gap:var(--action-gap);font-size:var(--type-20);font-weight:var(--weight-heading);}

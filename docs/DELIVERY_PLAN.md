@@ -114,6 +114,18 @@ snapshots with saved orders and matching exports, followed by corrections/revisi
 and advanced grouped-factor mobile/error/reload acceptance. Full advanced-screen
 acceptance and real-client accuracy are not established by the synthetic workflow.
 
+Cloud factor-aware follow-up, 10 October: one private forecast group completed with
+actual GSCPI/Brent captures, explicit assumptions, fictional Tehran history and all
+79 saved orders. Ridge/Elastic Net comparison and filtered CSV quantities match;
+reload preserves the group. Shared picker sizing repaired, 42 competing CSS lines
+removed, review progress visible and factor changes locked during writes.
+Interface 287 and factor/input 44 tests pass. Desktop/Persian mobile checks retain
+shared brand contracts. See FACTOR_WORKFLOW_DESIGN.md for quantities/boundaries.
+Next: profile/reduce cloud review/save/calculation latency without changing maths,
+company isolation or access; then corrections/revisions and advanced grouped-factor
+mobile/error/reload acceptance. Raw capture receipts remain uninspected; direct API
+navigation was blocked, not bypassed. Other provider/client/AI gates stay open.
+
 ## Earlier delivery history
 
 Latest delivery, 7 October — guided read recovery across sales demand, order-import
