@@ -1,6 +1,7 @@
 import { DurableObject, WorkerEntrypoint } from 'cloudflare:workers';
 import { companyRoute, savedResponse, sameReportDay } from './company-api.mjs';
 import {managementRoute,managementResponse} from './management-api.mjs';
+import { validateRecovery } from './recovery-ledger.mjs';
 
 const FORECAST_DEADLINE_MS = 12 * 60 * 1000;
 const ID = /^[a-f0-9]{32}$/;
@@ -96,6 +97,21 @@ export class ForecastCloud extends DurableObject {
     });
   }
   async checkpoint(company) { return this.head(company); }
+  // Read-only operator RPC on the private native object. Not forwarded through
+  // ForecastStorage, the app gateway or any HTTP endpoint. Cloudflare operators
+  // may bind a separate rehearsal Worker; it cannot replace the live ledger.
+  async recoverySnapshot(company) {
+    return this.serialized(async()=>{
+      if(!COMPANY.test(company))throw new CloudStorageError(400,'Invalid company');
+      const value={version:1,company_id:company,captured_at:now(),
+        head:this.head(company),revisions:this.rows('SELECT * FROM revisions WHERE company=?',company),
+        jobs:this.rows('SELECT * FROM jobs WHERE company=?',company),
+        schedules:this.rows('SELECT * FROM schedules WHERE company=?',company)};
+      validateRecovery(value,company);
+      value.bookmark=await this.ctx.storage.getCurrentBookmark();
+      return value;
+    });
+  }
   async authorizeAttempt(company,id,attempt) {
     const row=this.rows("SELECT * FROM jobs WHERE company=? AND id=? AND attempt=? AND state='running'",company,id,attempt)[0];
     return !!(row&&row.deadline>now()&&(this.head(company)?.revision || '')===row.input_revision);

@@ -545,6 +545,14 @@ after the core release, only if they improve this single forecasting purpose.
 
 ## Current position and preservation
 
+10 October recovery follow-up: live owner password recovery and MFA sign-in are
+verified, along with a separate cloud identity restore. The native-runtime ledger
+rehearsal tests pass, but the approved cloud trigger produced no ledger/receipt
+within 30 minutes; remote ledger/key recovery is not accepted. Temporary trigger
+and secret cleanup is verified complete. See CLOUD_DISASTER_RECOVERY_REHEARSAL.md. Next:
+resolve private dispatch and finish that acceptance gate, then agree backup
+retention/recovery targets and complete role-based workflow acceptance.
+
 10 October private deployment follow-up: faster singleton allocation, unchanged
 forecast mathematics, native account recovery tests, and isolated restoration of
 real company and identity backups. See CLOUD_RECOVERY_ACCEPTANCE.md for measured

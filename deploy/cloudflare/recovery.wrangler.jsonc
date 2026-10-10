@@ -1,0 +1,19 @@
+{
+  "$schema":"https://unpkg.com/wrangler@4.149.0/config-schema.json",
+  "name":"demandlab-forecast-recovery-rehearsal",
+  "account_id":"b53df72f41f5135daf312100e73ff6a1",
+  "main":"../../auth-service/scripts/cloud-recovery-rehearsal.mjs",
+  "compatibility_date":"2026-10-09","compatibility_flags":["nodejs_compat"],
+  "workers_dev":false,"preview_urls":false,"routes":[],
+  "triggers":{"crons":[]},
+  "observability":{"enabled":false},"limits":{"cpu_ms":5000},
+  "vars":{"PRIVATE_ACCESS":"closed","REHEARSAL_ENABLED":"false",
+    "REHEARSAL_COMPANY":"wJgSr727WvzGlU4uMVSPzwA01j75gmr0","REHEARSAL_ID":"dr-20261010"},
+  "durable_objects":{"bindings":[
+    {"name":"REVIEW","class_name":"RecoveryRehearsal"},
+    {"name":"SOURCE","class_name":"ForecastCloud","script_name":"demandlab-forecast-storage"}
+  ]},
+  "migrations":[{"tag":"v1","new_sqlite_classes":["RecoveryRehearsal"]}],
+  "d1_databases":[{"binding":"IDENTITY_REVIEW_DB","database_name":"demandlab-forecast-recovery-20261010","database_id":"81830101-c461-4c9c-81d8-20bb187c3da3"}],
+  "r2_buckets":[{"binding":"FILES","bucket_name":"demandlab-forecast-files"},{"binding":"BACKUPS","bucket_name":"demandlab-forecast-backups"}]
+}

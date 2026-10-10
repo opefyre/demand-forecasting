@@ -123,9 +123,13 @@ This is an isolated restore drill, not a live disaster cutover. A complete cloud
 cutover also needs the durable storage ledger, matching Worker secrets and explicit
 operator reconciliation before re-enabling schedules or delivery. Restoration must
 never silently rerun an old forecast, connector fetch, assistant action or message.
-Next: user-controlled live account-recovery completion, then a dedicated company
-restore/cutover rehearsal with the ledger and encrypted credentials. Do not open
-access to another user or enable Iran-client AI/providers as part of either task.
+Follow-up: the owner completed live password recovery and authenticator sign-in;
+the new browser tab retains Admin access and can read its saved forecast. A
+separate cloud identity restore is also verified. The timed cloud-ledger rehearsal
+did not produce a result within 30 minutes and is not accepted. See
+CLOUD_DISASTER_RECOVERY_REHEARSAL.md for exact scope, evidence and cleanup. Next:
+resolve private rehearsal dispatch and verify ledger/encrypted-key recovery before
+cutover. Do not open access to another user or enable Iran-client AI/providers.
 
 ## Verification and deployment receipts
 

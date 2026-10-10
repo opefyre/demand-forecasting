@@ -15,6 +15,7 @@
     "schema:cloudflare:check": "node --import tsx scripts/generate-cloudflare-schema.ts --check",
     "test:cloudflare-worker": "node --import tsx scripts/test-cloudflare-worker.ts",
     "test:cloud-storage": "node --import tsx scripts/test-cloud-storage.ts",
+    "test:cloud-recovery": "node --import tsx scripts/test-cloud-recovery.ts",
     "test:cloud-engine": "node --test ../deploy/cloudflare/engine-lifecycle.test.mjs"
   },
   "dependencies": {
