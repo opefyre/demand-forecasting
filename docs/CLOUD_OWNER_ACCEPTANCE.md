@@ -25,7 +25,7 @@
 - Private identity/storage/engine HTTP listeners remain closed. The domain binds
   only those dedicated forecast services; no other Vrolen/Finkavo service changed.
 
-## Remote calculation and export verified; sleep/wake in progress
+## Remote calculation, export and sleep/wake verified
 
 The owner workspace has accepted and validated the existing **fictional** Tehran
 history: 804 monthly rows, five customers, four products, 18 customer/product
@@ -60,8 +60,8 @@ booked, fulfilled, remaining and total
 columns, units, calendar, period boundaries and draft status. Aftab Printing has
 positive calculated demand despite zero confirmed orders. The default export
 excludes confirmed orders for receiving systems that already hold them; it is
-not an approved planning release. Sustained idle shutdown and a second cold wake
-still need recorded live evidence. No additional source or
+not an approved planning release. Corrected idle shutdown, cold saved-report
+reading and a second cold export are verified below. No additional source or
 AI calls are enabled. No forecast was approved for real operational planning.
 The separate port-8010 demo health remains 200 and its data is unchanged.
 
@@ -81,7 +81,31 @@ initializes it for an already-running pre-migration idle instance.
 Only the engine controller was redeployed, version
 `da414374-732f-478b-a25c-d3ae18250f97`, using the exact existing numerical image.
 No Docker VM was started, image rebuilt, data migrated or other service edited.
-Actual corrected idle shutdown/cold export verification is still in progress.
+At 14:52 UTC the live owner diagnostic reported `running:false,busy:false`.
+An intervening status read had not extended the durable shutdown deadline.
+Reloading the interface exposed another cost issue: bootstrap eagerly fetched
+the checkpoint-backed monthly-update list. The engine woke, restored the saved
+company data and showed the identical report, proving cold wake/durability but
+not a compute-free read. The interface now fetches that list only on the explicit
+"Update forecast" action, preserving resume-existing-update behaviour. Local
+transport keeps its existing eager behaviour.
+
+Final live sequence, 14:58–15:00 UTC:
+
+1. Native owner runtime reported `running:false,busy:false` after the durable
+   five-minute idle deadline, even with an intervening status inspection.
+2. Reloaded the current compiled interface and waited for the complete saved
+   demand dashboard. Its total remained 3,982.84 tonnes. A subsequent native
+   status inspection still reported `running:false,busy:false`: this same-day
+   saved report read did not wake computation. It is not a promise that expired
+   report checks or every workflow can be served without computation.
+3. Explicitly requested CSV export. The engine woke from stopped to running,
+   restored the durable company checkpoint and completed the download.
+4. Both downloaded files contain the same 108 rows and are byte-identical:
+   SHA-256 `c48d83c56d2765fece604f8c11c988308f327bfdf4583386322361fc7d159fdd`.
+   The engine was idle after export; its durable shutdown alarm was reset by this
+   completed operation. No further computation was requested. No manual stop,
+   warm ping or local-server tunnel was used to manufacture this result.
 
 ## Tests and deployment
 
@@ -93,16 +117,19 @@ Actual corrected idle shutdown/cold export verification is still in progress.
   across private RPC and the exact Google callback URL.
 - Cloud controllers/gateway: 39 checks pass, including non-extending idle status,
   active-work protection and preserved deadlines after object eviction.
-- Interface suite: all 269 checks pass, including uploaded-order coverage wording.
+- Interface suite: all 270 checks pass, including uploaded-order coverage wording
+  and lazy cloud monthly-workflow loading.
 - Identity version: `04ea7aa7-943b-4b18-9e4a-46b58ead19e5`.
-- Edge version: `9cde9cf8-cd42-4c1a-a30f-d45361a93b26`.
+- Edge version: `1abf1151-a3b9-4bc9-b4d1-b0d323881da3`.
 - Storage and numerical image are unchanged from CLOUD_WORKFLOWS_DELIVERY.md;
   the controller-only engine version is recorded above.
 
 ## Remaining gates
 
-Complete the remote forecast/export and sleep/wake checks; then verify cold saved
-report navigation, full sign-out/revocation, recovery and off-device restore.
+The requested owner interface, Google/MFA/mail, remote forecast/export and
+sleep/wake slice is complete, with the performance limitation above. Next:
+reduce cold Automatic calculation time and improve truthful progress; then verify
+full sign-out/revocation, recovery and off-device restore.
 Live client connectors need dedicated read-only test configurations. External
 source credentials are not silently borrowed from the local demo. AI remains
 disabled pending provider eligibility for the Iran client. Multi-company/role

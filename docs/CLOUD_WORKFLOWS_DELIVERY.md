@@ -85,7 +85,13 @@ CLOUD_API_DELIVERY.md remain. SFTP supports public IPv4, not private LAN endpoin
 Cloud screens still need the authenticated private gateway; no new UI clutter,
 settings page, banner or styling framework was introduced in this backend slice.
 
-## Next substantial task
+## Next substantial task (superseded by owner acceptance)
+
+The following was this slice's handoff. The owner-only interface, real Google,
+MFA/email, remote forecast/export and measured corrected sleep/wake are now
+verified in [owner acceptance](CLOUD_OWNER_ACCEPTANCE.md). Current next tasks are
+cold Automatic performance/progress, recovery/restore and explicitly approved
+live-provider acceptance. Public access and AI remain separately gated.
 
 Connect the owner-only authenticated cloud interface to these services, bootstrap
 the owner through the restricted setup path, and verify Google sign-in, fresh

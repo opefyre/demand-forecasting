@@ -90,7 +90,7 @@ import {FactorEvaluation} from './factor-evaluation';
 import { pendingImport } from "./workflow-state.mjs";
 import {requestJSON} from './request-errors.mjs';
 import {companyMode,companyPage,configureCompanyApi,companyRequest} from './company-api.mjs';
-import {installCloudDownloads} from './cloud-transport.mjs';
+import {installCloudDownloads,cloudTransportEnabled} from './cloud-transport.mjs';
 import {configureWorkspaceStorage,workspaceContextKey,localState,sessionState} from './workspace-storage.mjs';
 import {CompanyFactors} from './company-factors.jsx';
 import {RequestRecovery} from './request-recovery.jsx';
@@ -524,7 +524,7 @@ function App({ access }) {
       companyMode()?Promise.resolve({plans:[]}):api("/api/plans"),
       api(companyMode()?"/api/run-list?include_archived=true":"/api/run-list"),
       api("/api/workspace"),
-      companyMode()&&!canEdit?Promise.resolve({updates:[]}):api('/api/forecast-updates'),
+      companyMode()&&!canEdit?Promise.resolve({updates:[]}):cloudTransportEnabled()?Promise.resolve({updates}):api('/api/forecast-updates'),
     ]);
     setDatasets(d.datasets);
     setPlans(p.plans);
@@ -651,10 +651,14 @@ function App({ access }) {
   };
   async function startUpdate(runId, requestId){
     if(!canEdit)return;
-    const existing=updates.find(value=>value.base_run_id===runId&&value.stage!=='ready');
-    if(existing&&!requestId){setUpdateId(existing.id);navigate('today',{update_id:existing.id});return;}
     setBusy('Opening forecast update');setError('');
     try{
+      // Monthly workflow reads restore a checkpoint. Do that only on this
+      // explicit action, never while opening a saved report or the application.
+      const current=cloudTransportEnabled()&&!requestId?(await api('/api/forecast-updates')).updates:updates;
+      setUpdates(current);
+      const existing=current.find(value=>value.base_run_id===runId&&value.stage!=='ready');
+      if(existing&&!requestId){setUpdateId(existing.id);navigate('today',{update_id:existing.id});return;}
       if(!requestId&&updateAttempt.current?.runId!==runId)updateAttempt.current={runId,id:crypto.randomUUID()};
       const value=await api('/api/forecast-updates',{run_id:runId,request_id:requestId||updateAttempt.current.id});
       setUpdateId(value.id);updateAttempt.current=null;await refresh();navigate('today',{update_id:value.id});

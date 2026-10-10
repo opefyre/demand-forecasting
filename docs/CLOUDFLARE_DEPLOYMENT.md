@@ -2,7 +2,8 @@
 
 Status: 10 October 2026. The owner-only cloud interface is deployed. Real Google
 sign-in, owner MFA, Resend delivery, remote calculation and CSV export are verified.
-Sleep/wake acceptance is in progress; this is **not a public or production launch**.
+Corrected idle shutdown, compute-free saved-report reading and cold export wake
+are verified; this is **not a public or production launch**.
 The local demo remains independent at `http://127.0.0.1:8010`.
 
 Latest private API slice: 169 explicit company operations plus 14 native
@@ -17,6 +18,7 @@ Current API-bridge deployment versions: identity
 `5b71f9db-98d6-4bf5-b670-50a0be979ae9`, engine
 `da414374-732f-478b-a25c-d3ae18250f97`; image
 `sha256:bb84d6cc0a7d2ee07edaaff2390daa1c9fc844beb715f009a6341990d176d45f`.
+Owner UI edge version: `1abf1151-a3b9-4bc9-b4d1-b0d323881da3`.
 Earlier versions below record the preceding backbone checkpoint. The dedicated
 build VM is stopped after testing and its temporary registry login cleared after
 the upload. The sign-in screen is reachable, but company routes require the
@@ -254,7 +256,7 @@ them through stdin only to `demandlab-forecast-identity`. Do not manually copy
 secrets into configuration, arguments, logs or Git. The quarantined Google file
 is never loaded. Git contains code/schema only, not credentials or databases.
 
-Current next task: finish measured owner sleep/wake acceptance, then improve cold
-automatic calculation performance and verify recovery/restore. Existing cloud
+Current next task: improve cold automatic calculation performance and verify
+recovery/restore. Owner sleep/wake acceptance is complete. Existing cloud
 business bridges are implemented. Other people remain denied until a separate
 explicit access decision; deployment completion must not automatically open it.
