@@ -51,3 +51,8 @@ test('no manual create action remains in Data, Help or the assistant tools menu'
   const help=await readFile(new URL('help.jsx',import.meta.url),'utf8');
   assert.doesNotMatch(help,/navigate\([^)]*'new'|>\{uiText\("New forecast"\)\}<\/button>/);
 });
+test('cloud calculation uses the shared translated working status, not a perpetual startup label',async()=>{
+  const source=await readFile(new URL('new-forecast.jsx',import.meta.url),'utf8');
+  assert.match(source,/uiText\(cloudTransportEnabled\(\)\?'Calculating…':'Starting…'\)/);
+  assert.doesNotMatch(source,/style=\{/);
+});

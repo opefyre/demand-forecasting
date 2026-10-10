@@ -30,19 +30,26 @@ export class CloudEngineController {
       const active=await this.ctx.storage.get('active');
       if (active && active.deadline>Date.now()) throw new Error('Engine is busy');
       if (active && this.ctx.container.running) await this.ctx.container.destroy();
+      // A controller deployment does not resize an already-warm container.
+      // Replace only an idle, old allocation before claiming the next job.
+      if (this.ctx.container.running && await this.ctx.storage.get('instance_profile')!=='cpu1-memory3') await this.ctx.container.destroy();
       await this.ctx.storage.put('active',{attempt:job.attempt,deadline:job.deadline});
       await this.ctx.storage.delete('idle_until');
       await this.ctx.storage.setAlarm(job.deadline);
-      if (!this.ctx.container.running) this.ctx.container.start({image:this.ctx.container.images.base,
-        instance:{vcpu:0.25,memoryMib:1024,diskMb:4000},enableInternet:false,
+      if (!this.ctx.container.running) { this.ctx.container.start({image:this.ctx.container.images.base,
+        // CPU is metered by active use. Avoid throttling a serial mathematical
+        // comparison. Cloudflare requires >=3 GiB memory per custom vCPU.
+        instance:{vcpu:1,memoryMib:3072,diskMb:4000},enableInternet:false,
         env:{DEMANDLAB_COMPANY_VAULT_KEY:this.env.COMPANY_VAULT_KEY}});
+        await this.ctx.storage.put('instance_profile','cpu1-memory3');
+      }
       await this.ctx.container.setInactivityTimeout(SLEEP_MS);
     } catch(error) {
       claimError=error;
       const current=await this.ctx.storage.get('active');
       if(current?.attempt===job.attempt) {
         if(this.ctx.container.running)await this.ctx.container.destroy();
-        await this.ctx.storage.delete('active');await this.ctx.storage.delete('idle_until');await this.ctx.storage.deleteAlarm();
+        await this.ctx.storage.delete('active');await this.ctx.storage.delete('instance_profile');await this.ctx.storage.delete('idle_until');await this.ctx.storage.deleteAlarm();
       }
     } });
     if(claimError)throw claimError;
@@ -146,6 +153,7 @@ export class CloudEngineController {
           const idle=Date.now()+SLEEP_MS;
           await this.ctx.storage.put('idle_until',idle);await this.ctx.storage.setAlarm(idle);
         } else {
+          await this.ctx.storage.delete('instance_profile');
           await this.ctx.storage.delete('idle_until');await this.ctx.storage.deleteAlarm();
         }
       });
@@ -159,6 +167,7 @@ export class CloudEngineController {
     if(!active && idle>Date.now()) { await this.ctx.storage.setAlarm(idle);return; }
     if(this.ctx.container.running)await this.ctx.container.destroy();
     await this.ctx.storage.delete('active');
+    await this.ctx.storage.delete('instance_profile');
     await this.ctx.storage.delete('idle_until');
     await this.ctx.storage.deleteAlarm();
     });

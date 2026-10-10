@@ -126,6 +126,12 @@ Final live sequence, 14:58–15:00 UTC:
 
 ## Remaining gates
 
+Follow-up speed/recovery evidence is in CLOUD_RECOVERY_ACCEPTANCE.md. The later
+engine allocation and interface version supersede the versions above. Real private
+backup restoration and native account-recovery policy tests are now verified;
+the owner's actual password/recovery-code entry and a live disaster cutover are
+still separate user-controlled/operator acceptance steps.
+
 The requested owner interface, Google/MFA/mail, remote forecast/export and
 sleep/wake slice is complete, with the performance limitation above. Next:
 reduce cold Automatic calculation time and improve truthful progress; then verify

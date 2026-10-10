@@ -545,6 +545,12 @@ after the core release, only if they improve this single forecasting purpose.
 
 ## Current position and preservation
 
+10 October private deployment follow-up: faster singleton allocation, unchanged
+forecast mathematics, native account recovery tests, and isolated restoration of
+real company and identity backups. See CLOUD_RECOVERY_ACCEPTANCE.md for measured
+timings and remaining live-recovery/cutover gates. No access expansion, other
+service modification or local-demo data migration is implied by these checks.
+
 3 October: order-aware sign-off and planning downloads now freeze reviewed quantities,
 receiver policy and source evidence, with independent company approval rules and
 separate local-demo status. See DEMAND_RELEASES.md. This completes the local final

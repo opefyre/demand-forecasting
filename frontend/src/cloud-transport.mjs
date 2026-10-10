@@ -18,7 +18,8 @@ export async function cloudFetch(url,options,fetcher=fetch,{pause=defaultPause,n
     active();if(!response.ok)return response;
     const value=await response.json();
     if(value.revision!==null&&!/^[a-f0-9]{32}$/.test(value.revision))throw new Error('Invalid company revision');
-    current.revision=value.revision;
+    // Parallel bootstrap reads may finish after a write. Never rewind its head.
+    if(current.revision===undefined)current.revision=value.revision;
   }
   const id=crypto.randomUUID(),headers=new Headers(options?.headers);
   headers.set('X-Company-Request',id);headers.set('X-Company-Revision',current.revision || '');
@@ -37,7 +38,9 @@ export async function cloudFetch(url,options,fetcher=fetch,{pause=defaultPause,n
   const revision=response.headers.get('X-Company-Revision');
   if(revision!==null){
     if(revision!==''&&!/^[a-f0-9]{32}$/.test(revision))throw new Error('Invalid company revision');
-    current.revision=revision || null;
+    // Read projections can legitimately describe an older revision. Only a
+    // completed write advances optimistic-write authority in this session.
+    if(!['GET','HEAD'].includes((options?.method || 'GET').toUpperCase()))current.revision=revision || null;
   }
   if(response.status===409)current.revision=undefined; // Next explicit action reloads; no write replay.
   return response;

@@ -31,7 +31,8 @@ function fixture({badResponse=false,backupFailure=false,badSize=false,startFailu
 test('cold status does not wake; successful work is durable before it becomes idle',async()=>{
   const f=fixture();assert.deepEqual(await f.controller.status(),{running:false,busy:false,idle_timeout_ms:300000});assert.equal(f.events.length,0);
   const result=await f.controller.execute(f.job);
-  const started=f.events.find(e=>e[0]==='start')[1];assert.deepEqual(started.instance,{vcpu:0.25,memoryMib:1024,diskMb:4000});assert.equal(started.enableInternet,false);assert.equal(started.env.DEMANDLAB_COMPANY_VAULT_KEY,f.env.COMPANY_VAULT_KEY);
+  const started=f.events.find(e=>e[0]==='start')[1];assert.deepEqual(started.instance,{vcpu:1,memoryMib:3072,diskMb:4000});assert.equal(started.enableInternet,false);assert.equal(started.env.DEMANDLAB_COMPANY_VAULT_KEY,f.env.COMPANY_VAULT_KEY);
+  assert.ok(started.instance.vcpu>=1&&started.instance.memoryMib>=3072*started.instance.vcpu,'custom instance meets Cloudflare minimums');
   assert.ok(f.events.some(e=>e[0]==='idle' && e[1]===300000));assert.equal(f.backup.size,1);assert.equal(f.objects.has(result.artifacts['result.json']),true);assert.equal(f.events.at(-1),'cleanup');assert.equal(f.values.has('active'),false);
   assert.ok(f.values.get('idle_until')>Date.now());assert.equal(f.values.get('alarm'),f.values.get('idle_until'));
   assert.equal((await f.controller.status()).busy,false);assert.equal(f.events.filter(e=>e[0]==='start').length,1);
@@ -41,6 +42,16 @@ test('cold status does not wake; successful work is durable before it becomes id
 test('a busy engine rejects a second caller without destroying the active attempt',async()=>{
   const f=fixture();f.ctx.container.running=true;f.values.set('active',{attempt:'9'.repeat(32),deadline:Date.now()+60000});
   await assert.rejects(f.controller.execute(f.job),/busy/);assert.equal(f.ctx.container.running,true);assert.equal(f.events.includes('destroy'),false);assert.equal(f.values.get('active').attempt,'9'.repeat(32));
+});
+test('idle pre-upgrade allocation is replaced once, then the faster warm engine is reused',async()=>{
+  const f=fixture();f.ctx.container.running=true;
+  await f.controller.execute(f.job);
+  assert.equal(f.events.filter(e=>e==='destroy').length,1);
+  assert.equal(f.events.filter(e=>e[0]==='start').length,1);
+  assert.equal(f.values.get('instance_profile'),'cpu1-memory3');
+  Object.assign(f.job,{attempt:'5'.repeat(32),job_id:'6'.repeat(32)});
+  await f.controller.execute(f.job);
+  assert.equal(f.events.filter(e=>e==='destroy').length,1);
 });
 for(const apiStatus of [201,422])test('company API '+apiStatus+' saves its response and promotes only successful changes',async()=>{
   const f=fixture({apiStatus});

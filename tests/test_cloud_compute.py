@@ -8,10 +8,33 @@ import unittest
 import uuid
 
 from fastapi.testclient import TestClient
-from app.cloud_state import EncryptedCompanyVault, capture, restore
+from app.cloud_state import EncryptedCompanyVault, capture, restore, restore_for_review
 
 
 class CloudStateTests(unittest.TestCase):
+    def test_operator_restore_is_company_bound_new_destination_checked_and_paused(self):
+        from app.recovery import digest
+        with TemporaryDirectory() as temp:
+            root=Path(temp)/'scratch';company=root/'data/companies/tehran_a';company.mkdir(parents=True)
+            with closing(sqlite3.connect(company/'jobs.sqlite3')) as db, db:
+                db.executescript("CREATE TABLE forecast_jobs(id TEXT,state TEXT,message TEXT,owner TEXT,heartbeat_at REAL);"
+                    "INSERT INTO forecast_jobs VALUES('active','running','working','worker',123);"
+                    "INSERT INTO forecast_jobs VALUES('done','succeeded','ready',NULL,NULL);"
+                    "CREATE TABLE worker_health(id TEXT);INSERT INTO worker_health VALUES('worker');")
+            archive=Path(temp)/'backup.zip';capture(root,'tehran_a',archive);sha=digest(archive)
+            for company_id,checksum in [('tehran_b',sha),('tehran_a','0'*64)]:
+                with self.assertRaises(ValueError):restore_for_review(archive,Path(temp)/'denied',company_id,checksum)
+                self.assertFalse((Path(temp)/'denied').exists())
+            fresh=Path(temp)/'review';report=restore_for_review(archive,fresh,'tehran_a',sha)
+            self.assertEqual(report['archive_sha256'],sha)
+            with closing(sqlite3.connect(fresh/'data/companies/tehran_a/jobs.sqlite3')) as db:
+                self.assertEqual(dict(db.execute('SELECT id,state FROM forecast_jobs')),{'active':'interrupted','done':'succeeded'})
+            with self.assertRaises(ValueError):restore_for_review(archive,fresh,'tehran_a',sha)
+            # Routine wake is intentionally separate: do not pause live schedules.
+            wake=Path(temp)/'wake';restore(archive,wake,'tehran_a')
+            with closing(sqlite3.connect(wake/'data/companies/tehran_a/jobs.sqlite3')) as db:
+                self.assertEqual(db.execute("SELECT state FROM forecast_jobs WHERE id='active'").fetchone()[0],'running')
+
     def test_sqlite_wal_files_and_encrypted_credentials_survive_a_company_only_checkpoint(self):
         with TemporaryDirectory() as temp:
             root = Path(temp) / 'scratch'

@@ -376,7 +376,13 @@ export class ForecastStorage extends WorkerEntrypoint {
       const result=await this.ledger().operation('apiResult',[who.company_id,id,who.subject,who.permissions,who.role]);
       if(result.status!==200)throw new CloudStorageError(result.status,result.body.detail);
       const {response_key,download_key,...job}=result.body;
-      if(!response_key)return Response.json(job,{status:job.state==='queued' || job.state==='running'?202:409,headers:{'Cache-Control':'no-store','X-Company-Operation':id}});
+      if(!response_key) {
+        if(job.state==='queued'||job.state==='running')return Response.json(job,{status:202,headers:{'Cache-Control':'no-store','X-Company-Operation':id}});
+        // A failed engine is not an optimistic-edit conflict. Preserve only the
+        // ledger's safe message; never return provider exceptions or credentials.
+        return Response.json({detail:job.message || 'The operation stopped. Review before retrying.'},
+          {status:job.state==='failed'?503:409,headers:{'Cache-Control':'no-store'}});
+      }
       const object=await this.env.FILES.get(response_key);
       if(!object)throw new CloudStorageError(503,'Company response unavailable');
       if(download_key) {

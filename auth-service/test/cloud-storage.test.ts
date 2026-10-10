@@ -59,6 +59,7 @@ test('native company ledger: durable checkpoints, roles, deduplication, cancella
             const binding=new TextEncoder().encode(JSON.stringify([job.company_id,'api-request',job.payload.body_hash]));
             bytes=new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:bytes.slice(0,12),additionalData:binding},key,bytes.slice(12)));}
           body=JSON.parse(new TextDecoder().decode(bytes));}
+        if(body.customer==='__synthetic_engine_failure__')throw new Error('Sensitive provider exception');
         const root='companies/'+job.company_id+'/outputs/'+job.job_id+'/'+job.attempt+'/';
         if(job.payload.method==='GET') {
           if(!job.payload.path.includes('/export')) {
@@ -187,6 +188,14 @@ test('native company ledger: durable checkpoints, roles, deduplication, cancella
     await call({op:'drain'});
     assert.equal((await call({op:'api_result',credentials:fresh,id:invalid.id})).detail,'Check customer name');
     assert.equal((await call({op:'api_meta',credentials:fresh,path:'/customers'})).revision,head.revision,'Validation failure never promotes scratch state');
+    const stopped=await call({...apiRequest,body:{customer:'__synthetic_engine_failure__'},request_id:'failed-engine-report',revision:head.revision});
+    await call({op:'drain'});
+    const failedResponse=await caller.fetch('http://local.test/',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({op:'api_result',credentials:fresh,id:stopped.id})});
+    assert.equal(failedResponse.status,503);
+    const failedText=await failedResponse.text();assert.match(failedText,/Forecast execution unavailable/);
+    assert.doesNotMatch(failedText,/Sensitive provider exception/);
+    assert.equal((await call({op:'api_meta',credentials:fresh,path:'/customers'})).revision,head.revision);
     await call({...apiRequest,body:{customer:'New revision',checked_at:'2000-01-01T00:00:00Z'},request_id:'changed-after-export',revision:head.revision});await call({op:'drain'});
     assert.match((await call({op:'api_result',credentials:viewer,id:exportJob.id})).detail,/inputs changed/);
     const reportHead=await call({op:'api_meta',credentials:fresh,path:'/customers'});

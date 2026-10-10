@@ -8,6 +8,7 @@ import {ForecastFactors} from './forecast-factors.jsx';
 import {ForecastOrders} from './forecast-orders.jsx';
 import {Panel,Stack,Grid,Actions} from './ui-layout.jsx';
 import {companyMode} from './company-api.mjs';
+import {cloudTransportEnabled} from './cloud-transport.mjs';
 
 export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,openRun,navigate,setDataView,canEdit,embedded=false,onWorkingChange,parentForecastId=null}){
   const {Button,Pick,Field,ErrorBox,Help}=ui;
@@ -121,7 +122,7 @@ export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,
       </>}
       {step===4&&<>
         {!!jobs.length&&<Help text={uiText('Confirmed orders and calculated demand are combined for each customer, product and month. Orders are not counted twice.')}/>}
-        {!jobs.length&&busy&&<p role="status">{uiText('Starting…')}</p>}
+        {!jobs.length&&busy&&<p role="status">{uiText(cloudTransportEnabled()?'Calculating…':'Starting…')}</p>}
         <Stack>{jobs.map(job=><div key={job.id} className="ui-list-row">
           <div className="ui-list-body"><strong>{uiText(FORECAST_CHOICES.find(([id])=>id===job.method)?.[1]||job.method)}</strong><small role="status">{summaries[job.run_id]?(summaries[job.run_id].total==null?uiText('Check customer history and orders'):`${new Intl.NumberFormat(i18n.language,{maximumFractionDigits:1}).format(summaries[job.run_id].total)} ${unitLabel(summaries[job.run_id].unit)}`):uiText(({loading:'Loading…',queued:'Queued',running:'Calculating…',publishing:'Saving…',succeeded:'Ready',failed:'Failed',interrupted:'Interrupted',cancelled:'Cancelled'})[job.state]||'Working')}</small>
             {job.error&&<details><summary>{uiText('What needs attention?')}</summary><p>{job.error}</p></details>}

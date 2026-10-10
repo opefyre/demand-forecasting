@@ -76,6 +76,30 @@ def restore(source, root, company):
     return manifest
 
 
+def restore_for_review(source, destination, company, expected_sha256):
+    """Operator recovery into a NEW directory; never replace a live ledger/head.
+
+    Unlike normal cold wakes, pause all restored execution authority. D1 identity,
+    Worker secrets and the external revision ledger require separate recovery.
+    """
+    from .recovery import restore as offline_restore
+    source, company = Path(source), company_id(company)
+    if source.stat().st_size > MAX_COMPRESSED:
+        raise ValueError('Company checkpoint is too large.')
+    if (not isinstance(expected_sha256, str) or len(expected_sha256) != 64 or
+            any(c not in '0123456789abcdef' for c in expected_sha256) or
+            digest(source) != expected_sha256):
+        raise ValueError('Backup checksum does not match the expected archive.')
+    with zipfile.ZipFile(source) as archive:
+        if len(archive.infolist()) > MAX_FILES + 1 or sum(e.file_size for e in archive.infolist()) > MAX_EXPANDED:
+            raise ValueError('Company checkpoint is too large.')
+        manifest = verified_archive(archive)
+        prefix = 'data/companies/' + company + '/'
+        if not manifest['files'] or any(not row['path'].startswith(prefix) for row in manifest['files']):
+            raise ValueError('Checkpoint belongs to another company.')
+    return offline_restore(source, destination)
+
+
 class EncryptedCompanyVault:
     """Maintained AES-GCM; credentials bound to company, purpose and identifier.
 

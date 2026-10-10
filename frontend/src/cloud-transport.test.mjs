@@ -47,3 +47,21 @@ test('exports retain binary bytes and attachment headers, not JSON wrappers',asy
   },{pause:async()=>{}});
   assert.deepEqual([...new Uint8Array(await response.arrayBuffer())],[80,75,1,2]);assert.match(response.headers.get('Content-Disposition'),/report.xlsx/);configureCloudTransport(null);
 });
+test('a delayed old screen read cannot rewind the revision after a completed write',async()=>{
+  configureCloudTransport(access('revision-race'));
+  let releaseRead;
+  const delayed=new Promise(resolve=>{releaseRead=resolve;});
+  const writeHeaders=[];
+  const fetcher=async(url,options)=>{
+    if(url.endsWith('/revision'))return Response.json({revision});
+    if(options.method==='GET')return delayed;
+    writeHeaders.push(options.headers.get('X-Company-Revision'));
+    return Response.json({ok:true},{headers:{'X-Company-Revision':next}});
+  };
+  const reading=cloudFetch('/api/v1/customers',{method:'GET'},fetcher);
+  await cloudFetch('/api/v1/customers',{method:'POST'},fetcher);
+  releaseRead(Response.json({customers:[]},{headers:{'X-Company-Revision':revision}}));
+  await reading;
+  await cloudFetch('/api/v1/customers',{method:'POST'},fetcher);
+  assert.deepEqual(writeHeaders,[revision,next]);configureCloudTransport(null);
+});

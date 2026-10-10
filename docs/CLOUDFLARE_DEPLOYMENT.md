@@ -127,11 +127,12 @@ test to the owner and verify actual
 verification/reset mail and delivery failures. DNS verification alone is not a
 mail-delivery test. Credentials must use Cloudflare secrets, never public Worker vars.
 
-## Sleep and cost policy — deployed, remote behavior unmeasured
+## Sleep and cost policy — deployed, owner sleep/wake verified
 
 The runtime uses Cloudflare's official native container APIs, not a custom
 process-hosting platform. Fixed singleton engine routing, no warm pool or replicas;
-initial size is 0.25 CPU, 1 GiB RAM and 4 GB scratch disk. The bounded Linux pilot
+current size is 1 CPU, 3 GiB RAM and 4 GB scratch disk. The initial 0.25 CPU allocation
+was too slow for Automatic comparison; see CLOUD_RECOVERY_ACCEPTANCE.md. The bounded Linux pilot
 passes; larger workloads and actual Cloudflare resource use still need profiling.
 Do not claim the 256 MiB instance is sufficient for this numerical engine.
 
@@ -256,7 +257,10 @@ them through stdin only to `demandlab-forecast-identity`. Do not manually copy
 secrets into configuration, arguments, logs or Git. The quarantined Google file
 is never loaded. Git contains code/schema only, not credentials or databases.
 
-Current next task: improve cold automatic calculation performance and verify
-recovery/restore. Owner sleep/wake acceptance is complete. Existing cloud
+Current evidence: CLOUD_RECOVERY_ACCEPTANCE.md records the performance change,
+isolated native account-recovery tests and real company/identity backup restoration.
+The supported Automatic repeat completed in under 75 seconds, compared with
+roughly nine minutes previously, retaining identical displayed demand quantities.
+Owner sleep/wake acceptance is complete. Existing cloud
 business bridges are implemented. Other people remain denied until a separate
 explicit access decision; deployment completion must not automatically open it.
