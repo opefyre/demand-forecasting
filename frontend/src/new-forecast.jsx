@@ -18,7 +18,10 @@ export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,
   const [importInitial,setImportInitial]=useState(null);
   const [source,setSource]=useState(draft?.source||''),[saved,setSaved]=useState(null),[step,setStep]=useSmoothState(draft?.step||0),[importing,setImporting]=useSmoothState(false);
   const [methods,setMethods]=useState(draft?.methods||['recommended']),[jobs,setJobs]=useState(draft?.jobs||[]),[busy,setBusy]=useState(false),[error,setError]=useState(null);
-  useEffect(()=>{onWorkingChange?.(busy);return()=>onWorkingChange?.(false);},[busy,onWorkingChange]);
+  const [ordersBusy,setOrdersBusy]=useState(false);
+  const [ordersEditing,setOrdersEditing]=useState(false);
+  const working=busy||ordersBusy;
+  useEffect(()=>{onWorkingChange?.(working);return()=>onWorkingChange?.(false);},[working,onWorkingChange]);
   const submitting=useRef(false);
   const [summaries,setSummaries]=useState({});
   const [factorsReady,setFactorsReady]=useState(true);
@@ -112,7 +115,7 @@ export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,
         {settingsDirty&&<Button disabled={busy||!canEdit||!Number.isInteger(settings.horizon)||settings.horizon<1||settings.horizon>24} onClick={()=>next(false)}>{uiText('Apply changes')}</Button>}
         {(dataset.settings?.frequency||'monthly')!=='monthly'?<p className="table-note">{uiText('Live factor matching needs monthly sales. You can still forecast this history without extra live factors.')}</p>:dataset.import_provenance?.type==='forecast_factors'?<Button disabled={!canEdit} onClick={()=>{setSource(dataset.parent_dataset_id);setSaved(null);setSalesInputId(null);setFactorsReady(true);setMethods(['recommended']);}}>{uiText('Change factors')}</Button>:<ForecastFactors key={dataset.id} dataset={dataset} api={api} ui={ui} canEdit={canEdit&&!settingsDirty&&!busy} onReady={setFactorsReady} navigate={()=>{setDataView?.('external');navigate('data');}} onSaved={async d=>{setSaved(d);setSource(d.id);setSalesInputId(null);setFactorsReady(true);setMethods(['model:Ridge + drivers']);await refresh();}}/>}
       </>}
-      {step===2&&dataset&&<ForecastOrders key={dataset.id} api={api} ui={ui} dataset={dataset} snapshotId={salesInputId} canEdit={canEdit} onWorkingChange={onWorkingChange} onReady={id=>{setSalesInputId(id);if(id)setStep(3);}}/>}
+      {step===2&&dataset&&<ForecastOrders key={dataset.id} api={api} ui={ui} dataset={dataset} snapshotId={salesInputId} canEdit={canEdit} onWorkingChange={setOrdersBusy} onPendingEditChange={setOrdersEditing} onReady={id=>{setSalesInputId(id);if(id)setStep(3);}}/>}
       {step===3&&<>
         
         <Grid>{choices.map(([id,title,description])=><div className="ui-choice" key={id}>
@@ -135,8 +138,8 @@ export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,
     </Panel>
     {embedded&&step===4&&<Actions><Button disabled={busy} onClick={beginAgain}>{uiText('Start another forecast')}</Button></Actions>}
     {step<4&&<Actions>
-      <Button disabled={step===0} onClick={()=>setStep(step-1)}><ArrowLeft size={18}/>{uiText('Back')}</Button>
-      {(step!==2||salesInputId)&&<Button kind="primary" disabled={busy||!canEdit||!dataset||!name.trim()||step===1&&(!factorsReady||!settings||!Number.isInteger(settings.horizon)||settings.horizon<1||settings.horizon>24)||step===3&&(!methods.length||!salesInputId)} onClick={()=>step===3?start():next()}>{uiText(step===3?'Run selected methods':'Continue')}<ArrowRight size={18}/></Button>}
+      <Button disabled={working||step===0} onClick={()=>setStep(step-1)}><ArrowLeft size={18}/>{uiText('Back')}</Button>
+      {(step!==2||salesInputId)&&<Button kind="primary" disabled={working||ordersEditing||!canEdit||!dataset||!name.trim()||step===1&&(!factorsReady||!settings||!Number.isInteger(settings.horizon)||settings.horizon<1||settings.horizon>24)||step===3&&(!methods.length||!salesInputId)} onClick={()=>step===3?start():next()}>{uiText(step===3?'Run selected methods':'Continue')}<ArrowRight size={18}/></Button>}
     </Actions>}
   </Stack>;
 }

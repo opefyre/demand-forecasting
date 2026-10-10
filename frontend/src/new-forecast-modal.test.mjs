@@ -56,3 +56,11 @@ test('cloud calculation uses the shared translated working status, not a perpetu
   assert.match(source,/uiText\(cloudTransportEnabled\(\)\?'Calculating…':'Starting…'\)/);
   assert.doesNotMatch(source,/style=\{/);
 });
+test('the wizard cannot navigate backwards or dismiss while order validation is running',async()=>{
+  const source=await readFile(new URL('new-forecast.jsx',import.meta.url),'utf8');
+  assert.match(source,/const working=busy\|\|ordersBusy/);
+  assert.match(source,/disabled=\{working\|\|step===0\}/);
+  assert.match(source,/onWorkingChange=\{setOrdersBusy\}/);
+  assert.match(source,/onPendingEditChange=\{setOrdersEditing\}/);
+  assert.match(source,/disabled=\{working\|\|ordersEditing\|\|!canEdit/);
+});

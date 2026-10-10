@@ -32,6 +32,11 @@ test('language switch persists display preference and changes document semantics
   await assert.rejects(changeInterfaceLanguage('ar'));
   assert.equal(i18n.language,'en');
 });
+test('order statuses are translated without changing submitted status codes',async()=>{
+  await changeInterfaceLanguage('fa');
+  assert.equal(t('Confirmed'),'قطعی');assert.equal(t('Unconfirmed'),'تأییدنشده');assert.equal(t('Cancelled'),'لغوشده');
+  await changeInterfaceLanguage('en');
+});
 test('Persian help covers the sales journey with unique authored questions',()=>{
   assert.ok(persianHelpTopics.length>=20);
   assert.equal(new Set(persianHelpTopics.map(([q])=>q)).size,persianHelpTopics.length);

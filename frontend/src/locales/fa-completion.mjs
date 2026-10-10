@@ -1,5 +1,7 @@
 // Authored interface copy only. Source names, IDs, values and original evidence stay intact.
 export const faCompletion={
+ 'Confirmed':'قطعی',
+ 'Unconfirmed':'تأییدنشده',
  'Search connections':'جست‌وجوی اتصال‌ها',
  'Last checked':'آخرین بررسی',
  'No matching connections.':'اتصال مطابقی پیدا نشد.',

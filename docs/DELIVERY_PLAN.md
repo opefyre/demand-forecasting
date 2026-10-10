@@ -65,10 +65,19 @@ login/recovery/MFA surfaces, management menus, text actions and bundled brand
 fonts correct design discrepancies. Temporary recovery access is disabled and
 keys removed. See CLOUD_RETENTION_ROLE_ACCEPTANCE.md and
 CLOUD_DISASTER_RECOVERY_REHEARSAL.md for evidence and acceptance boundaries.
-Current next task: complete the owner-only bilingual cloud sales journey, including
-correction, partial orders, factors, grouped models, review/approval and filtered
-exports, with mobile/error/reload paths. Real client accuracy and a live
-multi-person pilot remain separate. AI/providers remain separately gated.
+Private sales journey slice, 10 October: a separate fictional Tehran forecast now
+compares Recent average and Same season under one name. Real cloud comparison and
+filtered CSV values match the customer/product/month dashboard; a customer without
+orders retains positive expected demand. Data and wizard orders reuse one compact
+table and global forms. Pending edits/validation cannot be skipped, and missing
+Persian order-status labels are fixed. Interface 278, cloud controller 46, cold
+cloud workflow 21 and company sales/factor 23 tests pass. See
+CLOUD_SALES_JOURNEY_ACCEPTANCE.md for exact browser evidence and remaining gates.
+Current next task: connect and verify the cloud's relevant live monthly factor
+feeds, then finish the combined correction/revision, order update, factor-aware
+grouped models and review/export UI journey, including mobile/error/reload paths.
+Real client accuracy and an explicitly authorised live multi-person pilot remain
+separate. AI and new provider credential setup remain separately gated.
 Do not open public access automatically or change the independent local demo.
 
 ## Earlier delivery history

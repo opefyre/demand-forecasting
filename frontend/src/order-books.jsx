@@ -9,6 +9,35 @@ export function appendOrder(inputs) {
   if(!p)return inputs.orders;
   return [...inputs.orders,{reference:'',customer:p.customer,sku:p.sku,unit:p.unit,due_date:inputs.as_of,ordered:0,fulfilled:0,cancelled:0,status:'confirmed'}];
 }
+export function OrderTable({ inputs, ui, empty, onEdit, onRemove, disabled = false, renderDetails }) {
+  const { Button, Table } = ui;
+  return <Table headers={[uiText('Order line'),uiText('Customer / product'),uiText('Due date'),uiText('Ordered'),uiText('Already fulfilled'),uiText('Cancelled'),uiText('Status'),'']} empty={empty}>
+    {inputs?.orders.map((row,index)=><React.Fragment key={index}>
+      <tr><td>{row.reference||'—'}</td><td><strong>{row.customer}</strong><span className="ui-record-meta">{row.sku}</span></td><td>{row.due_date}</td><td>{row.ordered} {unitLabel(row.unit)}</td><td>{row.fulfilled} {unitLabel(row.unit)}</td><td>{row.cancelled} {unitLabel(row.unit)}</td><td>{uiText(row.status==='confirmed'?'Confirmed':row.status==='unconfirmed'?'Unconfirmed':'Cancelled')}</td><td><div className="ui-record-actions">
+        {onEdit&&<Button disabled={disabled} aria-label={uiText('Edit order')+' · '+(row.reference||row.customer+' · '+row.sku)} onClick={()=>onEdit(index,row)}>{uiText('Edit')}</Button>}
+        {onRemove&&<Button disabled={disabled} aria-label={uiText('Remove order')+' · '+(row.reference||row.customer+' · '+row.sku)} onClick={()=>onRemove(index)}><Trash/></Button>}
+      </div></td></tr>
+      {renderDetails?.(row,index)}
+    </React.Fragment>)}
+  </Table>;
+}
+
+export function OrderReview({ inputs, onChange, ui, canEdit = true, onEditingChange }) {
+  const { Button } = ui;
+  const [editing,setEditing]=useState(null);
+  useEffect(()=>{onEditingChange?.(!!editing);return()=>onEditingChange?.(false);},[!!editing,onEditingChange]);
+  const displayedInputs=editing?.index===inputs.orders.length?{...inputs,orders:[...inputs.orders,editing.row]}:inputs;
+  return <Stack>
+    <OrderTable inputs={displayedInputs} ui={ui} empty={!displayedInputs.orders.length&&uiText('No orders yet.')} disabled={!canEdit}
+      onEdit={canEdit?(index,row)=>setEditing({index,row:{...row}}):undefined}
+      onRemove={canEdit?index=>{onChange(inputs.orders.filter((_,i)=>i!==index));setEditing(null);}:undefined}
+      renderDetails={(row,index)=>editing?.index===index&&<tr><td colSpan={8}><Stack>
+        <OrderRows inputs={{...inputs,orders:[editing.row]}} ui={ui} canEdit={canEdit} showAdd={false} showRemove={false} onChange={rows=>setEditing({...editing,row:rows[0]})}/>
+        <Actions><Button disabled={!canEdit} onClick={()=>setEditing(null)}>{uiText('Cancel')}</Button><Button kind="primary" disabled={!canEdit} onClick={()=>{const orders=[...inputs.orders];orders[index]=editing.row;onChange(orders);setEditing(null);}}>{uiText('Apply changes')}</Button></Actions>
+      </Stack></td></tr>}/>
+    {canEdit&&<Button disabled={!!editing||!inputs.customers?.length} onClick={()=>setEditing({index:inputs.orders.length,row:appendOrder({...inputs,orders:[]})[0]})}><Plus/>{uiText('Add order')}</Button>}
+  </Stack>;
+}
 export function OrderRows({ inputs, onChange, ui, canEdit = true, showAdd = true, showRemove = true }) {
   const { Button, Pick, Field } = ui;
   const pairs = inputs.customers || [];
@@ -188,9 +217,7 @@ export function OrderBooks({ datasets, api, ui, canEdit,initialDatasetId }) {
         />
       } actions={canEdit&&<><Button disabled={busy||!book?.inputs.customers?.length} onClick={()=>setEditing({index:book.inputs.orders.length,row:appendOrder({...book.inputs,orders:[]})[0]})}><Plus/>{uiText('Add order')}</Button><Button kind="primary" disabled={busy||!book} onClick={save}>{uiText(busy?'Saving…':saved?'Saved':'Save orders')}</Button></>}>
       <ErrorBox error={error} />
-      <Table headers={[uiText('Order line'),uiText('Customer / product'),uiText('Due date'),uiText('Ordered'),uiText('Status'),'']} empty={!id?uiText('Add sales history first.'):!book?uiText('Loading orders…'):!book.inputs.orders.length&&uiText('No orders yet.')}>
-        {book?.inputs.orders.map((row,index)=><tr key={index}><td>{row.reference||'—'}</td><td><strong>{row.customer}</strong><span className="ui-record-meta">{row.sku}</span></td><td>{row.due_date}</td><td>{row.ordered} {unitLabel(row.unit)}</td><td>{uiText(row.status==='confirmed'?'Confirmed':row.status==='unconfirmed'?'Unconfirmed':'Cancelled')}</td><td><div className="ui-record-actions">{canEdit&&<><Button disabled={busy} onClick={()=>setEditing({index,row:{...row}})}>{uiText('Edit')}</Button><Button disabled={busy} aria-label={uiText('Remove order')} onClick={()=>change('orders',book.inputs.orders.filter((_,i)=>i!==index))}><Trash/></Button></>}</div></td></tr>)}
-      </Table>
+      <OrderTable inputs={book?.inputs} ui={ui} disabled={busy} empty={!id?uiText('Add sales history first.'):!book?uiText('Loading orders…'):!book.inputs.orders.length&&uiText('No orders yet.')} onEdit={canEdit?(index,row)=>setEditing({index,row:{...row}}):undefined} onRemove={canEdit?index=>change('orders',book.inputs.orders.filter((_,i)=>i!==index)):undefined}/>
       {book && (
         <Disclosure title={uiText('Order coverage')}>
           <Grid>

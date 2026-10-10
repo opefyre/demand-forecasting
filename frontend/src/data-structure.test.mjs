@@ -6,13 +6,13 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {createServer} from 'vite';
 import postcss from 'postcss';
 
-let server,Collection,ConnectionRecord,SalesFiles,Customers,OrderBooks,OrderRows,LiveSources,FolderInputs,InputConnections,ConnectionRowReview,reviewPayload,appendOrder;
+let server,Collection,ConnectionRecord,SalesFiles,Customers,OrderBooks,OrderRows,OrderReview,OrderTable,LiveSources,FolderInputs,InputConnections,ConnectionRowReview,reviewPayload,appendOrder;
 before(async()=>{
   server=await createServer({server:{middlewareMode:true,hmr:false,watch:null},appType:'custom'});
   ({Collection,ConnectionRecord}=await server.ssrLoadModule('/src/ui-layout.jsx'));
   ({SalesFiles}=await server.ssrLoadModule('/src/sales-files.jsx'));
   ({Customers}=await server.ssrLoadModule('/src/customers.jsx'));
-  ({OrderBooks,OrderRows,appendOrder}=await server.ssrLoadModule('/src/order-books.jsx'));
+  ({OrderBooks,OrderRows,OrderReview,OrderTable,appendOrder}=await server.ssrLoadModule('/src/order-books.jsx'));
   ({LiveSources}=await server.ssrLoadModule('/src/live-sources.jsx'));
   ({FolderInputs}=await server.ssrLoadModule('/src/folder-inputs.jsx'));
   ({InputConnections}=await server.ssrLoadModule('/src/business-connections.jsx'));
@@ -116,6 +116,23 @@ test('the order modal reuses global forms and can hide list-level add/remove con
   const html=renderToStaticMarkup(React.createElement(OrderRows,{inputs,ui,onChange:()=>{},showAdd:false,showRemove:false}));
   assert.match(html,/ui-field-group/);assert.match(html,/ui-grid ui-grid-two/);assert.match(html,/value="15"/);assert.match(html,/value="2026-11-01"/);
   assert.doesNotMatch(html,/Add order|Remove order|class="ui-panel|style=/);
+});
+test('large forecast order books use the same compact table as Data, not one form per order',()=>{
+  const inputs={customers:[{customer:'Customer A',sku:'001',unit:'tonnes'}],orders:Array.from({length:79},(_,i)=>({reference:'Order '+i,customer:'Customer A',sku:'001',unit:'tonnes',due_date:'2026-11-01',ordered:15,fulfilled:2,cancelled:1,status:i%2?'unconfirmed':'confirmed'}))};
+  const html=renderToStaticMarkup(React.createElement(OrderReview,{inputs,ui,onChange:()=>{}}));
+  assert.equal((html.match(/<tbody><tr>|<\/tr><tr>/g)||[]).length,79);
+  for(const label of['Already fulfilled','Cancelled','Status','Unconfirmed','Confirmed','Order 78'])assert.ok(html.includes(label),label);
+  assert.doesNotMatch(html,/<input|ui-field-group|style=/);
+  const readonly=renderToStaticMarkup(React.createElement(OrderTable,{inputs,ui}));
+  assert.doesNotMatch(readonly,/>Edit<|Remove order|<input/);
+});
+test('order edits are explicit and cannot be skipped while preparing the forecast',async()=>{
+  const orders=await readFile(new URL('order-books.jsx',import.meta.url),'utf8');
+  const wizard=await readFile(new URL('forecast-orders.jsx',import.meta.url),'utf8');
+  assert.match(orders,/orders\[index\]=editing.row/);
+  assert.match(orders,/onEditingChange\?\.\(!!editing\)/);
+  assert.match(wizard,/disabled=\{blocked\|\|editingOrder\|\|!checked/);
+  assert.match(wizard,/<OrderReview/);assert.doesNotMatch(wizard,/<OrderRows/);
 });
 test('collection/search/record appearance has one CSS owner and no obsolete tab overrides',async()=>{
   const root=new URL('./',import.meta.url);
