@@ -15,7 +15,7 @@ and [live owner acceptance](CLOUD_OWNER_ACCEPTANCE.md).
 Current API-bridge deployment versions: identity
 `04ea7aa7-943b-4b18-9e4a-46b58ead19e5`, storage
 `5b71f9db-98d6-4bf5-b670-50a0be979ae9`, engine
-`0fcf85be-8aa3-46c8-bf6e-06fc36314f97`; image
+`da414374-732f-478b-a25c-d3ae18250f97`; image
 `sha256:bb84d6cc0a7d2ee07edaaff2390daa1c9fc844beb715f009a6341990d176d45f`.
 Earlier versions below record the preceding backbone checkpoint. The dedicated
 build VM is stopped after testing and its temporary registry login cleared after
@@ -40,7 +40,7 @@ or client-source connection was made during this acceptance slice.
 | Worker `demandlab-forecast-edge` | Owner-only compiled UI and private bindings. Company data requires verified owner and fresh MFA. No signup, outsider or bearer-key access. |
 | Worker `demandlab-forecast-identity` | Private D1 permissions service and serialized administrator coordinator deployed. No routes, workers.dev or preview URL. HTTP always returns 404; private RPC only. |
 | Worker `demandlab-forecast-storage` | Private native SQLite job/revision ledger and company-bound R2 checkpoint/artifact service deployed; private RPC only. |
-| Worker `demandlab-forecast-engine` | Offline, non-root Linux engine with five-minute inactivity policy; private Worker relays only permission-checked, attempt-bound provider requests. No public listener or generic proxy. |
+| Worker `demandlab-forecast-engine` | Offline Linux engine with five-minute durable idle shutdown and native inactivity fallback; private Worker relays only permission-checked, attempt-bound provider requests. No public listener or generic proxy. |
 | D1 `demandlab-forecast-identity` | Dedicated WEUR database, `f0f8d4b4-ff3d-4bcc-90ac-c08ff97b64e7`. Library-generated schema; one verified owner, one company and one MFA session. |
 | `forecast.vrolen.com` | Worker custom domain created; HTTPS and closed app/login/API routes checked. No wildcard route. |
 | R2 `demandlab-forecast-files` | Dedicated Standard bucket with fictional owner-acceptance inputs/results; public r2.dev access disabled. |

@@ -32,7 +32,8 @@ test('cold status does not wake; successful work is durable before it becomes id
   const f=fixture();assert.deepEqual(await f.controller.status(),{running:false,busy:false,idle_timeout_ms:300000});assert.equal(f.events.length,0);
   const result=await f.controller.execute(f.job);
   const started=f.events.find(e=>e[0]==='start')[1];assert.deepEqual(started.instance,{vcpu:0.25,memoryMib:1024,diskMb:4000});assert.equal(started.enableInternet,false);assert.equal(started.env.DEMANDLAB_COMPANY_VAULT_KEY,f.env.COMPANY_VAULT_KEY);
-  assert.ok(f.events.some(e=>e[0]==='idle' && e[1]===300000));assert.equal(f.backup.size,1);assert.equal(f.objects.has(result.artifacts['result.json']),true);assert.equal(f.events.at(-1),'cleanup');assert.equal(f.values.size,0);
+  assert.ok(f.events.some(e=>e[0]==='idle' && e[1]===300000));assert.equal(f.backup.size,1);assert.equal(f.objects.has(result.artifacts['result.json']),true);assert.equal(f.events.at(-1),'cleanup');assert.equal(f.values.has('active'),false);
+  assert.ok(f.values.get('idle_until')>Date.now());assert.equal(f.values.get('alarm'),f.values.get('idle_until'));
   assert.equal((await f.controller.status()).busy,false);assert.equal(f.events.filter(e=>e[0]==='start').length,1);
   await f.controller.execute({...f.job,attempt:'5'.repeat(32),job_id:'6'.repeat(32)}).catch(()=>{});
   assert.equal(f.events.filter(e=>e[0]==='start').length,1,'warm instance reused without a pool');
@@ -65,6 +66,19 @@ test('read-only exports save binary artifacts without a checkpoint or backup rev
 test('alarm preserves bounded active work until its deadline',async()=>{
   const f=fixture();f.ctx.container.running=true;f.values.set('active',{attempt:f.job.attempt,deadline:f.job.deadline});
   await f.controller.alarm();assert.equal(f.ctx.container.running,true);assert.equal(f.values.get('alarm'),f.job.deadline);
+});
+test('status inspection cannot extend durable idle shutdown; alarm never wakes a cold engine',async()=>{
+  const f=fixture();await f.controller.execute(f.job);const idle=f.values.get('idle_until');
+  await f.controller.status();await f.controller.status();assert.equal(f.values.get('idle_until'),idle);
+  await f.controller.alarm();assert.equal(f.ctx.container.running,true);assert.equal(f.values.get('alarm'),idle);
+  f.values.set('idle_until',Date.now()-1);await f.controller.alarm();
+  assert.equal(f.ctx.container.running,false);assert.equal(f.values.size,0);
+  await f.controller.alarm();assert.equal(f.events.filter(e=>e[0]==='start').length,1);
+});
+test('warm constructor preserves an existing idle deadline across DO eviction',async()=>{
+  const f=fixture();f.ctx.container.running=true;const idle=Date.now()+10000;f.values.set('idle_until',idle);
+  new CloudEngineController(f.ctx,f.env);await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(f.values.get('idle_until'),idle);assert.equal(f.values.get('alarm'),idle);
 });
 for(const option of ['badResponse','backupFailure','badSize','startFailure'])test(option+' fails closed, stops compute and never returns a saved result',async()=>{
   const f=fixture({[option]:true});await assert.rejects(f.controller.execute(f.job));assert.equal(f.ctx.container.running,false);assert.equal(f.values.size,0);

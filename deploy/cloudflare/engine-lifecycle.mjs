@@ -8,7 +8,15 @@ export class CloudEngineController {
   constructor(ctx,env,networkOptions={}) {
     this.ctx=ctx; this.env=env;
     this.networkOptions=networkOptions;
-    if (ctx.container?.running) ctx.blockConcurrencyWhile(()=>ctx.container.setInactivityTimeout(SLEEP_MS));
+    if (ctx.container?.running) ctx.blockConcurrencyWhile(async()=>{
+      await ctx.container.setInactivityTimeout(SLEEP_MS);
+      // Platform inactivity starts after the DO becomes inactive, and status
+      // requests can extend it. A durable deadline bounds idle cost independently.
+      if(!await ctx.storage.get('active')) {
+        const idle=await ctx.storage.get('idle_until') || Date.now()+SLEEP_MS;
+        await ctx.storage.put('idle_until',idle);await ctx.storage.setAlarm(idle);
+      }
+    });
   }
   async execute(job) {
     if (this.env.PRIVATE_ACCESS!=='closed' || !COMPANY.test(job.company_id) || !ID.test(job.job_id) || !ID.test(job.attempt) ||
@@ -23,6 +31,7 @@ export class CloudEngineController {
       if (active && active.deadline>Date.now()) throw new Error('Engine is busy');
       if (active && this.ctx.container.running) await this.ctx.container.destroy();
       await this.ctx.storage.put('active',{attempt:job.attempt,deadline:job.deadline});
+      await this.ctx.storage.delete('idle_until');
       await this.ctx.storage.setAlarm(job.deadline);
       if (!this.ctx.container.running) this.ctx.container.start({image:this.ctx.container.images.base,
         instance:{vcpu:0.25,memoryMib:1024,diskMb:4000},enableInternet:false,
@@ -33,7 +42,7 @@ export class CloudEngineController {
       const current=await this.ctx.storage.get('active');
       if(current?.attempt===job.attempt) {
         if(this.ctx.container.running)await this.ctx.container.destroy();
-        await this.ctx.storage.delete('active');await this.ctx.storage.deleteAlarm();
+        await this.ctx.storage.delete('active');await this.ctx.storage.delete('idle_until');await this.ctx.storage.deleteAlarm();
       }
     } });
     if(claimError)throw claimError;
@@ -132,7 +141,13 @@ export class CloudEngineController {
         if(current?.attempt!==job.attempt)return;
         if(completed) { try { await request('/output/'+job.attempt,{method:'DELETE'}); }catch{} }
         else if(this.ctx.container.running)await this.ctx.container.destroy();
-        await this.ctx.storage.delete('active');await this.ctx.storage.deleteAlarm();
+        await this.ctx.storage.delete('active');
+        if(completed && this.ctx.container.running) {
+          const idle=Date.now()+SLEEP_MS;
+          await this.ctx.storage.put('idle_until',idle);await this.ctx.storage.setAlarm(idle);
+        } else {
+          await this.ctx.storage.delete('idle_until');await this.ctx.storage.deleteAlarm();
+        }
       });
     }
   }
@@ -140,8 +155,11 @@ export class CloudEngineController {
     await this.ctx.blockConcurrencyWhile(async()=>{
     const active=await this.ctx.storage.get('active');
     if(active && active.deadline>Date.now()) { await this.ctx.storage.setAlarm(active.deadline);return; }
+    const idle=await this.ctx.storage.get('idle_until');
+    if(!active && idle>Date.now()) { await this.ctx.storage.setAlarm(idle);return; }
     if(this.ctx.container.running)await this.ctx.container.destroy();
     await this.ctx.storage.delete('active');
+    await this.ctx.storage.delete('idle_until');
     await this.ctx.storage.deleteAlarm();
     });
   }

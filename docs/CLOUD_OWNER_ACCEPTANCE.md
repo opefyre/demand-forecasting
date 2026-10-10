@@ -54,7 +54,9 @@ not yet ordered and 3,982.84 tonnes total including fulfilled quantities.
 
 Run `19ade25fd9d6`, order snapshot `78fcdfbc0a98e3df628b3cc344484c2a`.
 The real CSV download completed with 108 customer/product/month rows plus its
-header. It includes separate baseline, booked, fulfilled, remaining and total
+header. CSV sums match the dashboard: booked 2,099.36, fulfilled 45.71,
+remaining 1,837.77 and total 3,982.84 tonnes. It includes separate baseline,
+booked, fulfilled, remaining and total
 columns, units, calendar, period boundaries and draft status. Aftab Printing has
 positive calculated demand despite zero confirmed orders. The default export
 excludes confirmed orders for receiving systems that already hold them; it is
@@ -62,6 +64,24 @@ not an approved planning release. Sustained idle shutdown and a second cold wake
 still need recorded live evidence. No additional source or
 AI calls are enabled. No forecast was approved for real operational planning.
 The separate port-8010 demo health remains 200 and its data is unchanged.
+
+### Idle-cost issue found and repaired
+
+The initial native inactivity setting did not produce a five-minute wall-clock
+shutdown during status inspection. Cloudflare's timer starts after the Durable
+Object becomes inactive, and another request can extend it; see its
+[native lifecycle API](https://developers.cloudflare.com/containers/api/durable-object-container/#setinactivitytimeout).
+Completed work now records a separate `idle_until` deadline and native durable
+alarm, five minutes after completion. Status checks cannot change that deadline.
+New work supersedes the idle alarm with its bounded active-work deadline; stale
+alarms preserve a current active attempt. The platform timer remains a fallback.
+The constructor preserves the recorded deadline after an object restart and
+initializes it for an already-running pre-migration idle instance.
+
+Only the engine controller was redeployed, version
+`da414374-732f-478b-a25c-d3ae18250f97`, using the exact existing numerical image.
+No Docker VM was started, image rebuilt, data migrated or other service edited.
+Actual corrected idle shutdown/cold export verification is still in progress.
 
 ## Tests and deployment
 
@@ -71,11 +91,13 @@ The separate port-8010 demo health remains 200 and its data is unchanged.
   bad-code denial, proof expiry, CSRF, single-owner bootstrap and outsider denial.
 - Native compiled identity Worker: two checks pass, including OAuth state cookies
   across private RPC and the exact Google callback URL.
-- Cloud controllers/gateway: 37 checks pass.
+- Cloud controllers/gateway: 39 checks pass, including non-extending idle status,
+  active-work protection and preserved deadlines after object eviction.
 - Interface suite: all 269 checks pass, including uploaded-order coverage wording.
 - Identity version: `04ea7aa7-943b-4b18-9e4a-46b58ead19e5`.
 - Edge version: `9cde9cf8-cd42-4c1a-a30f-d45361a93b26`.
-- Storage and numerical image are unchanged from CLOUD_WORKFLOWS_DELIVERY.md.
+- Storage and numerical image are unchanged from CLOUD_WORKFLOWS_DELIVERY.md;
+  the controller-only engine version is recorded above.
 
 ## Remaining gates
 
