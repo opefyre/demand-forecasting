@@ -86,7 +86,7 @@ test('real factor scenario card requires confirmation and preserves source geogr
   await locale.changeInterfaceLanguage('fa');
   const html=render(AssistantFactorScenario,{action,canEdit:true});
   assert.ok(html.includes('مقایسهٔ فرضی'));assert.ok(html.includes('فرض شما'));
-  for(const value of ['Home · 0001','Ridge + drivers','Iran · Tehran','2026-10','1000000'])assert.ok(html.includes(value),value);
+  for(const value of ['Home · 0001',locale.t('Linear model + factors'),'Iran · Tehran','2026-10',new Intl.NumberFormat('fa').format(1000000)])assert.ok(html.includes(value),value);
   assert.match(html,/<button disabled=""/); // not yet reviewed, even for planner
   const reader=render(AssistantFactorScenario,{action,canEdit:false});
   assert.match(reader,/<input[^>]*type="checkbox"[^>]*disabled=""/);

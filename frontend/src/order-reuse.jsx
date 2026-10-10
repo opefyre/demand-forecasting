@@ -1,7 +1,7 @@
 import {t as uiText,unitLabel,i18n} from './localization.mjs';
 import React,{useEffect,useRef,useState} from 'react';
 import {planningMonth} from './planning-calendar.mjs';
-import {Stack,Actions,DefinitionList,Disclosure} from './ui-layout.jsx';
+import {Stack,Actions,DefinitionList,Disclosure,Panel} from './ui-layout.jsx';
 
 const number=value=>value==null?uiText('Not present'):new Intl.NumberFormat(i18n.language,{maximumFractionDigits:2}).format(value);
 export function orderSourceOptions(choices) {
@@ -57,21 +57,13 @@ export function OrderReuse({runId,api,ui,onSaved}) {
 }
 
 export function AssistantSavedOrders({action,result,expired,busy,canEdit,onConfirm,onOpen,ui}){
-  const {Button,Table}=ui,[confirmed,setConfirmed]=useState(false),report=action.preview;
-  const number=value=>value==null?'Unknown':new Intl.NumberFormat('en',{maximumFractionDigits:2}).format(value);
-  return <div className="ai-proposal">
-    <h3>{uiText("Use these saved orders?")}</h3>
-    <p>{report.source_name}{' '}{uiText("· All")}{' '}{report.customer_count}{' '}{uiText("customers ·")}{' '}{report.order_count}{' '}{uiText("order lines ·")}{' '}{report.unit}</p>
-    <p className="table-note">{uiText("Orders as of")}{' '}{report.as_of}{uiText(". Review expires")}{' '}{report.valid_until}{uiText(". Reusing orders does not refresh them.")}</p>
-    <div className="order-comparison-table"><Table headers={[uiText("Month"),uiText("Open orders"),uiText("Still expected"),uiText("Total demand")]}>
-      {report.months.map(row=><tr key={row.period}><td>{planningMonth(row.period,report.month_basis)}{row.added&&<small>{uiText("Added month")}</small>}</td><td>{number(row.booked)}</td><td>{number(row.remaining)}</td><td>{number(row.total)}</td></tr>)}
-    </Table></div>
-    {!!report.warnings.length&&<details open><summary>{uiText("Checks to review")}</summary><ul>{report.warnings.map((w,i)=><li key={i}>{w}</li>)}</ul></details>}
-    {!!report.outside_open_orders.length&&<details open><summary>{report.outside_open_orders.length}{' '}{uiText("open orders outside this forecast")}</summary><ul>{report.outside_open_orders.map(row=><li key={row.reference}>{row.reference} · {planningMonth(row.period,report.month_basis)} · {number(row.quantity)} {report.unit}</li>)}</ul></details>}
-    <p className="table-note">{uiText("Orders use up the forecast, not add to it twice. Customers without orders keep their calculated demand. Exports exclude delivered quantities.")}</p>
-    {result?.snapshot_id?<><p role="status">{uiText("Separate demand draft saved. Original orders unchanged.")}</p><Button onClick={onOpen}>{uiText("Open demand forecast")}</Button></>:expired?<p>{uiText("This proposal expired. Ask again to refresh it.")}</p>:<>
-      <label className="order-comparison-approval"><input type="checkbox" checked={confirmed} disabled={busy||!canEdit||!report.can_save} onChange={e=>setConfirmed(e.target.checked)}/>{uiText("I reviewed all displayed months and any excluded orders. This order book includes all known orders.")}</label>
-      <Button kind="primary" disabled={!confirmed||busy||!canEdit||!report.can_save} onClick={onConfirm}>{busy?uiText("Saving…"):uiText("Confirm & save demand draft")}</Button>
+  const {Button}=ui,[confirmed,setConfirmed]=useState(false),report=action.preview;
+  return <Panel title={uiText("Use these saved orders?")}>
+    <strong>{report.source_name}</strong>
+    <OrderReuseReport report={report} ui={ui}/>
+    {result?.snapshot_id?<><p role="status">{uiText("Separate demand draft saved. Original orders unchanged.")}</p><Actions><Button disabled={busy} onClick={onOpen}>{uiText("Open demand forecast")}</Button></Actions></>:expired?<p role="status">{uiText("This proposal expired. Ask again to refresh it.")}</p>:<>
+      <label className="ui-check"><input type="checkbox" checked={confirmed} disabled={busy||!canEdit||!report.can_save} onChange={e=>setConfirmed(e.target.checked)}/>{uiText("I reviewed all displayed months and any excluded orders. This order book includes all known orders.")}</label>
+      <Actions><Button kind="primary" disabled={!confirmed||busy||!canEdit||!report.can_save} onClick={onConfirm}>{busy?uiText("Saving…"):uiText("Confirm & save demand draft")}</Button></Actions>
     </>}
-  </div>;
+  </Panel>;
 }

@@ -5,3 +5,12 @@ export const chartTheme=Object.freeze({
   ticks:Object.freeze({className:'chart-tick'}),
   dot:Object.freeze({r:3}),
 });
+
+// Use the full saved group index, never the currently visible subset. Toggling
+// a method must not change another method's paint or line pattern.
+export function comparisonLine(index) {
+  const slot=(index%5)+1;
+  return {stroke:`var(--chart-method-${slot})`,
+    strokeDasharray:`var(--chart-method-dash-${(Math.floor(index/5)+index)%5+1})`,
+    strokeWidth:'var(--chart-line-width)'};
+}

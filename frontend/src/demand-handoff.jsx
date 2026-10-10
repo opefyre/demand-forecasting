@@ -2,7 +2,7 @@ import {apiLink} from './company-api.mjs';
 import {t as uiText,unitLabel,i18n} from './localization.mjs';
 import {useSmoothState} from './ui-motion.jsx';
 import React,{useEffect,useRef,useState} from 'react';
-import {releaseModes,releaseLabel,releaseDownload,releaseReady} from './demand-release-state.mjs';
+import {releaseModes,releaseLabel,releaseDownload,releaseReady,releaseRequest} from './demand-release-state.mjs';
 import {Stack,Actions,Grid,DefinitionList,Disclosure,PageTabs,FieldGroup} from './ui-layout.jsx';
 
 const number=v=>new Intl.NumberFormat(i18n.language,{maximumFractionDigits:2}).format(v);
@@ -18,7 +18,7 @@ export function DemandHandoff({open,onClose,snapshotId,runId,outlook,canEdit,api
   async function load(){const data=await api('/api/sales/releases?run_id='+encodeURIComponent(runId));setItems(data.releases);}
   async function detail(id){setRecord(await api('/api/sales/releases/'+id));setApproved(false);setPage(0);}
   useEffect(()=>{if(open){setTab(releaseId?'planning':'draft');setReport(null);setRecord(null);setApproved(false);setError('');setPage(0);attempt.current=null;act(releaseId?()=>detail(releaseId):load);}},[open,snapshotId,runId,releaseId]);
-  const body=()=>({snapshot_id:snapshotId,receiver:receiver.trim(),mode});
+  const body=()=>releaseRequest(snapshotId,receiver,mode,attempt);
   function change(fn){fn();setReport(null);setApproved(false);setPage(0);attempt.current=null;}
   const months=record?.report.months||report?.months||[];
   const rows=record?.outlook.rows||outlook?.rows||[];
@@ -60,7 +60,7 @@ export function DemandHandoff({open,onClose,snapshotId,runId,outlook,canEdit,api
         <DefinitionList rows={[[uiText('Customers'),number(report.customers)],[uiText('Customer/product/month rows'),number(report.rows)]]}/>
         <label className="ui-check"><input type="checkbox" disabled={busy} checked={approved} onChange={e=>setApproved(e.target.checked)}/>{uiText("I reviewed all customers, products, months and the receiving-system policy.")}</label>
         <Actions><Button kind="primary" disabled={busy||!approved||!releaseReady(receiver,report,mode)} onClick={()=>act(async()=>{
-          attempt.current ||= crypto.randomUUID();const saved=await api('/api/sales/releases',{...body(),reviewed:true,review_token:report.review_token,request_id:attempt.current});await load();await detail(saved.id);
+          const saved=await api('/api/sales/releases',{...body(),reviewed:true,review_token:report.review_token});await load();await detail(saved.id);
         })}>{uiText("Submit for review")}</Button></Actions>
       </>}
       {record?.can_approve&&<>
@@ -73,7 +73,7 @@ export function DemandHandoff({open,onClose,snapshotId,runId,outlook,canEdit,api
       {record?.can_export&&<Actions>{['xlsx','csv','json'].map(kind=><a key={kind} className={'btn '+(kind==='xlsx'?'primary':'secondary')} href={apiLink(releaseDownload(record,kind))}>{kind==='xlsx'?uiText("Download approved Excel"):kind.toUpperCase()}</a>)}</Actions>}
       {record&&!releaseId&&<Button kind="ghost" disabled={busy} onClick={()=>{setRecord(null);setReport(null);setApproved(false);attempt.current=null;}}>{uiText("Back to releases")}</Button>}
       {!!items.length&&<Disclosure title={uiText('Saved releases ({{count}})',{count:number(items.length)})}><Help text={uiText("Approved quantities are fixed. Newer orders, expired inputs or a replacement approval block old planning downloads.")}/><Table headers={[uiText("Receiver"),uiText("Version"),uiText("Status"),'']}>
-        {items.map(r=><tr key={r.id}><td>{r.contract.receiver}</td><td>{r.version}</td><td>{uiText(releaseLabel(r))}</td><td><Button disabled={busy} onClick={()=>act(()=>detail(r.id))}>{uiText("Review")}</Button></td></tr>)}
+        {items.map(r=><tr key={r.id}><td>{r.contract.receiver}</td><td>{number(r.version)}</td><td>{uiText(releaseLabel(r))}</td><td><Button disabled={busy} onClick={()=>act(()=>detail(r.id))}>{uiText("Review")}</Button></td></tr>)}
       </Table></Disclosure>}
     </>}
     </Stack>

@@ -2694,13 +2694,6 @@ input[type="checkbox"] {
 .factor-import-steps b { font-weight:var(--weight-0604cd31); }
 .factor-import-steps [aria-current] { color:var(--color-a685aa00); }
 .factor-import-steps [aria-current]>span { background:var(--color-text); color:var(--color-018fa96a); }
-.order-comparison-approval { display: flex; align-items: flex-start; gap: var(--space-2); margin: var(--space-0684071d); }
-.order-comparison-approval input { flex: 0 0 auto; margin: var(--space-0274a73d); }
-.order-comparison-filters { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-3); margin: var(--space-0684071d); }
-.order-comparison-table th, .order-comparison-table td { padding: var(--space-bb31fcf3); }
-.order-comparison-table th { white-space: normal; }
-.order-comparison-table td:first-child { min-width: var(--layout-686f5c06); white-space: nowrap; }
-@media (max-width: 480px) { .order-comparison-filters { grid-template-columns: minmax(0,1fr); } }
 .public-factor-content { display:grid; gap:var(--space-5); margin-top:var(--space-5); }
 .public-factor-content > .surface { padding:0; box-shadow:none; }
 .factor-evaluation { min-width:0; }

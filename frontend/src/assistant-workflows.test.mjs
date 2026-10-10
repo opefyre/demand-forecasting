@@ -20,7 +20,7 @@ test('formatting card shows quoted spaces and cannot save before review',()=>{
   const html=renderToStaticMarkup(React.createElement(Correction,{action,ui,canEdit:true}));
   assert.match(html,/&quot; A &quot;/);assert.match(html,/&quot;A&quot;/);
   assert.match(html,/<button disabled=""/);assert.match(html,/type="checkbox"/);
-  assert.match(html,/21 → 21 tonnes/);assert.match(html,/Original files, orders and forecasts stay unchanged/);
+  assert.match(html,/<bdi>21 → 21<\/bdi> Tonnes/);assert.match(html,/Original files, orders and forecasts stay unchanged/);
 });
 test('saved and expired correction cards cannot replay a save',()=>{
   const action={changes:[],warnings:[]};

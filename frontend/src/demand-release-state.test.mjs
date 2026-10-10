@@ -1,6 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {releaseLabel,releaseDownload,releaseReady,visibleReleases} from './demand-release-state.mjs';
+import {releaseLabel,releaseDownload,releaseReady,visibleReleases,releaseRequest} from './demand-release-state.mjs';
+test('planning preview and submit share a request ID; changing inputs starts a new attempt',()=>{
+  const attempt={current:null};
+  const preview=releaseRequest('a'.repeat(32),' ERP ','remaining_forecast',attempt);
+  assert.match(preview.request_id,/^[a-f0-9-]{36}$/);
+  assert.equal(preview.receiver,'ERP');
+  assert.deepEqual(releaseRequest('a'.repeat(32),'ERP','remaining_forecast',attempt),preview);
+  attempt.current=null;
+  assert.notEqual(releaseRequest('a'.repeat(32),'ERP','combined_demand',attempt).request_id,preview.request_id);
+});
 test('review inbox separates company demand from local demonstrations',()=>{
   const rows=[{id:'company',demo_only:false},{id:'demo',demo_only:true}];
   assert.deepEqual(visibleReleases(rows),[rows[0]]);

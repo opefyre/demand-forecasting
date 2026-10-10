@@ -669,6 +669,13 @@ after the core release, only if they improve this single forecasting purpose.
 
 ## Current position and preservation
 
+10 October shared-order follow-up: proposal/order-comparison surfaces and Approvals
+now reuse the global framework. Stable method colours/patterns and a missing
+planning-preview request ID are fixed. The local bilingual mobile journey through
+independent approval/export passes; see SHARED_ORDER_REVIEW.md. Next: consolidate
+legacy standalone order updates and advanced factor workflows, then measure cloud
+review/calculation latency. This does not certify every screen or client accuracy.
+
 10 October grouped monthly follow-up: new monthly updates and newly configured
 schedules reuse the grouped forecast wizard, review current customers/orders and
 factors before calculating, preserve originals and resume retries. Shared

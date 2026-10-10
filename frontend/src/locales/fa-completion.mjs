@@ -1,5 +1,17 @@
 // Authored interface copy only. Source names, IDs, values and original evidence stay intact.
 export const faCompletion={
+ 'Compare available methods':'مقایسهٔ روش‌های موجود',
+ 'Demand comparison':'مقایسهٔ تقاضا',
+ 'Compare with orders':'مقایسه با سفارش‌ها',
+ 'Loading saved orders…':'در حال دریافت سفارش‌های ذخیره‌شده…',
+ 'Comparison customer':'مشتری برای مقایسه',
+ 'Comparison SKU':'محصول برای مقایسه',
+ 'No matching customers and SKUs.':'مشتری و محصول مطابق پیدا نشد.',
+ 'Save customers and orders on the baseline first, then compare them here.':'ابتدا مشتریان و سفارش‌های پیش‌بینی اصلی را ذخیره کنید، سپس اینجا مقایسه کنید.',
+ 'Total = delivered + open orders + remaining expectation. Exports exclude quantities already delivered.':'جمع تقاضا = تحویل‌شده + سفارش باز + تقاضای هنوز سفارش‌نشده. خروجی، مقدار تحویل‌شده را شامل نمی‌شود.',
+ 'I reviewed the scenario for all customers and SKUs. Save a separate draft; keep the original unchanged.':'سناریوی همهٔ مشتریان و محصولات را بررسی کردم. پیش‌نویس جداگانه ذخیره شود و نسخهٔ اصلی تغییر نکند.',
+ 'Separate draft saved. Publication approval was not copied.':'پیش‌نویس جداگانه ذخیره شد. تأیید انتشار به آن منتقل نشده است.',
+ 'Save scenario draft':'ذخیرهٔ پیش‌نویس سناریو',
  'Future assumptions':'فرض‌های آینده',
  'No monthly drafts yet':'هنوز پیش‌نویس ماهانه‌ای وجود ندارد',
  'Check monthly draft for {{name}}':'بررسی پیش‌نویس ماهانهٔ {{name}}',

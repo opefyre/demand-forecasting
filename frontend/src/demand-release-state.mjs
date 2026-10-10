@@ -1,4 +1,8 @@
 export const releaseModes=[['remaining_forecast','Yes — exclude orders'],['combined_demand','No — include orders']];
+export function releaseRequest(snapshotId,receiver,mode,attempt){
+  attempt.current ||= crypto.randomUUID();
+  return {snapshot_id:snapshotId,receiver:receiver.trim(),mode,request_id:attempt.current};
+}
 export function visibleReleases(items,includeSamples=false){
   return items.filter(r=>includeSamples||!r.demo_only);
 }

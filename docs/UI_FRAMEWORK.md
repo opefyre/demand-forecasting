@@ -100,3 +100,14 @@ Included-factor summaries use PanelHeader, DefinitionList and Disclosure; no
 appearance rules or authored inline styles were added. Desktop and 390px mobile
 dialog sizes, internal scrolling, EN/Farsi and RTL were checked in Chrome.
 See GROUPED_MONTHLY_FORECASTS.md for exact tests and remaining migration boundaries.
+
+## Shared order/proposal review — 10 October
+
+Assistant forecast/factor/order/input proposals now consume Panel, Stack,
+DefinitionList, Disclosure, Table, checkbox and Actions. Order-reuse and comparison
+receipts are shared between assistant and dialogs. Approvals uses Collection.
+Obsolete competing rules were removed, not replaced with new page overrides.
+Chart method colours/patterns are centrally owned by tokens.css/chart-theme.mjs.
+English/Farsi mobile review, independent approval, exports and revision navigation
+were verified. See SHARED_ORDER_REVIEW.md for precise scope; the older standalone
+order-update screen still needs workflow/layout consolidation.

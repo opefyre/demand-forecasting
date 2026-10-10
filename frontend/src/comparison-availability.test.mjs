@@ -15,7 +15,7 @@ test('comparison explains missing inputs, labels unknown table cells and draws o
  assert.match(source,/onClick=\{onReviewCoverage\}/);
  assert.match(source,/\? uiText\("Unknown"\)/);
  assert.match(source,/connectNulls=\{false\}/);
- assert.match(source,/dot=\{rows.length===1\}/);
+ assert.match(source,/dot=\{chartTheme.dot\}/);
  const dashboard=await readFile(new URL('sales-demand.jsx',import.meta.url),'utf8');
  assert.match(dashboard,/dot=\{chart.length===1\}/);
 });

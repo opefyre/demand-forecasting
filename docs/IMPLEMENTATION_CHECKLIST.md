@@ -1,5 +1,17 @@
 # DemandLab — implementation and acceptance checklist
 
+## 10 October — shared order/proposal review
+
+- [x] Remaining assistant proposal and order-comparison presentation migrated to
+  global components; obsolete overrides removed. Shared Approvals collection.
+- [x] Stable method colours/patterns, missing-value preservation, localized counts
+  and quantities. Fixed planning preview request ID; immutable review retained.
+- [x] Bilingual mobile result → review → independent approval → export acceptance
+  on disposable company data; revision navigation checked. 312 interface / 48
+  focused backend / 53 cloud tests pass. See SHARED_ORDER_REVIEW.md.
+- [ ] Consolidate legacy standalone order updates and advanced factor batch/scenario
+  calculations into the reviewed grouped workflow; measure cloud latency.
+
 ## 10 October — grouped monthly workflow
 
 - [x] New monthly updates and newly configured schedules reuse the grouped wizard.
@@ -7,8 +19,8 @@
   remain one named forecast. Existing legacy sessions/schedules preserved.
 - [x] Shared styles, isolated drafts/imports, retry recovery, EN/Farsi and 390px
   schedule-dialog checks. See GROUPED_MONTHLY_FORECASTS.md for evidence/boundaries.
-- [ ] Remaining assistant proposal/order-comparison/revision-screen migration and
-  complete bilingual mobile approval/export journey.
+- [x] Remaining proposal/order-comparison presentation, revision navigation and
+  bilingual mobile approval/export checks; see SHARED_ORDER_REVIEW.md for limits.
 
 ## 9 October — public platform expansion (in progress)
 

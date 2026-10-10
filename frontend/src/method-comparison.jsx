@@ -13,7 +13,7 @@ import { FORECAST_CHOICES } from "./forecast-start.mjs";
 import { methodRows,comparisonAvailability } from "./forecast-groups.mjs";
 import { planningBasis, planningMonth } from "./planning-calendar.mjs";
 import { coverageStatus } from "./demand-view.mjs";
-import { chartTheme } from "./chart-theme.mjs";
+import { chartTheme, comparisonLine } from "./chart-theme.mjs";
 import { Stack, Actions } from "./ui-layout.jsx";
 export const methodName = (id) =>
   uiText(
@@ -89,7 +89,7 @@ export function MethodComparison({
       [
         uiText("Month"),
         ...visible.map(
-          (r) => methodName(r.method_selection) + " (" + r.unit + ")",
+          (r) => methodName(r.method_selection) + " (" + unitLabel(r.unit) + ")",
         ),
       ],
       ...rows.map((row) => [
@@ -159,6 +159,8 @@ export function MethodComparison({
                         dataKey="period"
                         tick={chartTheme.ticks}
                         tickFormatter={(v) => planningMonth(v, basis)}
+                        minTickGap={30}
+                        interval="preserveStartEnd"
                       />
                       <YAxis tick={chartTheme.ticks} />
                       <Tooltip
@@ -166,14 +168,13 @@ export function MethodComparison({
                         formatter={(v,name)=>[new Intl.NumberFormat(i18n.language,{maximumFractionDigits:2}).format(v)+' '+unitLabel(activeRun.unit),name]}
                       />
                       <Legend />
-                      {visible.map((r, i) => (
+                      {visible.map((r) => (
                         <Line
                           key={r.run_id}
                           dataKey={r.run_id}
                           name={methodName(r.method_selection)}
-                          stroke={"var(--chart-method-" + ((i % 5) + 1) + ")"}
-                          strokeDasharray={i < 5 ? undefined : "6 4"}
-                          dot={rows.length===1}
+                          {...comparisonLine(entries.findIndex(entry=>entry.run_id===r.run_id))}
+                          dot={chartTheme.dot}
                           connectNulls={false}
                         />
                       ))}

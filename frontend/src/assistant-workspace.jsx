@@ -1,5 +1,5 @@
 import {localState} from './workspace-storage.mjs';
-import { t as uiText } from "./localization.mjs";
+import { t as uiText,i18n } from "./localization.mjs";
 import { smoothUpdate, useSmoothState } from "./ui-motion.jsx";
 import React, { useEffect, useState, useRef } from "react";
 import {
@@ -35,6 +35,7 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { canShare, recipient } from "./ai-sharing.mjs";
 import {apiLink} from './company-api.mjs';
+import {Panel,Disclosure} from './ui-layout.jsx';
 
 export function AssistantWorkspace({
   api,
@@ -1021,8 +1022,7 @@ export function AssistantMessages({
               );
             if (action.kind === "monthly_update")
               return (
-                <div className="ai-proposal" key={index}>
-                  <h3>{uiText("Update your monthly forecast")}</h3>
+                <Panel title={uiText("Update your monthly forecast")} key={index}>
                   <p>
                     {uiText(
                       "Review sales history, factors, current orders and changes. Existing results stay unchanged.",
@@ -1045,12 +1045,11 @@ export function AssistantMessages({
                         : uiText("Start forecast update")}
                     </Button>
                   )}
-                </div>
+                </Panel>
               );
             if (action.kind === "history_refresh")
               return (
-                <div className="ai-proposal" key={index}>
-                  <h3>{uiText("Update sales history")}</h3>
+                <Panel title={uiText("Update sales history")} key={index}>
                   <p>
                     {uiText(
                       "Upload complete updated history, then review what changed. Orders and existing forecasts stay unchanged.",
@@ -1067,7 +1066,7 @@ export function AssistantMessages({
                       {uiText("Open history upload")}
                     </Button>
                   )}
-                </div>
+                </Panel>
               );
             if (action.kind === "order_scenario")
               return (
@@ -1116,8 +1115,7 @@ export function AssistantMessages({
               );
             if (action.kind === "factor_batch_review")
               return (
-                <section className="ai-proposal" key={index}>
-                  <h3>{uiText("Review customer/product factors")}</h3>
+                <Panel title={uiText("Review customer/product factors")} key={index}>
                   <p>
                     {action.scope
                       .map((s) => s.customer + " · " + s.sku)
@@ -1134,24 +1132,22 @@ export function AssistantMessages({
                       {uiText("Review batch")}
                     </Button>
                   )}
-                </section>
+                </Panel>
               );
             if (action.kind === "factor_preparation")
               return (
-                <section className="ai-proposal" key={index}>
-                  <h3>{uiText("Review forecast factors")}</h3>
+                <Panel title={uiText("Review forecast factors")} key={index}>
                   <p>
                     {action.profile.customer} · {action.profile.target_sku} ·{" "}
                     {action.profile.target_unit}
                   </p>
-                  <details className="help-details">
-                    <summary>{uiText("Source checks")}</summary>
+                  <Disclosure title={uiText("Source checks")}>
                     {action.sources.map((s, i) => (
                       <p key={i}>
                         <strong>{s.name}</strong> — {s.note}
                       </p>
                     ))}
-                  </details>
+                  </Disclosure>
                   {turn.actions_expired ? (
                     <p>{uiText("This proposal expired. Ask again.")}</p>
                   ) : (
@@ -1163,16 +1159,13 @@ export function AssistantMessages({
                       {uiText("Review sources")}
                     </Button>
                   )}
-                </section>
+                </Panel>
               );
             if (action.kind === "order_import")
               return (
-                <div className="ai-proposal" key={index}>
-                  <h3>
-                    {action.snapshot_id
+                <Panel key={index} title={action.snapshot_id
                       ? uiText("Update customer orders")
-                      : uiText("Add customer orders")}
-                  </h3>
+                      : uiText("Add customer orders")}>
                   <p>
                     {uiText(
                       "Choose a file, match its columns, then review demand. Nothing is saved until you confirm.",
@@ -1195,25 +1188,22 @@ export function AssistantMessages({
                         : uiText("Open order upload")}
                     </Button>
                   )}
-                </div>
+                </Panel>
               );
             return (
-              <div className="ai-proposal" key={index}>
-                <h3>
-                  {action.kind === "forecast"
+              <Panel key={index} title={action.kind === "forecast"
                     ? uiText("Review forecast inputs")
-                    : uiText("Prepare this export?")}
-                </h3>
+                    : uiText("Prepare this export?")}>
                 <p>
                   {action.kind === "forecast"
                     ? [
-                        action.customer || "All customers",
-                        action.months + " months",
+                        action.customer || uiText("All customers"),
+                        new Intl.NumberFormat(i18n.language).format(action.months) + ' ' + uiText("months"),
                         action.method === "recommended"
-                          ? "Compare available methods"
+                          ? uiText("Compare available methods")
                           : action.method.replace(/^model:/, ""),
                       ].join(" · ")
-                    : "All customers · " +
+                    : uiText("All customers") + " · " +
                       (action.mode === "remaining_forecast"
                         ? uiText("Expected demand only")
                         : uiText("Orders + expected demand")) +
@@ -1247,7 +1237,7 @@ export function AssistantMessages({
                         : uiText("Confirm export")}
                   </Button>
                 )}
-              </div>
+              </Panel>
             );
           })}
         </div>
