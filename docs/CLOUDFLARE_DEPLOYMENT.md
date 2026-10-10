@@ -19,11 +19,13 @@ The local demo remains independent at `http://127.0.0.1:8010`.
 | Resource | State |
 | --- | --- |
 | Worker `demandlab-forecast-edge` | New isolated domain hold. Every route returns HTTP 503; no backend, assets, credentials, cron or storage bindings. |
+| Worker `demandlab-forecast-identity` | Private identity foundation deployed. No routes, workers.dev or preview URL. HTTP always returns 404; only private readiness RPC exists. |
+| D1 `demandlab-forecast-identity` | New WEUR database, `f0f8d4b4-ff3d-4bcc-90ac-c08ff97b64e7`. Library-generated schema applied; zero users, companies and sessions. |
 | `forecast.vrolen.com` | Worker custom domain created; HTTPS and closed app/login/API routes checked. No wildcard route. |
 | R2 `demandlab-forecast-files` | New empty Standard bucket, Western Europe location hint; public r2.dev access disabled. |
 | R2 `demandlab-forecast-backups` | New empty Standard bucket, Western Europe location hint; public r2.dev access disabled. |
-| Google client `Vrolen Forecast` | Separate Web client created with only the forecast origin and callback. Existing `Vrolen` client preserved. Replacement securely saved, exposed secret disabled; not yet connected to app. |
-| Resend `forecast.vrolen.com` | Separate domain added in Ireland without an upgrade. DNS and domain verified; enforced TLS enabled for this domain only. Receiving disabled. |
+| Google client `Vrolen Forecast` | Separate Web client with only the forecast origin/callback. Replacement installed as a private identity Worker secret; exposed predecessor disabled. Login remains inaccessible and real sign-in untested. |
+| Resend `forecast.vrolen.com` | Separate verified Ireland domain, TLS required and receiving disabled. Restricted key installed in the private identity Worker; real mail delivery untested. |
 
 The edge configuration is [wrangler.jsonc](../deploy/cloudflare/wrangler.jsonc).
 It disables workers.dev, preview URLs and observability payloads, limits CPU to
@@ -53,7 +55,8 @@ into the ignored `secrets/` folder with mode 0600, and is quarantined as
 On 2026-10-10 the owner added a replacement secret. Its Google JSON download was
 moved to ignored `secrets/forecast-google-oauth.json` with mode 0600; the Downloads
 copy is gone. Client identity and replacement match were verified without
-printing the secret. The replacement has not yet been deployed or used by the app.
+printing the secret. The replacement is now installed in the private identity Worker
+only. It has not been used for real sign-in; the public callback remains closed.
 
 The owner disabled the older exposed secret on 2026-10-10. The Google client
 page confirms the older secret is **Disabled** and the replacement is **Enabled**.
@@ -90,11 +93,12 @@ was created with **Sending access** restricted to **forecast.vrolen.com**. Its
 one-time value was saved directly to ignored `secrets/forecast-resend-api.txt`
 with mode 0600, without displaying it in chat or tool output. The copied value
 was cleared from the clipboard. Final key-detail metadata confirms the domain
-and permission; existing Finkavo keys were not changed. The new key has not yet
-been installed in Cloudflare or used to send mail.
+and permission; existing Finkavo keys were not changed. The new key is now a
+Cloudflare secret on the private identity Worker only; no real mail was sent.
 
-After domain verification and key storage: wire it using the existing maintained
-mailer/provider solution, send one setup test to the owner, and verify actual
+The maintained Resend SDK is wired with owner-only recipients while private,
+fixed sender, hashed request idempotency and safe errors. Next, send one setup
+test to the owner and verify actual
 verification/reset mail and delivery failures. DNS verification alone is not a
 mail-delivery test. Credentials must use Cloudflare secrets, never public Worker vars.
 
@@ -133,12 +137,16 @@ No container has been deployed or started in this milestone.
    records/jobs to D1/Durable Objects/Queues as appropriate and files to private
    R2; keep company/role checks, immutable revisions and order calculations intact.
    R2 FUSE is not a safe live SQLite WAL replacement. An upload on shutdown alone
-   does not protect against crashes. No unused D1 database has been created.
+   does not protect against crashes. The new identity D1 database does not yet
+   contain business records or durable forecasting jobs.
 2. **Identity portability:** Better Auth is maintained, but this implementation
    uses PostgreSQL and PostgreSQL-specific policy/migration SQL. Cloudflare D1
-   is not a drop-in PostgreSQL server. Adapt the supported auth adapter and custom
-   policy storage, then re-run real role, MFA, invitation, key and company-isolation
-   tests. Do not deploy an ephemeral PostgreSQL container.
+   is not a drop-in PostgreSQL server. Shared auth configuration, the maintained
+   native D1 adapter and company/role/session/MFA/key resolution are implemented
+   and tested. Remaining: concurrent administrator operations, last-admin protection,
+   invitation management, recurring grants and their private bridge. Registration is
+   deliberately denied even for the owner; there is no production bootstrap route.
+   Do not deploy an ephemeral PostgreSQL container.
 3. **Portable integration vault:** macOS Keychain does not exist in Linux
    containers. Use maintained encryption/secret storage and recovery, preserving
    company-separated access. R2 credentials and raw connector secrets are never
@@ -167,4 +175,37 @@ still applies. Creating infrastructure does not resolve that gate.
 - Resend domain verified and enforced-TLS setting confirmed; real mail delivery untested.
 - New Google credential origin/callback/project checked without printing its value.
 - Local demo health remained OK; its existing process and configuration preserved.
-- This is not evidence that containers, D1, real sign-in or mail delivery work yet.
+- D1 schema migration applied to the new identity database only. Read-only remote
+  count confirmed zero users, companies and sessions; no client/demo data uploaded.
+- Shared identity suite: 18 passed, two optional tests skipped. The separately
+  built native-Worker suite passed both checks, including closed HTTP routes and
+  private readiness RPC against generated native D1 schema. One of those checks
+  overlaps the unit suite. Schema drift/type checks passed.
+- 41 focused Python deployment/security/access checks passed. Existing FastAPI
+  deprecation/resource warnings remain; no full production acceptance is claimed.
+- Cloudflare API confirms workers.dev and preview URLs disabled on both new
+  Workers. Identity deployment has no targets; active version after secret setup:
+  `4bcbb273-c57d-4a37-ad29-db3aa208af20`.
+- Credential names confirmed without values. Dedicated production auth secret is
+  generated once in ignored `secrets/forecast-auth-secret.txt` (0600), not reused
+  from local auth. Installer accepts only the approved closed Worker/config.
+- No public app/auth/API route is activated. This is not evidence that the
+  container, real Google sign-in, mail delivery or full business migration work yet.
+
+## Repeatable private identity checks
+
+From `auth-service/`: `npm run check`, `npm test`,
+`npm run schema:cloudflare:check` and `npm run test:cloudflare-worker`.
+The last builds with pinned Wrangler and uses disposable Miniflare data and
+synthetic credentials; its test-only caller is never deployed.
+
+`node --import tsx scripts/install-cloudflare-secrets.ts` validates the private
+credential files without displaying/uploading their values. `--install` uploads
+them through stdin only to `demandlab-forecast-identity`. Do not manually copy
+secrets into configuration, arguments, logs or Git. The quarantined Google file
+is never loaded. Git contains code/schema only, not credentials or databases.
+
+Next substantial build: complete serialized D1 administrator policy/bridge,
+then durable company records, encrypted connector storage and job scheduling
+outside the sleeping container. The public hold stays in place until a separate
+explicit access decision; deployment completion must not automatically open it.

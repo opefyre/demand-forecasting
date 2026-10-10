@@ -16,7 +16,9 @@ secrets/
 # Deployment copies contain credentials; only blank .env.example templates belong in Git.
 deploy/**/*.env
 deploy/cloudflare/.wrangler/
+.wrangler/
 deploy/cloudflare/.dev.vars*
+deploy/cloudflare/build/
 .vite/
 outputs/
 docs/screenshots/

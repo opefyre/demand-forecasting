@@ -1,0 +1,20 @@
+{
+  "$schema": "https://unpkg.com/wrangler@4.149.0/config-schema.json",
+  "name": "demandlab-forecast-identity",
+  "account_id": "b53df72f41f5135daf312100e73ff6a1",
+  "main": "../../auth-service/src/cloudflare-worker.mjs",
+  "compatibility_date": "2026-10-09",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [],
+  "limits": { "cpu_ms": 50 },
+  "observability": { "enabled": false },
+  "vars": { "PRIVATE_ACCESS": "closed", "NODE_ENV": "production" },
+  "d1_databases": [{
+    "binding": "IDENTITY_DB",
+    "database_name": "demandlab-forecast-identity",
+    "database_id": "f0f8d4b4-ff3d-4bcc-90ac-c08ff97b64e7",
+    "migrations_dir": "migrations"
+  }]
+}

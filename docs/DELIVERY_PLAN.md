@@ -23,6 +23,17 @@ implemented: see [notification delivery](COMPANY_NOTIFICATIONS_DELIVERY.md).
 Next: deployment/provider acceptance, production identity/mail and secret storage,
 company backup/restore and role-based walkthrough. No production or inventory scope.
 
+Private Cloudflare identity foundation, 10 October: shared maintained Better Auth
+policy now supports native D1; new empty identity database and route-less private
+Worker deployed. Dedicated Google/Resend/auth credentials installed securely.
+Company/role/MFA/session/key tests pass; public app, login and API remain closed.
+The local demo remains loopback-only and unchanged. Real Google/mail acceptance,
+remaining D1 administrator bridge and business/job/container migration are not done.
+See [Cloudflare checkpoint](CLOUDFLARE_DEPLOYMENT.md).
+Next substantial slice: serialized D1 administrator operations/private bridge,
+followed by durable company data, encrypted integrations and recoverable jobs for
+the sleeping engine. Do not open public access automatically, even after delivery.
+
 ## Earlier delivery history
 
 Latest delivery, 7 October — guided read recovery across sales demand, order-import
