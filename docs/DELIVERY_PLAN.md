@@ -27,12 +27,19 @@ Private Cloudflare identity foundation, 10 October: shared maintained Better Aut
 policy now supports native D1; new empty identity database and route-less private
 Worker deployed. Dedicated Google/Resend/auth credentials installed securely.
 Company/role/MFA/session/key tests pass; public app, login and API remain closed.
-The local demo remains loopback-only and unchanged. Real Google/mail acceptance,
-remaining D1 administrator bridge and business/job/container migration are not done.
+The local demo remains loopback-only and unchanged. This original foundation
+checkpoint left administrator/runtime migration open; the next paragraph records
+the completed runtime slice. Real Google/mail and cloud UI acceptance remain open.
 See [Cloudflare checkpoint](CLOUDFLARE_DEPLOYMENT.md).
-Next substantial slice: serialized D1 administrator operations/private bridge,
-followed by durable company data, encrypted integrations and recoverable jobs for
-the sleeping engine. Do not open public access automatically, even after delivery.
+Private runtime slice, 10 October: serialized native D1 access operations,
+company-only immutable R2 checkpoints, encrypted integration credentials and a
+recoverable native SQLite job/revision ledger are implemented and tested. The
+Linux mathematical engine reuses existing calculations and partial-order handling;
+bounded native container lifecycle uses five-minute inactivity and no warm pool.
+See [runtime delivery and exact limits](CLOUD_RUNTIME_DELIVERY.md).
+Next substantial slice: bridge the company API/screens and recurring/live-source
+workflows to the durable runtime, then owner-only identity/mail/browser and measured
+remote wake/sleep acceptance. Do not open public access automatically.
 
 ## Earlier delivery history
 

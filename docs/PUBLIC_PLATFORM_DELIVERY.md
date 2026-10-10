@@ -51,6 +51,10 @@ packages; retain licences and attribution. No SAML or messaging commands in v1.
   - [x] Separate deployment templates, restricted services and account/credential runbook.
   - [x] Separate Cloudflare domain hold and private R2 buckets; isolated Google/Resend identities created.
   - [ ] Cloudflare durable state/auth/vault/job migration and idle-sleeping engine deployment.
+    - [x] Private native D1 access operations and concurrent last-admin protection deployed.
+    - [x] Company-bound encrypted R2 checkpoints and native durable job/revision ledger deployed.
+    - [x] Offline Linux engine deployed with bounded deadlines and five-minute idle policy.
+    - [ ] Existing company CRUD/screens, recurring/live workflows and measured remote idle/wake acceptance.
   - [x] Create and privately store a Resend sending-only key restricted to the forecast domain.
   - [x] Securely store replacement Google secret and verify the exposed secret is disabled.
   - [ ] Wire production credentials; verify Google sign-in and real mail delivery.
@@ -68,6 +72,8 @@ Users issue keys within their current rights; admins issue restricted company ke
 Selected deployment: Cloudflare Workers Paid and Containers, domain
 `forecast.vrolen.com`. [Actual resources, credential actions and launch gates](CLOUDFLARE_DEPLOYMENT.md).
 The domain is held closed; the app is not publicly launched.
+Private runtime delivery, test evidence and remaining cloud migration:
+[CLOUD_RUNTIME_DELIVERY.md](CLOUD_RUNTIME_DELIVERY.md).
 
 ## Safety and delivery
 

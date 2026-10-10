@@ -1,0 +1,65 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { CloudEngineController } from './engine-lifecycle.mjs';
+
+// Cloudflare's fixed-size stream, emulated only in Node unit tests.
+globalThis.FixedLengthStream=class extends TransformStream {
+  constructor(size) {let seen=0;super({transform(chunk,ctl){seen+=chunk.byteLength;if(seen>size)throw new Error('length');ctl.enqueue(chunk);},flush(){if(seen!==size)throw new Error('length');}});}
+};
+function fixture({badResponse=false,backupFailure=false,badSize=false,startFailure=false}={}) {
+  const values=new Map(),objects=new Map(),backup=new Map(),events=[];
+  const job={company_id:'company-a',job_id:'1'.repeat(32),attempt:'2'.repeat(32),object_key:'companies/company-a/revisions/'+ '3'.repeat(32)+'.zip',deadline:Date.now()+60000,payload:{}};
+  const response=(text,type='application/octet-stream')=>new Response(text,{headers:{'content-type':type,'content-length':String(Buffer.byteLength(text)+(badSize?1:0))}});
+  const bucket=map=>({get:async key=>map.has(key)?{body:new Response(map.get(key)).body}:null,
+    put:async(key,body)=>{if(map===backup && backupFailure)throw new Error('backup');if(map.has(key))return null;map.set(key,new Uint8Array(await new Response(body).arrayBuffer()));events.push('saved:'+key);return {key};}});
+  objects.set(job.object_key,new Uint8Array([1,2,3]));
+  const ctx={storage:{get:async key=>values.get(key),put:async(key,value)=>values.set(key,value),delete:async key=>values.delete(key),setAlarm:async date=>values.set('alarm',date),deleteAlarm:async()=>values.delete('alarm')},
+    blockConcurrencyWhile:async fn=>fn(),container:{running:false,images:{base:'test-image'},start(options){events.push(['start',options]);if(startFailure)throw new Error('start');this.running=true;},destroy:async()=>{events.push('destroy');ctx.container.running=false;},
+    setInactivityTimeout:async ms=>events.push(['idle',ms]),getTcpPort:()=>({fetch:async(url,options)=>{
+      if(url.endsWith('/ready'))return new Response('ready');
+      if(url.endsWith('/forecast'))return badResponse?new Response(null,{status:500}):Response.json({job_id:job.attempt,company_id:job.company_id,run_id:'4'.repeat(12),artifacts:['result.json','forecast.csv']});
+      if(options?.method==='DELETE'){events.push('cleanup');return new Response(null,{status:204});}
+      if(url.endsWith('/snapshot'))return response('checkpoint','application/zip');
+      return response('result','application/json');
+    }})}};
+  const env={PRIVATE_ACCESS:'closed',COMPANY_VAULT_KEY:'ab'.repeat(32),FILES:bucket(objects),BACKUPS:bucket(backup)};
+  return {controller:new CloudEngineController(ctx,env),ctx,env,job,events,objects,backup,values};
+}
+test('cold status does not wake; successful work is durable before it becomes idle',async()=>{
+  const f=fixture();assert.deepEqual(await f.controller.status(),{running:false,busy:false,idle_timeout_ms:300000});assert.equal(f.events.length,0);
+  const result=await f.controller.execute(f.job);
+  const started=f.events.find(e=>e[0]==='start')[1];assert.deepEqual(started.instance,{vcpu:0.25,memoryMib:1024,diskMb:4000});assert.equal(started.enableInternet,false);assert.equal(started.env.DEMANDLAB_COMPANY_VAULT_KEY,f.env.COMPANY_VAULT_KEY);
+  assert.ok(f.events.some(e=>e[0]==='idle' && e[1]===300000));assert.equal(f.backup.size,1);assert.equal(f.objects.has(result.artifacts['result.json']),true);assert.equal(f.events.at(-1),'cleanup');assert.equal(f.values.size,0);
+  assert.equal((await f.controller.status()).busy,false);assert.equal(f.events.filter(e=>e[0]==='start').length,1);
+  await f.controller.execute({...f.job,attempt:'5'.repeat(32),job_id:'6'.repeat(32)}).catch(()=>{});
+  assert.equal(f.events.filter(e=>e[0]==='start').length,1,'warm instance reused without a pool');
+});
+test('a busy engine rejects a second caller without destroying the active attempt',async()=>{
+  const f=fixture();f.ctx.container.running=true;f.values.set('active',{attempt:'9'.repeat(32),deadline:Date.now()+60000});
+  await assert.rejects(f.controller.execute(f.job),/busy/);assert.equal(f.ctx.container.running,true);assert.equal(f.events.includes('destroy'),false);assert.equal(f.values.get('active').attempt,'9'.repeat(32));
+});
+test('deadline alarm stops abandoned work and clears its lease',async()=>{
+  const f=fixture();f.ctx.container.running=true;f.values.set('active',{attempt:f.job.attempt,deadline:Date.now()-1});f.values.set('alarm',1);
+  await f.controller.alarm();assert.equal(f.ctx.container.running,false);assert.equal(f.values.size,0);
+});
+test('alarm preserves bounded active work until its deadline',async()=>{
+  const f=fixture();f.ctx.container.running=true;f.values.set('active',{attempt:f.job.attempt,deadline:f.job.deadline});
+  await f.controller.alarm();assert.equal(f.ctx.container.running,true);assert.equal(f.values.get('alarm'),f.job.deadline);
+});
+for(const option of ['badResponse','backupFailure','badSize','startFailure'])test(option+' fails closed, stops compute and never returns a saved result',async()=>{
+  const f=fixture({[option]:true});await assert.rejects(f.controller.execute(f.job));assert.equal(f.ctx.container.running,false);assert.equal(f.values.size,0);
+});
+test('privacy and secret configuration are checked before startup',async()=>{
+  for(const change of [{PRIVATE_ACCESS:'open'},{COMPANY_VAULT_KEY:''}]){
+    const f=fixture();Object.assign(f.env,change);await assert.rejects(f.controller.execute(f.job),/configuration/);assert.equal(f.events.length,0);
+  }
+});
+test('engine configuration has no public routes, timers or unrelated resources',async()=>{
+  const config=JSON.parse(await readFile(new URL('./engine.wrangler.jsonc',import.meta.url),'utf8'));
+  assert.equal(config.name,'demandlab-forecast-engine');assert.equal(config.account_id,'b53df72f41f5135daf312100e73ff6a1');
+  assert.equal(config.workers_dev,false);assert.equal(config.preview_urls,false);assert.deepEqual(config.routes,[]);assert.equal(config.vars.PRIVATE_ACCESS,'closed');
+  assert.equal(config.observability.enabled,false);assert.equal(config.containers.length,1);assert.equal(config.containers[0].scheduling_policy,'durable_object');
+  assert.deepEqual(config.r2_buckets.map(x=>x.bucket_name),['demandlab-forecast-files','demandlab-forecast-backups']);
+  assert.equal(config.triggers,undefined);assert.equal(config.services,undefined);assert.equal(config.d1_databases,undefined);
+});

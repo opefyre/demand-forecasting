@@ -1,0 +1,12 @@
+**
+!requirements.txt
+!app
+!app/**
+app/**/__pycache__
+app/**/*.pyc
+app/static
+app/static/**
+!deploy
+!deploy/cloudflare
+!deploy/cloudflare/engine.Dockerfile
+!deploy/cloudflare/engine-requirements.lock

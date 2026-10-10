@@ -1,6 +1,6 @@
 # Cloudflare deployment
 
-Status: 10 October 2026. Infrastructure preparation is partly complete.
+Status: 10 October 2026. Private permissions, storage and engine backbone deployed.
 **The forecasting app is not deployed or ready for public use.**
 The local demo remains independent at `http://127.0.0.1:8010`.
 
@@ -19,7 +19,9 @@ The local demo remains independent at `http://127.0.0.1:8010`.
 | Resource | State |
 | --- | --- |
 | Worker `demandlab-forecast-edge` | New isolated domain hold. Every route returns HTTP 503; no backend, assets, credentials, cron or storage bindings. |
-| Worker `demandlab-forecast-identity` | Private identity foundation deployed. No routes, workers.dev or preview URL. HTTP always returns 404; only private readiness RPC exists. |
+| Worker `demandlab-forecast-identity` | Private D1 permissions service and serialized administrator coordinator deployed. No routes, workers.dev or preview URL. HTTP always returns 404; private RPC only. |
+| Worker `demandlab-forecast-storage` | Private native SQLite job/revision ledger and company-bound R2 checkpoint/artifact service deployed; private RPC only. |
+| Worker `demandlab-forecast-engine` | Offline, non-root Linux mathematical engine deployed with official native container APIs and five-minute inactivity policy; private RPC only. |
 | D1 `demandlab-forecast-identity` | New WEUR database, `f0f8d4b4-ff3d-4bcc-90ac-c08ff97b64e7`. Library-generated schema applied; zero users, companies and sessions. |
 | `forecast.vrolen.com` | Worker custom domain created; HTTPS and closed app/login/API routes checked. No wildcard route. |
 | R2 `demandlab-forecast-files` | New empty Standard bucket, Western Europe location hint; public r2.dev access disabled. |
@@ -102,16 +104,17 @@ test to the owner and verify actual
 verification/reset mail and delivery failures. DNS verification alone is not a
 mail-delivery test. Credentials must use Cloudflare secrets, never public Worker vars.
 
-## Sleep and cost policy — not activated yet
+## Sleep and cost policy — deployed, remote behavior unmeasured
 
-The next runtime must use Cloudflare's maintained container APIs, not a custom
-process-hosting platform. Initial target: one named engine instance, no warm pool,
-no replicas; profile only the smallest instance that passes memory/forecast tests.
+The runtime uses Cloudflare's official native container APIs, not a custom
+process-hosting platform. Fixed singleton engine routing, no warm pool or replicas;
+initial size is 0.25 CPU, 1 GiB RAM and 4 GB scratch disk. The bounded Linux pilot
+passes; larger workloads and actual Cloudflare resource use still need profiling.
 Do not claim the 256 MiB instance is sufficient for this numerical engine.
 
-- Target inactivity timeout: five minutes after useful work completes.
+- Configured inactivity timeout: five minutes after useful work completes.
 - An accepted forecast/import remains durable outside the container; running
-  work renews its bounded lease/heartbeat. Never kill an active forecast just
+  work has a persisted bounded lease. Never kill an active forecast just
   because the user closed the browser or HTTP response returned.
 - A job has a deadline; only active work extends the lease. No forever heartbeat.
 - Login, static assets, dashboards of saved results and unrelated traffic must
@@ -127,36 +130,44 @@ See [current container pricing](https://developers.cloudflare.com/containers/pla
 R2 free allowances are account-wide, shared with other apps; see
 [R2 pricing](https://developers.cloudflare.com/r2/pricing/). No hard spending cap
 has been selected, and this Worker CPU limit is not an account-wide bill cap.
-No container has been deployed or started in this milestone.
+The dedicated container application is deployed and ready, with **zero live
+instances** at the remote read-only check. No cloud calculation has started yet.
+The image upload itself does not establish measured sleep, wake latency or cost.
+Native Durable Object scheduling is Cloudflare's beta policy; it does not accept
+`max_instances`. Only one fixed engine ID is routed by this private application.
 
 ## Required engineering before the app can go live
 
-1. **Durable app state:** current company records, uploads, outputs, SQLite job
-   queue and scheduler use the local filesystem. Cloudflare container disk is
-   [ephemeral](https://developers.cloudflare.com/containers/faq/). Move durable
-   records/jobs to D1/Durable Objects/Queues as appropriate and files to private
-   R2; keep company/role checks, immutable revisions and order calculations intact.
+1. **Cloud API/screens bridge:** the local app's existing company APIs and screens
+   still need routing to the new durable runtime. Cloudflare container disk is
+   [ephemeral](https://developers.cloudflare.com/containers/faq/) and used as
+   scratch only. Native SQLite jobs/revisions and immutable R2 company checkpoints
+   now keep accepted work outside it, preserving existing calculations and orders.
    R2 FUSE is not a safe live SQLite WAL replacement. An upload on shutdown alone
-   does not protect against crashes. The new identity D1 database does not yet
-   contain business records or durable forecasting jobs.
+   does not protect against crashes. Current private checkpoint staging is not
+   the complete end-user customer/order/import CRUD flow. No local client data was
+   uploaded. See [runtime delivery](CLOUD_RUNTIME_DELIVERY.md).
 2. **Identity portability:** Better Auth is maintained, but this implementation
    uses PostgreSQL and PostgreSQL-specific policy/migration SQL. Cloudflare D1
    is not a drop-in PostgreSQL server. Shared auth configuration, the maintained
    native D1 adapter and company/role/session/MFA/key resolution are implemented
-   and tested. Remaining: concurrent administrator operations, last-admin protection,
-   invitation management, recurring grants and their private bridge. Registration is
+   and tested, including concurrent administrator operations, last-admin protection,
+   invitations, keys, audit and background grants in private RPC. Registration is
    deliberately denied even for the owner; there is no production bootstrap route.
    Do not deploy an ephemeral PostgreSQL container.
-3. **Portable integration vault:** macOS Keychain does not exist in Linux
-   containers. Use maintained encryption/secret storage and recovery, preserving
-   company-separated access. R2 credentials and raw connector secrets are never
-   public or plaintext rows. Optional live integrations remain disabled until verified.
-4. **Container image/build:** no Docker-compatible engine is installed on this
-   Mac. Use an approved official/open-source build engine or isolated GitHub
-   build flow once runtime code is ready. Do not install a paid hosting service.
-5. **Durable scheduling and sleep:** implement the bounded job lifecycle above;
-   test idle, long-running forecasts, abrupt stop, restart, concurrent jobs and
-   export totals against the local engine. Do not start sleep on current local state.
+3. **Live integrations:** AES-GCM encrypted company-bound credentials now work in
+   Linux checkpoints, with an engine-only Cloudflare secret. Real credentials were
+   not copied. Live factor fetching, recurring connector pulls and notification
+   delivery need their permission-checked cloud execution outside the offline
+   mathematical container; providers remain disabled until separately verified.
+4. **Image/build:** open-source Colima/Docker built the isolated amd64 image.
+   A dedicated build profile and private Docker config avoid changing the user's
+   default Docker context or startup services. Base digest and tested Python
+   versions are pinned. The image excludes all local data, credentials and tests.
+5. **Durable scheduling and measured sleep:** native job alarms, cancellation and
+   deadline fencing are implemented. Local native restart/busy/stop/failure and
+   offline Linux order/export checks pass. Recurring business schedules and actual
+   remote cold-start, idle shutdown, abrupt stop and billing observation remain.
 6. **Acceptance:** real Google sign-in and mail, owner bootstrap, two companies,
    four roles, forecast/export, wanted live factors, encrypted backup/restore and
    cost observation. Only then replace the domain hold with the actual app.
@@ -177,20 +188,30 @@ still applies. Creating infrastructure does not resolve that gate.
 - Local demo health remained OK; its existing process and configuration preserved.
 - D1 schema migration applied to the new identity database only. Read-only remote
   count confirmed zero users, companies and sessions; no client/demo data uploaded.
-- Shared identity suite: 18 passed, two optional tests skipped. The separately
+- Shared identity suite: 19 passed, three optional tests skipped. The separately
   built native-Worker suite passed both checks, including closed HTTP routes and
-  private readiness RPC against generated native D1 schema. One of those checks
-  overlaps the unit suite. Schema drift/type checks passed.
+  private operations against generated native D1 schema, including competing admin
+  changes. Schema drift/type checks passed. Dedicated native storage suite passed
+  two checks; engine lifecycle/configuration passed ten; focused company/deployment
+  Python suite passed 39. Three checkpoint/calculation checks also passed in the
+  offline Linux image with four customers, partial orders and two existing methods.
 - 41 focused Python deployment/security/access checks passed. Existing FastAPI
   deprecation/resource warnings remain; no full production acceptance is claimed.
-- Cloudflare API confirms workers.dev and preview URLs disabled on both new
-  Workers. Identity deployment has no targets; active version after secret setup:
-  `4bcbb273-c57d-4a37-ad29-db3aa208af20`.
+- Cloudflare API confirms workers.dev and preview URLs disabled on all four
+  dedicated Workers; no backend public targets. Resource bindings name only the
+  new forecast identity database, private buckets and private services. Engine
+  encryption secret presence confirmed without its value.
+- Deployment versions: identity `901cddca-0c20-40c4-a5fb-51bdb19c205a`, storage
+  `e87515ef-f86f-41b4-bb6c-4202fc0acca9`, engine
+  `2e5a7c8e-e810-4a86-9d4e-99ea3fa95765`. Image digest:
+  `sha256:1b9707fbca9f82a078889f72b156130a72d47519f3c5a4d30983f8237d16a3c0`.
 - Credential names confirmed without values. Dedicated production auth secret is
   generated once in ignored `secrets/forecast-auth-secret.txt` (0600), not reused
   from local auth. Installer accepts only the approved closed Worker/config.
 - No public app/auth/API route is activated. This is not evidence that the
-  container, real Google sign-in, mail delivery or full business migration work yet.
+  measured cloud idle/wake, real Google sign-in, mail delivery or full cloud UI/API
+  business migration work yet. Cloud container application is ready with zero live
+  instances; this milestone did not wake it or incur forecast execution.
 
 ## Repeatable private identity checks
 
@@ -205,7 +226,7 @@ them through stdin only to `demandlab-forecast-identity`. Do not manually copy
 secrets into configuration, arguments, logs or Git. The quarantined Google file
 is never loaded. Git contains code/schema only, not credentials or databases.
 
-Next substantial build: complete serialized D1 administrator policy/bridge,
-then durable company records, encrypted connector storage and job scheduling
-outside the sleeping container. The public hold stays in place until a separate
+Next substantial build: bridge existing company CRUD/screens and recurring/live
+workflows to the durable runtime, then private owner identity/mail and remote
+forecast/wake/sleep acceptance. The public hold stays in place until a separate
 explicit access decision; deployment completion must not automatically open it.

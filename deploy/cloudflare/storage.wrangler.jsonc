@@ -1,0 +1,20 @@
+{
+  "$schema": "https://unpkg.com/wrangler@4.149.0/config-schema.json",
+  "name": "demandlab-forecast-storage",
+  "account_id": "b53df72f41f5135daf312100e73ff6a1",
+  "main": "cloud-storage.mjs",
+  "compatibility_date": "2026-10-09",
+  "workers_dev": false, "preview_urls": false, "routes": [],
+  "observability": {"enabled": false}, "limits": {"cpu_ms": 50},
+  "vars": {"PRIVATE_ACCESS": "closed"},
+  "durable_objects": {"bindings": [{"name":"CLOUD","class_name":"ForecastCloud"}]},
+  "migrations": [{"tag":"v1","new_sqlite_classes":["ForecastCloud"]}],
+  "r2_buckets": [
+    {"binding":"FILES","bucket_name":"demandlab-forecast-files"},
+    {"binding":"BACKUPS","bucket_name":"demandlab-forecast-backups"}
+  ],
+  "services": [
+    {"binding":"IDENTITY","service":"demandlab-forecast-identity","entrypoint":"ForecastIdentity"},
+    {"binding":"ENGINE","service":"demandlab-forecast-engine","entrypoint":"ForecastRunner"}
+  ]
+}

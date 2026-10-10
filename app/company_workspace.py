@@ -35,7 +35,9 @@ class CompanyWorkspace:
     @property
     def notifications(self):
         from .notifications import Notifications
-        return self.store('notifications',lambda:Notifications(self.path('notifications.sqlite3')))
+        from .cloud_state import cloud_vault
+        return self.store('notifications',lambda:Notifications(self.path('notifications.sqlite3'),
+            vault=cloud_vault(self.root,self.company_id,'notifications')))
 
     @property
     def customers(self):
@@ -64,13 +66,15 @@ class CompanyWorkspace:
     @property
     def live_sources(self):
         from .live_sources import LiveSources, KeyVault
+        from .cloud_state import cloud_vault
         return self.store('live_sources', lambda: LiveSources(self.path('live-sources.sqlite3'), self.factors,
-                           vault=KeyVault(self.root)))
+                           vault=cloud_vault(self.root,self.company_id,'sources') or KeyVault(self.root)))
 
     @property
     def connections(self):
         import os
         from .business_connections import BusinessConnections,InputFetcher,TargetPolicy,ConnectionError
+        from .cloud_state import cloud_vault
         try:
             targets = json.loads(os.environ.get('DEMANDLAB_CONNECTOR_PRIVATE_TARGETS','{}'))
             approved = targets.get(self.company_id,[])
@@ -78,6 +82,7 @@ class CompanyWorkspace:
         except (ValueError,AttributeError):
             raise ConnectionError('Company connection settings are invalid. Ask an administrator.') from None
         return self.store('connections',lambda:BusinessConnections(self.path('connections.sqlite3'),self.datasets,
+                          vault=cloud_vault(self.root,self.company_id,'connections'),
                           fetcher=InputFetcher(TargetPolicy(v.strip().lower() for v in approved))))
 
     @property

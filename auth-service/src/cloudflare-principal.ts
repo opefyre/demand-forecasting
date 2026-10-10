@@ -4,12 +4,12 @@ import type { createCloudflareIdentity, D1Binding } from "./cloudflare.js";
 type Identity = ReturnType<typeof createCloudflareIdentity>;
 const COMPANY_ID = /^[A-Za-z0-9_-]{1,128}$/;
 export class PrivateIdentityError extends Error {
-  constructor(public status: 400 | 401 | 403 | 429, message: string) { super(message); }
+  constructor(public status: 400 | 401 | 403 | 404 | 409 | 429, message: string) { super(message); }
 }
 type Membership = { company_id: string; user_id: string; role: string; suspended: number;
   name: string; email: string; email_verified: number; two_factor_enabled: number; has_password: number };
 
-async function membership(db: D1Binding, company: string, user: string) {
+export async function d1Membership(db: D1Binding, company: string, user: string) {
   const row = await db.prepare(`SELECT m."organizationId" AS company_id,m."userId" AS user_id,m.role,
     coalesce(s.suspended,0) AS suspended,u.name,u.email,u."emailVerified" AS email_verified,
     coalesce(u."twoFactorEnabled",0) AS two_factor_enabled,
@@ -43,7 +43,7 @@ export async function resolveD1Identity(identity: Identity, db: D1Binding,
       throw new PrivateIdentityError(401, "API key is not bound to an active company");
     if (body.company_id && body.company_id !== binding.company_id)
       throw new PrivateIdentityError(403, "API key belongs to a different company");
-    const current = await membership(db, binding.company_id, binding.owner_id);
+    const current = await d1Membership(db, binding.company_id, binding.owner_id);
     if (current.role === "admin" && !current.two_factor_enabled)
       throw new PrivateIdentityError(403, "Key owner must enable two-factor authentication");
     if (binding.service_role && !["planner", "viewer"].includes(binding.service_role))
@@ -72,7 +72,7 @@ export async function resolveD1Identity(identity: Identity, db: D1Binding,
     memberships.find(row => !row.suspended)?.id;
   if (!company || !COMPANY_ID.test(company))
     throw new PrivateIdentityError(403, "Accept a company invitation first");
-  const current = await membership(db, company, saved.user.id);
+  const current = await d1Membership(db, company, saved.user.id);
   await db.prepare("INSERT INTO demandlab_session_company(session_id,company_id) VALUES(?,?) ON CONFLICT DO NOTHING")
     .bind(saved.session.id, company).run();
   const proof = await db.prepare("SELECT 1 FROM demandlab_session_mfa WHERE session_id=? AND verified_at>? AND verified_at<=?")

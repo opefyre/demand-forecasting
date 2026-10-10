@@ -13,7 +13,9 @@
     "bootstrap": "node --import tsx src/bootstrap.ts",
     "schema:cloudflare": "node --import tsx scripts/generate-cloudflare-schema.ts",
     "schema:cloudflare:check": "node --import tsx scripts/generate-cloudflare-schema.ts --check",
-    "test:cloudflare-worker": "node --import tsx scripts/test-cloudflare-worker.ts"
+    "test:cloudflare-worker": "node --import tsx scripts/test-cloudflare-worker.ts",
+    "test:cloud-storage": "node --import tsx scripts/test-cloud-storage.ts",
+    "test:cloud-engine": "node --test ../deploy/cloudflare/engine-lifecycle.test.mjs"
   },
   "dependencies": {
     "@better-auth/api-key": "1.7.7",
