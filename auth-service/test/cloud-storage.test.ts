@@ -36,12 +36,14 @@ test('native company ledger: durable checkpoints, roles, deduplication, cancella
     // Test-only alarm trigger. No such RPC exists on production entrypoint.
     if(data.op==='drain') {await env.LEDGER.get(env.LEDGER.idFromName('forecast-cloud-v1')).drainForTest();return Response.json({done:true});}
     if(data.op==='engine_count')return Response.json(await env.ENGINE.count());
+    if(data.op==='schedule_rows')return Response.json(await env.LEDGER.get(env.LEDGER.idFromName('forecast-cloud-v1')).schedulesForTest());
   }};`;
   const identityScript=`import{WorkerEntrypoint}from'cloudflare:workers';
     export class Identity extends WorkerEntrypoint {async operation(op,body) {
       if(op==='work/authorize')return {status:200,body:{allowed:body.subject!=='revoked',permissions:body.permissions}};
+      if(op==='schedules/authorize')return {status:200,body:{allowed:body.subject!=='revoked',role:'admin',permissions:['connections:manage','connections:sync','factors:write']}};
       const company=body.company_id,role=body.role;
-      const scopes={admin:['settings:manage','forecasts:run','forecasts:write','reports:read','reports:export','drafts:read','customers:read','customers:write'],
+      const scopes={admin:['settings:manage','forecasts:run','forecasts:write','reports:read','reports:export','drafts:read','customers:read','customers:write','connections:manage','connections:sync','factors:write'],
         planner:['forecasts:run','forecasts:write','reports:read','reports:export','drafts:read','customers:read','customers:write'],approver:['drafts:read','reports:export'],viewer:['reports:read','reports:export']};
       if(!['tehran_a','tehran_b','tehran_c'].includes(company)||!scopes[role])return{status:401,body:{}};
       return{status:200,body:{issuer:'https://forecast.vrolen.com',company_id:company,role,subject:body.subject||role,
@@ -51,7 +53,12 @@ test('native company ledger: durable checkpoints, roles, deduplication, cancella
     export class Engine extends WorkerEntrypoint {async count(){return calls;}async execute(job){calls++;
       const key='companies/'+job.company_id+'/revisions/'+job.attempt+'.zip';
       if(job.kind==='api') {
-        const body=job.payload.method==='GET'?{}:await(await this.env.FILES.get(job.payload.body_key)).json();
+        let body={};if(job.payload.method!=='GET'){
+          const object=await this.env.FILES.get(job.payload.body_key);let bytes=new Uint8Array(await object.arrayBuffer());
+          if(job.payload.sealed){const key=await crypto.subtle.importKey('raw',new Uint8Array(32).fill(171),{name:'AES-GCM'},false,['decrypt']);
+            const binding=new TextEncoder().encode(JSON.stringify([job.company_id,'api-request',job.payload.body_hash]));
+            bytes=new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:bytes.slice(0,12),additionalData:binding},key,bytes.slice(12)));}
+          body=JSON.parse(new TextDecoder().decode(bytes));}
         const root='companies/'+job.company_id+'/outputs/'+job.job_id+'/'+job.attempt+'/';
         if(job.payload.method==='GET') {
           if(!job.payload.path.includes('/export')) {
@@ -67,6 +74,15 @@ test('native company ledger: durable checkpoints, roles, deduplication, cancella
             download:{content_type:'text/csv',disposition:'attachment; filename="approved.csv"'}}));
           await this.env.FILES.put(artifacts['api-download.bin'],'customer,quantity\u005cnMehr,49\u005cn');
           return{company_id:job.company_id,attempt:job.attempt,run_id:job.attempt,object_key:null,artifacts,api_status:200};
+        }
+        if(job.payload.path.startsWith('/connections/external-sources/')){
+          const artifacts={'api-response.json':root+'api-response.json','company-view.json':root+'company-view.json','company-schedules.json':root+'company-schedules.json'};
+          await this.env.FILES.put(key,'synthetic-completed-checkpoint');await this.env.BACKUPS.put(key,'synthetic-completed-checkpoint');
+          await this.env.FILES.put(artifacts['api-response.json'],JSON.stringify({saved:true}));
+          await this.env.FILES.put(artifacts['company-view.json'],JSON.stringify({company_id:job.company_id,checked_at:new Date().toISOString(),timezone:'Asia/Tehran',views:{},report_views:{}}));
+          const schedules=body.enabled?[{id:'source:industry',subject:job.payload.principal.subject,due:Date.now()-1,method:'POST',path:'/connections/external-sources/industry/refresh',body:{}}]:[];
+          await this.env.FILES.put(artifacts['company-schedules.json'],JSON.stringify({company_id:job.company_id,schedules}));
+          return{company_id:job.company_id,attempt:job.attempt,run_id:job.attempt,object_key:key,artifacts,api_status:200,committed:true};
         }
         const artifacts={'api-response.json':root+'api-response.json'},api_status=body.customer?201:422;
         await this.env.FILES.put(artifacts['api-response.json'],JSON.stringify(api_status===201?{id:'abc123',customer:body.customer}:{detail:'Check customer name'}));
@@ -89,10 +105,10 @@ test('native company ledger: durable checkpoints, roles, deduplication, cancella
       return{company_id:job.company_id,attempt:job.attempt,run_id:'abcdef123456',object_key:key,artifacts:{'result.json':file}};
     }}export default{fetch(){return new Response(null,{status:404});}};`;
   const build=(await readFile(new URL('../../deploy/cloudflare/build/storage/cloud-storage.js',import.meta.url),'utf8')) +
-    '\nForecastCloud.prototype.drainForTest=async function(){return this.alarm();};';
+    '\nForecastCloud.prototype.drainForTest=async function(){return this.alarm();};ForecastCloud.prototype.schedulesForTest=async function(){return this.rows("SELECT company,id,paused FROM schedules");};';
   const options:any={telemetry:{enabled:false},resourcePersistencePath:persistent,workers:[
     {name:'storage',modules:true,compatibilityDate:'2026-10-09',script:build,
-      bindings:{PRIVATE_ACCESS:'closed'},durableObjects:{CLOUD:{className:'ForecastCloud',useSQLite:true}},r2Buckets:{FILES:'files',BACKUPS:'backups'},
+      bindings:{PRIVATE_ACCESS:'closed',COMPANY_VAULT_KEY:'ab'.repeat(32)},durableObjects:{CLOUD:{className:'ForecastCloud',useSQLite:true}},r2Buckets:{FILES:'files',BACKUPS:'backups'},
       serviceBindings:{IDENTITY:{name:'identity-test',entrypoint:'Identity'},ENGINE:{name:'engine-test',entrypoint:'Engine'}}},
     {name:'identity-test',modules:true,compatibilityDate:'2026-10-09',script:identityScript},
     {name:'engine-test',modules:true,compatibilityDate:'2026-10-09',script:engineScript,r2Buckets:{FILES:'files',BACKUPS:'backups'}},
@@ -190,5 +206,31 @@ test('native company ledger: durable checkpoints, roles, deduplication, cancella
     assert.equal((await call({op:'api',credentials:fresh,path:'/customers'})).customers[0].customer,'New revision');
     await call({op:'drain'});
     assert.equal((await call({op:'jobs',credentials:other})).body.find((r:any)=>r.id===pending.body.id).state,'succeeded');
+    // Secret-bearing requests are sealed BEFORE R2. Only this test engine
+    // decrypts them; no real credentials, providers, email or container calls.
+    const otherHead=await call({op:'api',credentials:other,path:'/cloud/revision'});
+    const stagedSecret=await call({op:'api',credentials:other,method:'PUT',path:'/connections/external-sources/servix/credential',
+      body:{key:'synthetic-readonly-source-key'},request_id:'sealed-source-credential',revision:otherHead.revision});
+    assert.equal(stagedSecret.state,'queued',JSON.stringify(stagedSecret));
+    const files=await runtime.getR2Bucket('FILES','storage') as unknown as {list(options:{prefix:string}):Promise<{objects:{key:string}[]}>,get(key:string):Promise<{arrayBuffer():Promise<ArrayBuffer>}|null>};
+    const sealed=(await files.list({prefix:'companies/tehran_b/requests/sealed-'})).objects;
+    assert.equal(sealed.length,1);
+    const encrypted=new Uint8Array(await(await files.get(sealed[0].key))!.arrayBuffer());
+    assert.equal(new TextDecoder().decode(encrypted).includes('synthetic-readonly-source-key'),false);
+    await call({op:'drain'});
+    assert.equal((await call({op:'api_result',credentials:other,id:stagedSecret.id})).saved,true);
+    const secretHead=await call({op:'api',credentials:other,path:'/cloud/revision'});
+    const configured=await call({op:'api',credentials:other,method:'PUT',path:'/connections/external-sources/industry',body:{enabled:true},
+      request_id:'source-schedule-enable',revision:secretHead.revision});
+    assert.equal(configured.state,'queued',JSON.stringify(configured));await call({op:'drain'});
+    assert.equal((await call({op:'schedule_rows'})).length,1);
+    const scheduledCount=await call({op:'engine_count'});
+    await call({op:'drain'});
+    assert.equal((await call({op:'schedule_rows'}))[0].paused,1);
+    const scheduled=(await call({op:'jobs',credentials:other})).body.find((r:any)=>r.state==='queued');
+    assert.ok(scheduled);await call({op:'drain'});
+    assert.equal((await call({op:'jobs',credentials:other})).body.find((r:any)=>r.id===scheduled.id).state,'succeeded');
+    assert.equal((await call({op:'schedule_rows'})).length,0);
+    await call({op:'drain'});assert.equal(await call({op:'engine_count'}),scheduledCount+1,'No duplicate or idle schedule calls');
   } finally {await runtime.dispose();await fs.rm(persistent,{recursive:true,force:true});}
 });

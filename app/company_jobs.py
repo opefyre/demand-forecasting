@@ -12,7 +12,10 @@ def execute_company_job(workspace, key):
         owner=values.pop('_schedule_owner',None)
         if owner:
             from .company_workflows import schedule_authorized
-            if not schedule_authorized(ACCESS.identity_service,workspace,owner):
+            from .cloud_network import current_bridge, CloudIdentityService
+            bridge=current_bridge()
+            service=CloudIdentityService(bridge,workspace.company_id) if bridge else ACCESS.identity_service
+            if not schedule_authorized(service,workspace,owner):
                 raise ValueError('Schedule authorization is unavailable. Review administrator access before retrying.')
         return asyncio.run(calculate_saved(SavedRunConfig(**values),workspace))
     execute_job(key, workspace.jobs,

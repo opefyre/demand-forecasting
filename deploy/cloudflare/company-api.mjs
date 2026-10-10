@@ -4,7 +4,7 @@ export function companyRoute(method,path) {
   if(typeof path!=='string' || path.length>512)return null;
   const url=new URL(path,'https://company.invalid');
   if(!path.startsWith('/')||url.pathname!==path.split('?')[0])return null;
-  const entry=contract.find(entry=>entry.method===method && new RegExp('^'+entry.path.replace('{id}','[a-zA-Z0-9_-]{1,128}')+'$').test(url.pathname));
+  const entry=contract.find(entry=>entry.method===method && new RegExp('^'+entry.path.replace('{id}','[a-zA-Z0-9_-]{1,128}').replace('{index}','[0-9]{1,3}')+'$').test(url.pathname));
   if(!entry || url.hash || [...url.searchParams.keys()].some(key=>!entry.query?.includes(key) || url.searchParams.getAll(key).length!==1))return null;
   return entry;
 }

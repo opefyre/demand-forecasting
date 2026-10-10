@@ -22,6 +22,36 @@ _outputs = {}  # Scratch artifacts only; never the authoritative job ledger.
 _requests = {}  # Bounded one-attempt request bodies, never credentials.
 
 
+@app.get('/network/{attempt}/next')
+def next_request(attempt: str):
+    from .cloud_network import active_bridge
+    try: return {'request':active_bridge(attempt).next()}
+    except ValueError: return {'request':None}
+
+
+@app.put('/network/{attempt}/{key}')
+async def answer_request(attempt: str, key: str, request: Request):
+    from .cloud_network import active_bridge
+    raw=bytearray()
+    async for chunk in request.stream():
+        raw.extend(chunk)
+        if len(raw)>28*1024*1024: raise HTTPException(413,'Private response is too large.')
+    try: active_bridge(attempt).answer(key,json.loads(raw))
+    except (ValueError, UnicodeDecodeError):raise HTTPException(400,'Private request is unavailable.') from None
+    return {'saved':True}
+
+
+@app.post('/network/{attempt}/exchange')
+async def child_request(attempt: str, request: Request):
+    from .cloud_network import active_bridge
+    raw=bytearray()
+    async for chunk in request.stream():
+        raw.extend(chunk)
+        if len(raw)>1024*1024:raise HTTPException(413,'Private request is too large.')
+    try:return await run_in_threadpool(active_bridge(attempt).exchange,json.loads(raw))
+    except ValueError:raise HTTPException(400,'Private request is unavailable.') from None
+
+
 @app.put('/request/{job}')
 async def stage_request(job: str, request: Request):
     if len(job) != 32 or any(c not in '0123456789abcdef' for c in job): raise HTTPException(400, 'Invalid attempt.')
@@ -105,8 +135,10 @@ async def forecast(request: Request):
         if request.url.path == '/api-operation':
             from .cloud_api import operate
             if job_id not in _requests: raise ValueError()
-            result = await run_in_threadpool(operate, source, folder / 'workspace', company, job_id,
-                payload, _requests[job_id][1])
+            from .cloud_network import bind_bridge
+            with bind_bridge(job_id, payload.get('_cloud_ai')):
+                result = await run_in_threadpool(operate, source, folder / 'workspace', company, job_id,
+                    payload, _requests[job_id][1])
         else:
             result = await run_in_threadpool(calculate, source, folder / 'workspace', company, job_id, payload)
         _outputs[job_id] = (temporary, result)

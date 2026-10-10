@@ -26,7 +26,7 @@ def route(method, path):
     parsed = urlsplit(path)
     if parsed.scheme or parsed.netloc: raise ValueError('Unsupported company operation.')
     for entry in CONTRACT:
-        pattern = re.escape(entry['path']).replace(r'\{id\}', r'[a-zA-Z0-9_-]{1,128}')
+        pattern = re.escape(entry['path']).replace(r'\{id\}', r'[a-zA-Z0-9_-]{1,128}').replace(r'\{index\}', r'[0-9]{1,3}')
         if method == entry['method'] and re.fullmatch(pattern, parsed.path):
             query = parse_qsl(parsed.query, keep_blank_values=True)
             if parsed.fragment or any(k not in entry.get('query', []) for k, _ in query) or len({k for k, _ in query}) != len(query):
@@ -142,19 +142,30 @@ def operate(source, root, company, attempt, command, body_path):
             or who.get('auth_kind') not in {'session', 'api_key'}
             or not all(scope in who.get('permissions', []) for scope in entry['scopes'])):
         raise ValueError('Company authorization is unavailable.')
+    if entry.get('interactive') and who['auth_kind'] != 'session' or entry.get('admin') and who['role'] != 'admin':
+        raise ValueError('Interactive administrator authorization is unavailable.')
     if source.stat().st_size: restore(source, root, company)
     workspaces = CompanyWorkspaces(root / 'data/companies')
     try:
         workspace = workspaces.for_principal(who)
         from .platform_api import create_platform_api
         from .company_jobs import execute_company_job
-        api = create_platform_api(None, workspaces, dispatcher=execute_company_job)
-        response = asyncio.run(invoke(api, who, command['method'], command['path'], body_path.read_bytes(),
+        from .cloud_network import current_bridge, CloudIdentityService
+        bridge = current_bridge()
+        service = CloudIdentityService(bridge, company) if bridge else None
+        api = create_platform_api(service, workspaces, dispatcher=execute_company_job)
+        body = body_path.read_bytes()
+        if command.get('sealed'):
+            import os
+            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+            binding=json.dumps([company,'api-request',command['body_hash']],separators=(',',':')).encode()
+            body=AESGCM(bytes.fromhex(os.environ['DEMANDLAB_COMPANY_VAULT_KEY'])).decrypt(body[:12],body[12:],binding)
+        response = asyncio.run(invoke(api, who, command['method'], command['path'], body,
             command['content_type']))
         # Failed validation or permissions never promote a scratch checkpoint,
         # even if a route wrote temporary review material before failing.
         status = response.status_code
-        if status >= 500: raise ValueError('Company operation unavailable.')
+        if status >= 500 and not entry.get('network'): raise ValueError('Company operation unavailable.')
         result = {'job_id': attempt, 'company_id': company, 'run_id': attempt,
             'api_status': status, 'artifacts': ['api-response.json']}
         output = source.parent / 'api-output'
@@ -170,11 +181,18 @@ def operate(source, root, company, attempt, command, body_path):
         if 200 <= status < 300 and entry['method'] == 'GET' and entry.get('fresh'):
             (output / 'company-view.json').write_bytes(asyncio.run(projection(api, workspace, company)))
             result['artifacts'].append('company-view.json')
-        if 200 <= status < 300 and entry['method'] != 'GET':
+        if entry['method'] != 'GET' and (200 <= status < 300 or entry.get('network')):
+            from .cloud_schedules import record_source_owner, descriptors, metadata, save_metadata, event_hash
+            record_source_owner(workspace,who,command['method'],command['path'])
+            if command['path']=='/notifications/check':
+                timers=metadata(workspace);timers['events']=event_hash(workspace);save_metadata(workspace,timers)
             (output / 'company-view.json').write_bytes(asyncio.run(projection(api, workspace, company)))
             result['artifacts'].append('company-view.json')
+            (output / 'company-schedules.json').write_text(json.dumps(descriptors(workspace)))
+            result['artifacts'].append('company-schedules.json')
             workspaces.close()
             capture(root, company, source.parent / 'completed.zip')
+            result['committed'] = True
         return result
     finally:
         workspaces.close()

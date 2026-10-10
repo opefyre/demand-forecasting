@@ -59,9 +59,21 @@ class CloudApiTests(unittest.TestCase):
         import re
         actual = {(method.upper(),re.sub(r'\{[^}]+\}', '{id}', path)) for path,methods in api.openapi()['paths'].items() for method in methods}
         for entry in CONTRACT:
-            path = entry['path'].replace('{id}', 'test-id')
+            path = entry['path'].replace('{id}', 'test-id').replace('{index}', '0')
             self.assertTrue(any(method == entry['method'] and re.fullmatch(re.escape(pattern).replace(r'\{id\}', '[^/]+'),path)
                 for method,pattern in actual),entry)
+        for path,methods in api.openapi()['paths'].items():
+            # Identity is intentionally native Better Auth/D1, not a scratch API.
+            if path.split('/')[1] in {'me','api-keys','access-options','members','invitations','audit-events'}:continue
+            examples=[path]
+            for parameter,values in [('kind',['csv','xlsx','models','drivers'] if '/files/' in path else ['sources','datasets','forecasts','runs']),
+                                     ('role',['customers','orders','commitments'])]:
+                if '{'+parameter+'}' in path:
+                    examples=[example.replace('{'+parameter+'}',value) for example in examples for value in values]
+            for method in methods:
+                for example in examples:
+                    example=re.sub(r'\{[^}]+\}',lambda match:'0' if match.group(0)=='{index}' else 'test-id',example)
+                    self.assertEqual(route(method.upper(),example)['method'],method.upper(),(method,path))
         for path in ['/api-keys', '/members', '/assistant', '/external-sources/refresh', '/../customers', '/customers/a/b']:
             with self.assertRaises(ValueError): route('POST', path)
 

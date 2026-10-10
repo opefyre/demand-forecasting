@@ -67,6 +67,8 @@ def local_endpoint(value):
 
 
 def provider_settings():
+    from .cloud_network import current_bridge
+    bridge = current_bridge()
     provider = os.getenv('DEMANDLAB_AI_PROVIDER', 'openai').strip().lower()
     if provider not in {'openai', 'local'}:
         raise ValueError('Choose openai or local in the AI server settings.')
@@ -76,6 +78,9 @@ def provider_settings():
     if any(not model or len(model) > 200 for model in models.values()):
         raise ValueError('Configure a model for questions, data review and forecast decisions.')
     models['title']=os.getenv('DEMANDLAB_AI_TITLE_MODEL','gpt-4.1-nano' if provider=='openai' else models['query']).strip()
+    if bridge:
+        provider='openai'
+        models.update(bridge.ai.get('models',{}))
     if not models['title'] or len(models['title'])>200:
         raise ValueError('Configure a short-title model.')
     endpoint = local_endpoint(os.getenv('DEMANDLAB_AI_LOCAL_URL', 'http://127.0.0.1:11434/v1')) if provider == 'local' else 'https://api.openai.com/v1'
@@ -83,7 +88,10 @@ def provider_settings():
 
 
 def ai_status():
+    from .cloud_network import current_bridge
+    bridge = current_bridge()
     enabled = os.getenv('DEMANDLAB_AI_ENABLED', 'false').lower() == 'true'
+    if bridge: enabled = bridge.ai.get('enabled') is True
     try:
         provider, endpoint, models, limits = provider_settings()
     except ValueError as exc:
@@ -91,6 +99,7 @@ def ai_status():
     key = os.getenv('OPENAI_API_KEY', '').strip()
     configured = provider == 'local' or (key.startswith('sk-') and len(key) > 30
         and not any(s in key.lower() for s in ('placeholder', 'replace', 'your_key')))
+    if bridge: configured = bridge.ai.get('configured') is True
     label = 'OpenAI' if provider == 'openai' else 'Local AI on this computer'
     return {'configured': configured, 'enabled': enabled, 'ready': configured and enabled,
             'provider': provider, 'provider_label': label, 'models': models, 'limits': limits.public(),
@@ -211,8 +220,11 @@ async def ai_run_config(ledger, actor, expected_status):
     provider, endpoint, models, limits = provider_settings()
     # Explicit destinations; ambient OPENAI_BASE_URL and proxy settings cannot
     # redirect a cloud credential or silently turn local mode into a cloud call.
-    async with httpx.AsyncClient(trust_env=False, follow_redirects=False) as transport:
-        async with AsyncOpenAI(api_key=os.environ['OPENAI_API_KEY'] if provider == 'openai' else 'local-no-key',
+    from .cloud_network import current_bridge, RelayAsyncTransport
+    bridge = current_bridge()
+    async with httpx.AsyncClient(trust_env=False, follow_redirects=False,
+                                **({'transport':RelayAsyncTransport(bridge)} if bridge else {})) as transport:
+        async with AsyncOpenAI(api_key='sk-private-relay-placeholder-not-a-real-key' if bridge else os.environ['OPENAI_API_KEY'] if provider == 'openai' else 'local-no-key',  # pragma: allowlist secret - non-secret relay placeholder
                                base_url=endpoint, http_client=transport, timeout=60, max_retries=0,
                                **({'organization': '', 'project': ''} if provider == 'local' else {})) as client:
             base = OpenAIProvider(openai_client=client, use_responses=provider == 'openai', strict_feature_validation=True)

@@ -1,10 +1,13 @@
+import {NetworkBroker} from './network-broker.mjs';
+import {companyRoute} from './company-api.mjs';
 const ID=/^[a-f0-9]{32}$/,RUN=/^(?:[a-f0-9]{12}|[a-f0-9]{32})$/,COMPANY=/^[A-Za-z0-9_-]{1,128}$/;
 const SLEEP_MS=5*60*1000;
 function closed() { return new Response(null,{status:404,headers:{'Cache-Control':'no-store','X-Robots-Tag':'noindex, nofollow'}}); }
 
 export class CloudEngineController {
-  constructor(ctx,env) {
+  constructor(ctx,env,networkOptions={}) {
     this.ctx=ctx; this.env=env;
+    this.networkOptions=networkOptions;
     if (ctx.container?.running) ctx.blockConcurrencyWhile(()=>ctx.container.setInactivityTimeout(SLEEP_MS));
   }
   async execute(job) {
@@ -37,7 +40,13 @@ export class CloudEngineController {
     const port=this.ctx.container.getTcpPort(8080);
     const request=async(path,options={})=>port.fetch('http://engine'+path,{...options,
       signal:AbortSignal.timeout(Math.max(1,job.deadline-Date.now()))});
-    let completed=false;
+    let completed=false,relayStopped=false,relayTask=null;
+    let failRelay;
+    const relayFailure=new Promise((_,reject)=>{failRelay=reject;});
+    // A relay failure stops its operation; it must not become an unhandled
+    // promise or leave a credential-bearing request waiting until the deadline.
+    relayFailure.catch(()=>{});
+    const broker=new NetworkBroker(this.ctx,this.env,job,this.networkOptions);
     const save=async(key,response,limit=64*1024*1024)=>{
       const size=Number(response.headers.get('content-length'));
       if(!Number.isSafeInteger(size) || size<1 || size>limit)throw new Error('Invalid output size');
@@ -61,9 +70,28 @@ export class CloudEngineController {
         if(!body || body.size>51*1024*1024)throw new Error('Company request unavailable');
         const staged=await request('/request/'+job.attempt,{method:'PUT',body:body.body});
         if(!staged.ok)throw new Error('Company request unavailable');
+        job.payload._cloud_ai={enabled:this.env.AI_ENABLED==='true'&&this.env.AI_ELIGIBILITY_CONFIRMED==='true',
+          configured:!!this.env.OPENAI_API_KEY,models:{query:this.env.AI_QUERY_MODEL || 'gpt-4.1-mini',
+            review:this.env.AI_REVIEW_MODEL || 'gpt-4.1',decision:this.env.AI_DECISION_MODEL || 'o3',title:this.env.AI_TITLE_MODEL || 'gpt-4.1-nano'}};
+        if(companyRoute(job.payload.method,job.payload.path)?.network) {
+          // Poll ONLY while one explicit operation is executing, never while idle.
+          relayTask=(async()=>{const pending=new Set();
+            try{while(!relayStopped&&Date.now()<job.deadline){
+              const next=await request('/network/'+job.attempt+'/next');
+              const item=(await next.json()).request;
+              if(item){
+                const task=(async()=>{let answer;try{answer=await broker.exchange(item);}catch{answer={error:true};}
+                  if(!relayStopped)await request('/network/'+job.attempt+'/'+item.id,{method:'PUT',body:JSON.stringify(answer)});
+                })();pending.add(task);task.finally(()=>pending.delete(task)).catch(()=>{});
+              }else await new Promise(resolve=>setTimeout(resolve,100));
+            }}finally{await Promise.allSettled(pending);}
+          })();
+          relayTask.catch(()=>failRelay(new Error('Private network operation unavailable')));
+        }
       }
-      const response=await request(job.kind==='api'?'/api-operation':'/forecast',{method:'POST',body:input?.body || null,
+      const operation=request(job.kind==='api'?'/api-operation':'/forecast',{method:'POST',body:input?.body || null,
         headers:{'x-forecast-job':JSON.stringify({company_id:job.company_id,job_id:job.attempt,payload:job.payload})}});
+      const response=await Promise.race([operation,relayFailure]);
       if(!response.ok)throw new Error('Forecast calculation unavailable');
       const result=await response.json();
       if(result.job_id!==job.attempt || result.company_id!==job.company_id || !RUN.test(result.run_id) ||
@@ -71,9 +99,11 @@ export class CloudEngineController {
           result.artifacts.some(name=>typeof name!=='string' || !/^[a-zA-Z0-9_.-]{1,160}$/.test(name)))throw new Error('Invalid engine output');
       const root='companies/'+job.company_id+'/',key=root+'revisions/'+job.attempt+'.zip';
       const apiStatus=job.kind==='api'?result.api_status:undefined;
-      if(job.kind==='api' && (!Number.isInteger(apiStatus) || apiStatus<200 || apiStatus>=500 ||
-          (apiStatus<300 && job.payload.method!=='GET' && !result.artifacts.includes('company-view.json'))))throw new Error('Invalid company output');
-      const publish=apiStatus===undefined || (apiStatus<300&&job.payload.method!=='GET');
+      const entry=job.kind==='api'?companyRoute(job.payload.method,job.payload.path):null;
+      if(job.kind==='api' && (!Number.isInteger(apiStatus) || apiStatus<200 || apiStatus>=600 ||
+          (apiStatus>=500&&!entry?.network)||
+          ((apiStatus<300||result.committed===true) && job.payload.method!=='GET' && !result.artifacts.includes('company-view.json'))))throw new Error('Invalid company output');
+      const publish=apiStatus===undefined || ((apiStatus<300||entry?.network&&result.committed===true)&&job.payload.method!=='GET');
       if(publish) {
         const snapshot=await request('/output/'+job.attempt+'/snapshot');
         if(!snapshot.ok)throw new Error('Checkpoint unavailable');
@@ -92,8 +122,11 @@ export class CloudEngineController {
       if(Date.now()>=job.deadline)throw new Error('Forecast deadline exceeded');
       completed=true;
       return {company_id:job.company_id,attempt:job.attempt,run_id:result.run_id,
-        object_key:publish?key:null,artifacts,...(apiStatus!==undefined?{api_status:apiStatus}:{})};
+        object_key:publish?key:null,artifacts,...(apiStatus!==undefined?{api_status:apiStatus,committed:publish}:{})};
     } finally {
+      relayStopped=true;
+      await broker.close();
+      if(relayTask)await relayTask.catch(()=>{});
       await this.ctx.blockConcurrencyWhile(async()=>{
         const current=await this.ctx.storage.get('active');
         if(current?.attempt!==job.attempt)return;

@@ -1,8 +1,9 @@
 import { DurableObject, WorkerEntrypoint } from 'cloudflare:workers';
 import { CloudEngineController } from './engine-lifecycle.mjs';
+import {connect} from 'cloudflare:sockets';
 const closed=()=>new Response(null,{status:404,headers:{'Cache-Control':'no-store','X-Robots-Tag':'noindex, nofollow'}});
 export class ForecastEngine extends DurableObject {
-  constructor(ctx,env) { super(ctx,env);this.controller=new CloudEngineController(ctx,env); }
+  constructor(ctx,env) { super(ctx,env);this.controller=new CloudEngineController(ctx,env,{connector:connect}); }
   execute(job) { return this.controller.execute(job); }
   alarm() { return this.controller.alarm(); }
   status() { return this.controller.status(); }

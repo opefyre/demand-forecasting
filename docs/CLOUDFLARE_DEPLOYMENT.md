@@ -4,19 +4,22 @@ Status: 10 October 2026. Private permissions, storage and engine backbone deploy
 **The forecasting app is not deployed or ready for public use.**
 The local demo remains independent at `http://127.0.0.1:8010`.
 
-Latest private API slice: 108 company operations, including approved reports,
-exports, lifecycle/settings and personal resources, are implemented and verified.
+Latest private API slice: 169 explicit company operations plus 14 native
+identity/management operations, including assistant workflows, live connectors,
+durable schedules, reports, exports and personal resources, are implemented.
 Shared asynchronous screen/download adapters are implemented but require the
-future authenticated private UI gateway. See [scope and gates](CLOUD_REPORTS_DELIVERY.md).
+future authenticated private UI gateway. See [scope and gates](CLOUD_WORKFLOWS_DELIVERY.md).
 The public edge remains the same closed hold; no cloud UI launch is claimed.
 
 Current API-bridge deployment versions: identity
-`f7ec875f-fb1f-45e4-86d6-de56fbd2e308`, storage
-`fc20db3f-5240-4698-aa46-09371cdac76b`, engine
-`2619d520-6ed9-47c4-91e8-ee9723c4e224`; image
-`sha256:e9bbb6ca643ab8111806a1a61f1c58683174f497b9bfa326004113c2c03b4f9c`.
+`0b68c42d-e105-47c4-9741-8d959bf1ba4a`, storage
+`5b71f9db-98d6-4bf5-b670-50a0be979ae9`, engine
+`0fcf85be-8aa3-46c8-bf6e-06fc36314f97`; image
+`sha256:bb84d6cc0a7d2ee07edaaff2390daa1c9fc844beb715f009a6341990d176d45f`.
 Earlier versions below record the preceding backbone checkpoint. The dedicated
-build VM was stopped and its temporary registry login cleared after the upload.
+build VM is stopped after testing and its temporary registry login cleared after
+the upload. Public edge remains HTTP 503; engine inventory shows zero live instances.
+No live provider data, AI request or notification was sent.
 
 ## Confirmed scope
 
@@ -35,7 +38,7 @@ build VM was stopped and its temporary registry login cleared after the upload.
 | Worker `demandlab-forecast-edge` | New isolated domain hold. Every route returns HTTP 503; no backend, assets, credentials, cron or storage bindings. |
 | Worker `demandlab-forecast-identity` | Private D1 permissions service and serialized administrator coordinator deployed. No routes, workers.dev or preview URL. HTTP always returns 404; private RPC only. |
 | Worker `demandlab-forecast-storage` | Private native SQLite job/revision ledger and company-bound R2 checkpoint/artifact service deployed; private RPC only. |
-| Worker `demandlab-forecast-engine` | Offline, non-root Linux mathematical engine deployed with official native container APIs and five-minute inactivity policy; private RPC only. |
+| Worker `demandlab-forecast-engine` | Offline, non-root Linux engine with five-minute inactivity policy; private Worker relays only permission-checked, attempt-bound provider requests. No public listener or generic proxy. |
 | D1 `demandlab-forecast-identity` | New WEUR database, `f0f8d4b4-ff3d-4bcc-90ac-c08ff97b64e7`. Library-generated schema applied; zero users, companies and sessions. |
 | `forecast.vrolen.com` | Worker custom domain created; HTTPS and closed app/login/API routes checked. No wildcard route. |
 | R2 `demandlab-forecast-files` | New empty Standard bucket, Western Europe location hint; public r2.dev access disabled. |

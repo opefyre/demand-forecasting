@@ -28,8 +28,9 @@ path/symlink checks and restrictive permissions are enforced.
 
 Connector/source/notification credentials use the maintained cryptography AES-GCM
 implementation, bound to company, purpose and identifier. Only ciphertext is
-checkpointed. The engine-only encryption key stays in an ignored private local
-file and Cloudflare secret; it is injected at container startup, never baked into
+checkpointed. The dedicated encryption key stays in an ignored private local
+file and private engine/storage Worker secrets; storage now seals queued credential
+bodies before R2 writes. It is injected at container startup, never baked into
 the image. Existing macOS Keychain behavior remains unchanged for the local app.
 
 Requests are repeat-safe per company. Accepted jobs survive runtime recreation;
@@ -93,6 +94,11 @@ does not verify real cold-start latency, actual sleep or billing. Those require 
 bounded private remote exercise and observation, never continuous health polling.
 
 ## Next substantial build
+
+The private networked workflows and durable schedules are now implemented; see
+[cloud workflows](CLOUD_WORKFLOWS_DELIVERY.md). The following wider migration
+paragraph records the earlier backbone milestone. Owner-only gateway and actual
+remote/browser/provider acceptance are still open.
 
 The next core API slice is now implemented: see
 [private company API bridge](CLOUD_API_DELIVERY.md) for its exact supported routes,

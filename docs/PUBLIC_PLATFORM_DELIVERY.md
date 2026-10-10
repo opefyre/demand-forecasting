@@ -56,7 +56,8 @@ packages; retain licences and attribution. No SAML or messaging commands in v1.
     - [x] Offline Linux engine deployed with bounded deadlines and five-minute idle policy.
     - [x] Core customer/input/order/factor/grouped-forecast private command and saved-read bridge implemented and locally verified; see CLOUD_API_DELIVERY.md.
     - [x] Approved reports/exports, lifecycle/settings/personal resources and shared cloud screen/download adapters implemented; see CLOUD_REPORTS_DELIVERY.md. Public gateway remains unbound.
-    - [ ] Existing company CRUD/screens, recurring/live workflows and measured remote idle/wake acceptance.
+    - [x] Private assistant/scenario/monthly workflows, read-only live connectors, durable schedules, notifications and native management routes implemented; see CLOUD_WORKFLOWS_DELIVERY.md. AI remains disabled pending eligibility; real provider/browser acceptance is separate.
+    - [ ] Owner-only authenticated screen gateway and measured remote idle/wake acceptance.
   - [x] Create and privately store a Resend sending-only key restricted to the forecast domain.
   - [x] Securely store replacement Google secret and verify the exposed secret is disabled.
   - [ ] Wire production credentials; verify Google sign-in and real mail delivery.

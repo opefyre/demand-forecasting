@@ -1,5 +1,9 @@
 # Private reports and resource bridge — 10 October 2026
 
+Follow-up: the networked/recurring orchestration described as remaining below is
+now implemented in [cloud workflows](CLOUD_WORKFLOWS_DELIVERY.md). This file records
+the earlier reports milestone; current deployment IDs are in CLOUDFLARE_DEPLOYMENT.md.
+
 This extends the existing company API; it is not a public application launch.
 The local demo stays independent. No other cloud services, real company data,
 identity accounts, provider connections, AI requests or mail are changed.
@@ -105,6 +109,5 @@ that work. Some source routes deliberately require all category scopes until
 native per-file filtering is finished. Existing bounded size/record limits and
 scoped orphan/body retention work in CLOUD_API_DELIVERY.md still apply.
 
-Next: port the networked/recurring workflows and remaining management routes,
-then wire an owner-only authenticated UI gateway and verify Google/mail, browser
+Next: wire an owner-only authenticated UI gateway and verify Google/mail, browser
 roles and actual remote wake/sleep. No public access is opened automatically.

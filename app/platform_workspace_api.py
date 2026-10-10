@@ -37,7 +37,7 @@ class ForecastSettings(StrictInput):
     request_id: str = Field(min_length=8,max_length=100)
 
 
-def install_platform_workspace(api, workspaces, dispatcher=None):
+def install_platform_workspace(api, workspaces, dispatcher=None, service=None):
     router=APIRouter()
     if dispatcher is None:
         from .company_jobs import dispatch
@@ -219,8 +219,7 @@ def install_platform_workspace(api, workspaces, dispatcher=None):
             if owner:
                 principal(request,'settings:manage')
                 # Retry must not detach a scheduled job from its live owner grant.
-                from .main import ACCESS
-                if not schedule_authorized(ACCESS.identity_service,w,owner):raise HTTPException(403,'Schedule authorization is unavailable.')
+                if not schedule_authorized(service,w,owner):raise HTTPException(403,'Schedule authorization is unavailable.')
             return call(lambda:submit_draft(w,dispatcher,values,old['name'],request_id,schedule_owner=owner,retry_of=job_id))
         call(lambda:reviewed(w.datasets,w.sales,payload['dataset_id'],payload['sales_input_id'],site=w.site))
         job=call(lambda:w.jobs.create(payload,old['name'],request_id,retry_of=job_id))

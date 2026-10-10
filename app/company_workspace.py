@@ -67,14 +67,19 @@ class CompanyWorkspace:
     def live_sources(self):
         from .live_sources import LiveSources, KeyVault
         from .cloud_state import cloud_vault
+        from .cloud_network import current_bridge, RelayTransport
+        bridge = current_bridge()
         return self.store('live_sources', lambda: LiveSources(self.path('live-sources.sqlite3'), self.factors,
-                           vault=cloud_vault(self.root,self.company_id,'sources') or KeyVault(self.root)))
+                           vault=cloud_vault(self.root,self.company_id,'sources') or KeyVault(self.root),
+                           transport=RelayTransport(bridge,'source') if bridge else None))
 
     @property
     def connections(self):
         import os
         from .business_connections import BusinessConnections,InputFetcher,TargetPolicy,ConnectionError
         from .cloud_state import cloud_vault
+        from .cloud_network import current_bridge, RelayFetcher
+        bridge = current_bridge()
         try:
             targets = json.loads(os.environ.get('DEMANDLAB_CONNECTOR_PRIVATE_TARGETS','{}'))
             approved = targets.get(self.company_id,[])
@@ -83,7 +88,7 @@ class CompanyWorkspace:
             raise ConnectionError('Company connection settings are invalid. Ask an administrator.') from None
         return self.store('connections',lambda:BusinessConnections(self.path('connections.sqlite3'),self.datasets,
                           vault=cloud_vault(self.root,self.company_id,'connections'),
-                          fetcher=InputFetcher(TargetPolicy(v.strip().lower() for v in approved))))
+                          fetcher=RelayFetcher(bridge) if bridge else InputFetcher(TargetPolicy(v.strip().lower() for v in approved))))
 
     @property
     def site(self):

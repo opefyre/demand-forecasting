@@ -4,8 +4,12 @@
   "account_id": "b53df72f41f5135daf312100e73ff6a1",
   "main": "cloud-engine.mjs", "compatibility_date": "2026-10-09",
   "workers_dev": false, "preview_urls": false, "routes": [],
-  "observability": {"enabled":false}, "limits":{"cpu_ms":50},
-  "vars":{"PRIVATE_ACCESS":"closed"},
+  "observability": {"enabled":false}, "limits":{"cpu_ms":1000},
+  "vars":{"PRIVATE_ACCESS":"closed","AI_ENABLED":"false","AI_ELIGIBILITY_CONFIRMED":"false"},
+  "services":[
+    {"binding":"IDENTITY","service":"demandlab-forecast-identity","entrypoint":"ForecastIdentity"},
+    {"binding":"STORAGE","service":"demandlab-forecast-storage","entrypoint":"ForecastStorage"}
+  ],
   "durable_objects":{"bindings":[{"name":"ENGINE","class_name":"ForecastEngine"}]},
   "migrations":[{"tag":"v1","new_sqlite_classes":["ForecastEngine"]}],
   "containers":[{"class_name":"ForecastEngine","scheduling_policy":"durable_object",

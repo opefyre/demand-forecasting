@@ -80,5 +80,29 @@ test('engine configuration has no public routes, timers or unrelated resources',
   assert.equal(config.workers_dev,false);assert.equal(config.preview_urls,false);assert.deepEqual(config.routes,[]);assert.equal(config.vars.PRIVATE_ACCESS,'closed');
   assert.equal(config.observability.enabled,false);assert.equal(config.containers.length,1);assert.equal(config.containers[0].scheduling_policy,'durable_object');
   assert.deepEqual(config.r2_buckets.map(x=>x.bucket_name),['demandlab-forecast-files','demandlab-forecast-backups']);
-  assert.equal(config.triggers,undefined);assert.equal(config.services,undefined);assert.equal(config.d1_databases,undefined);
+  assert.equal(config.triggers,undefined);assert.deepEqual(config.services.map(s=>s.service),['demandlab-forecast-identity','demandlab-forecast-storage']);assert.equal(config.d1_databases,undefined);
+  assert.equal(config.vars.AI_ENABLED,'false');assert.equal(config.vars.AI_ELIGIBILITY_CONFIRMED,'false');
+});
+test('private relay mediates one source request, preserves failed-source state and remains offline',async()=>{
+  const f=fixture(),bodyKey='companies/company-a/requests/'+'7'.repeat(64);f.objects.set(bodyKey,new Uint8Array([1]));
+  const job={...f.job,kind:'api',object_key:null,payload:{method:'POST',path:'/connections/external-sources/industry/refresh',body_key:bodyKey,
+    principal:{subject:'owner',required_scopes:['connections:sync'],permissions:['connections:sync']}}};
+  f.env.IDENTITY={operation:async()=>({status:200,body:{allowed:true,permissions:['connections:sync']}})};
+  f.env.STORAGE={authorizeAttempt:async()=>true};
+  let delivered=false,answered,finish;
+  const original=f.ctx.container.getTcpPort().fetch;
+  f.ctx.container.getTcpPort=()=>({fetch:async(url,options)=>{
+    if(url.endsWith('/next')){if(delivered)return Response.json({request:null});delivered=true;return Response.json({request:{id:'relay',kind:'http',category:'source',
+      url:'https://api.worldbank.org/v2/country/IRN/indicator/NV.IND.TOTL.KD.ZG?format=json',method:'GET',body:''}});}
+    if(url.endsWith('/relay')){answered=JSON.parse(options.body);finish?.();return Response.json({saved:true});}
+    if(url.endsWith('/api-operation')){if(!answered)await new Promise(resolve=>{finish=resolve;});return Response.json({job_id:job.attempt,company_id:job.company_id,
+      run_id:job.attempt,api_status:502,committed:true,artifacts:['api-response.json','company-view.json','company-schedules.json']});}
+    return original(url,options);
+  }});
+  const requests=[],fetcher=async url=>{requests.push(url);return url.includes('dns-query')?Response.json({Answer:[{type:1,data:'8.8.8.8'}]}):new Response('unavailable',{status:503});};
+  const controller=new CloudEngineController(f.ctx,f.env,{fetcher}),result=await controller.execute(job);
+  assert.equal(answered.status,503);assert.equal(requests.length,2);assert.equal(result.api_status,502);assert.equal(result.committed,true);
+  assert.equal(f.backup.size,1);assert.ok(result.artifacts['company-schedules.json']);
+  assert.equal(f.events.find(e=>e[0]==='start')[1].enableInternet,false);
+  assert.equal((await controller.status()).busy,false);
 });

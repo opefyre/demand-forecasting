@@ -3,12 +3,14 @@ import { readFile, lstat, mkdir, open } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 
-// Dedicated engine-only encryption secret. Never print it or copy demo secrets.
-const configPath=fileURLToPath(new URL('../../deploy/cloudflare/engine.wrangler.jsonc',import.meta.url));
+// Dedicated forecast encryption key. Storage seals credential-bearing requests;
+// the engine decrypts them. Never print it or copy another app's secrets.
+const target=process.argv.includes('--storage')?'storage':'engine';
+const configPath=fileURLToPath(new URL('../../deploy/cloudflare/'+target+'.wrangler.jsonc',import.meta.url));
 const secretPath=fileURLToPath(new URL('../../secrets/forecast-company-vault-key.txt',import.meta.url));
 try {
   const config=JSON.parse(await readFile(configPath,'utf8'));
-  if(config.name!=='demandlab-forecast-engine' || config.account_id!=='b53df72f41f5135daf312100e73ff6a1' ||
+  if(config.name!=='demandlab-forecast-'+target || config.account_id!=='b53df72f41f5135daf312100e73ff6a1' ||
       config.workers_dev!==false || config.preview_urls!==false || config.routes.length || config.vars.PRIVATE_ACCESS!=='closed' ||
       config.r2_buckets.map((b:any)=>b.bucket_name).join(',')!=='demandlab-forecast-files,demandlab-forecast-backups')throw new Error();
   await mkdir(fileURLToPath(new URL('../../secrets/',import.meta.url)),{recursive:true,mode:0o700});
@@ -26,5 +28,5 @@ try {
     child.stdin.end(JSON.stringify({COMPANY_VAULT_KEY:key}));
     await new Promise<void>((resolve,reject)=>{child.once('error',reject);child.once('close',code=>code===0?resolve():reject(new Error()));});
   }
-  console.log(process.argv.includes('--install')?'Dedicated engine encryption secret installed privately.':'Dedicated engine encryption secret validated; not displayed.');
-}catch{console.error('Engine secret setup failed. No credential value was displayed.');process.exitCode=1;}
+  console.log(process.argv.includes('--install')?'Dedicated forecast encryption secret installed privately.':'Dedicated forecast encryption secret validated; not displayed.');
+}catch{console.error('Forecast secret setup failed. No credential value was displayed.');process.exitCode=1;}

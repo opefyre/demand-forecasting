@@ -11,6 +11,9 @@ class IsolatedSender:
         # Secrets use stdin, never command arguments, files or inherited credentials.
         payload=dict(config=config,secret=secret,text=text,link=link)
         env={k:v for k,v in os.environ.items() if k in {'PATH','SYSTEMROOT','WINDIR','LANG'}}
+        from .cloud_network import current_bridge
+        bridge = current_bridge()
+        if bridge: env['DEMANDLAB_NETWORK_ATTEMPT'] = bridge.attempt
         try:
             result=subprocess.run([sys.executable,'-m','app.notification_sender'],
                 cwd=Path(__file__).resolve().parents[1],env=env,input=json.dumps(payload).encode(),
@@ -103,6 +106,11 @@ if __name__=='__main__':
     try:
         raw=sys.stdin.buffer.read(12000)
         if len(raw)>=12000:raise ValueError()
-        state=deliver(json.loads(raw))
+        factory=PinnedRequests
+        if os.environ.get('DEMANDLAB_NETWORK_ATTEMPT'):
+            from .cloud_network import LoopbackBridge, RelayTransport, RelayPolicy
+            bridge=LoopbackBridge(os.environ['DEMANDLAB_NETWORK_ATTEMPT'])
+            factory=lambda host:PinnedRequests(host,policy=RelayPolicy(),transport=RelayTransport(bridge,'notification'))
+        state=deliver(json.loads(raw),factory)
     except Exception:state='unknown'
     sys.stdout.write(json.dumps({'state':state}))

@@ -856,6 +856,13 @@ def install_ai_routes(app, journal, load_run, get_outlook, datasets, submit, sal
                     try:s.journal.rename(key,who,title,'ai')
                     except Exception:pass  # Never expose provider text or disturb the saved answer.
                 title_task.add_done_callback(finish_name)
+                # Scratch checkpoints must include the parallel title result and
+                # call reservations before the cloud operation returns/sleeps.
+                from .cloud_network import current_bridge
+                if current_bridge():
+                    await asyncio.gather(title_task,return_exceptions=True)
+                    await asyncio.sleep(0)
+                    title_task=None
             return {**result, 'id': key,'title_pending':bool(title_task)}
         except AILimitError as exc:
             raise HTTPException(429, str(exc)) from exc

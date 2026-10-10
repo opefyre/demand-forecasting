@@ -57,7 +57,7 @@ export async function cloudAccessOperation(identity: Identity, db: D1Binding, op
         available = permissions[current.role];
       } else return { allowed: false };
       const required = body.required_scopes ?? ['forecasts:run'];
-      if (!Array.isArray(required) || !required.length || required.length > 8 ||
+      if (!Array.isArray(required) || !required.length || required.length > 40 ||
           required.some(scope => typeof scope !== 'string' || !(scope in scopeLabels))) return { allowed: false };
       return { allowed: required.every(scope => body.permissions.includes(scope) && available.includes(scope)),
         permissions: body.permissions.filter(scope => available.includes(scope)), role:currentRole };
@@ -72,7 +72,8 @@ export async function cloudAccessOperation(identity: Identity, db: D1Binding, op
         !body.subject || body.subject.startsWith("service:")) return { allowed: false };
     try {
       const current = await d1Membership(db, body.company_id, body.subject);
-      return { allowed: current.role === "admin" && current.two_factor_enabled === 1 };
+      return { allowed: current.role === "admin" && current.two_factor_enabled === 1,
+        role:current.role, permissions:permissions[current.role] };
     } catch (error) {
       if (error instanceof AccessError && error.status === 403) return { allowed: false };
       throw error;
