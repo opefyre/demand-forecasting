@@ -142,6 +142,21 @@ identical quantities and evidence, then finish corrected-input/revision and
 advanced grouped-factor mobile/error/reload acceptance. Full-product/legacy design,
 raw capture receipt, provider/AI/client and multi-person acceptance remain open.
 
+Calculation-preparation slice, 10 October: observed-origin features are reused
+across horizons and factor frames across full-history models, only within each
+call. All method comparison curves, selection/confirmation, ranges, driver
+explanations and failures remain. The 804-row / 18-series local profiled comparison
+against commit 3492520 gives exactly equal results except IDs/timings and identical
+forecast CSV bytes: 24.187→22.221 seconds overall, training preparation
+2.9115→1.8360 seconds. One host comparison is not a cloud speed guarantee.
+Host checks 102 and interface checks 288 pass. Desktop/Persian-mobile forecast
+modal and notification form use shared dimensions/controls; no appearance source
+was added. See CALCULATION_PREPARATION_DELIVERY.md for final Linux/deployment proof.
+Next substantial chunk: corrected input → revised grouped forecast → independent
+approval → approved export, with Persian/mobile recovery, reload and revision
+navigation, fixing workflow/design gaps through shared components. Broader legacy
+design, raw capture receipts, provider/AI/client and multi-person gates remain open.
+
 ## Earlier delivery history
 
 Latest delivery, 7 October — guided read recovery across sales demand, order-import

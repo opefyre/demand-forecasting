@@ -239,21 +239,9 @@ def _fit_pipeline(pipe, X, y):
     return pipe
 
 
-def _feature_row(
-    *,
-    target_history: list[float],
-    driver_row: pd.Series | dict,
-    time_idx: int,
-    lags: list[int],
-    known_driver_cols: list[str],
-    item_id: str,
-    forecast_step: int = 1,
-) -> dict:
-    row: dict[str, object] = {
-        "time_idx": float(time_idx),
-        "forecast_step": float(max(1, forecast_step)),
-        "item_id": str(item_id),
-    }
+def _history_features(target_history: list[float], lags: list[int]) -> dict:
+    """Observed-origin values, shared only across horizons at that same origin."""
+    row: dict[str, object] = {}
     for lag in lags:
         row[f"lag_{lag}"] = float(target_history[-lag]) if len(target_history) >= lag else np.nan
     for window in [2, 3, 6, 12]:
@@ -293,6 +281,28 @@ def _feature_row(
         row["seasonal_level_ratio"] = recent_mean / annual_mean if abs(annual_mean) > 1e-9 else 1.0
     else:
         row["seasonal_level_ratio"] = 1.0
+    return row
+
+
+def _feature_row(
+    *,
+    target_history: list[float],
+    driver_row: pd.Series | dict,
+    time_idx: int,
+    lags: list[int],
+    known_driver_cols: list[str],
+    item_id: str,
+    forecast_step: int = 1,
+    history_features: dict | None = None,
+) -> dict:
+    row: dict[str, object] = {
+        "time_idx": float(time_idx),
+        "forecast_step": float(max(1, forecast_step)),
+        "item_id": str(item_id),
+    }
+    # Copy into a fresh row: future drivers/calendar may overwrite names, but
+    # must never mutate another horizon's observed-origin values.
+    row.update(_history_features(target_history, lags) if history_features is None else history_features)
     for col in list(dict.fromkeys(known_driver_cols + _calendar_cols(driver_row))):
         if col in driver_row:
             val = driver_row[col]
@@ -355,17 +365,20 @@ def _direct_supervised_frame(
     warmup = max(max(lags, default=1), 3)
     for origin in range(warmup, len(grp)):
         horizon_here = min(max_horizon, len(grp) - origin)
+        observed = targets[:origin]
+        origin_features = _history_features(observed, lags)
         for step in range(1, horizon_here + 1):
             target_idx = origin + step - 1
             rows.append(
                 _feature_row(
-                    target_history=targets[:origin],
+                    target_history=observed,
                     driver_row=grp.iloc[target_idx],
                     time_idx=target_idx,
                     lags=lags,
                     known_driver_cols=known_driver_cols,
                     item_id=item_id,
                     forecast_step=step,
+                    history_features=origin_features,
                 )
             )
             ys.append(targets[target_idx])
@@ -486,6 +499,7 @@ def _direct_predict(
 ) -> list[float]:
     """Predict every future step from the same observed origin."""
     features = []
+    origin_features = _history_features(target_history, lags) if len(future_rows) else {}
     for step, (_, driver_row) in enumerate(future_rows.iterrows(), start=1):
         features.append(
             _feature_row(
@@ -496,6 +510,7 @@ def _direct_predict(
                 known_driver_cols=known_driver_cols,
                 item_id=item_id,
                 forecast_step=step,
+                history_features=origin_features,
             )
         )
     if not features:
@@ -1121,12 +1136,16 @@ def _fit_full_models_and_predict(
 
     fitted: dict[str, Pipeline] = {}
     fitting_errors = {}
+    feature_frames = {tuple(known_driver_cols): (X_all, y_all)}
     for spec in specs:
         checkpoint()
         columns = _spec_drivers(spec, known_driver_cols)
         if spec.kind != 'ml':
             continue
-        X_spec, y_spec = (X_all,y_all) if columns == known_driver_cols else _global_direct_supervised_frame(history,columns,lags,max_horizon=max_horizon)
+        key = tuple(columns)
+        if key not in feature_frames:
+            feature_frames[key] = _global_direct_supervised_frame(history, columns, lags, max_horizon=max_horizon)
+        X_spec, y_spec = feature_frames[key]
         if len(X_spec) < 12: continue
         try:
             pipe = _make_pipeline(spec.estimator, X_spec)
