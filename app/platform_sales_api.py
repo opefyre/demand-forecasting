@@ -172,15 +172,33 @@ def install_platform_sales(api, workspaces, dispatcher=None):
         ws = workspace(request, 'inputs:write')
         check_sources(ws, body)
         from .input_review import validate_import
-        return call(lambda: validate_import(ws.datasets, body.sources, body.settings, body.classification))
+        def review():
+            value = validate_import(ws.datasets, body.sources, body.settings, body.classification)
+            if body.parent_dataset_id:
+                from .input_refresh import repeat_review
+                value['repeat_upload'] = repeat_review(ws.datasets, body.parent_dataset_id,
+                    body.sources, body.settings, body.classification)
+            return value
+        return call(review)
 
     @router.post('/datasets', status_code=201, tags=['Sales inputs'])
     def create_dataset(body: DatasetInput, request: Request):
         ws = workspace(request, 'inputs:write')
         check_sources(ws, body)
-        return call(lambda: ws.datasets.save(body.name, body.sources, body.settings,
-            body.classification, body.accept_warnings, parent_dataset_id=body.parent_dataset_id,
-            request_id=body.request_id))
+        def save_reviewed():
+            provenance = None
+            if body.parent_dataset_id:
+                from .input_refresh import repeat_review
+                receipt = repeat_review(ws.datasets, body.parent_dataset_id,
+                    body.sources, body.settings, body.classification)
+                if receipt:
+                    if not body.accept_warnings:
+                        raise ValueError('Review and acknowledge the repeat-upload changes before saving.')
+                    provenance = {'kind': 'repeat_history_review', 'review': receipt}
+            return ws.datasets.save(body.name, body.sources, body.settings,
+                body.classification, body.accept_warnings, parent_dataset_id=body.parent_dataset_id,
+                request_id=body.request_id, import_provenance=provenance)
+        return call(save_reviewed)
 
     @router.get('/datasets/{dataset_id}', tags=['Sales inputs'])
     def get_dataset(dataset_id: str, request: Request):

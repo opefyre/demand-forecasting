@@ -225,6 +225,143 @@ class CloudApiTests(unittest.TestCase):
             self.assertEqual(response.status_code,422,'Viewer cannot ask for draft exports')
         finally:fixture.tearDown()
 
+    def test_corrected_history_to_revised_group_independent_approval_and_exact_exports(self):
+        """Run the full sales journey through durable cold-start operations, offline."""
+        import csv
+        import shutil
+        from io import StringIO, BytesIO
+        from openpyxl import load_workbook
+        fixture = sales_fixture.PublicSalesTests(); fixture.setUp()
+        try:
+            source, original, original_body = fixture.history()
+            orders = fixture.orders(original)
+            parent, _ = fixture.calculate(original, orders, ['model:Last observed'])
+            parent_run_id = parent['jobs'][0]['run_id']
+            original_run = fixture.ws.load_run(parent_run_id)
+            _, original_bytes = fixture.ws.datasets.source(source['id'])
+            # Correct a recent customer's demand and remove an old month explicitly.
+            rows = list(csv.DictReader(StringIO(original_bytes.decode())))
+            last = max(row['date'] for row in rows)
+            first = min(row['date'] for row in rows)
+            rows = [row for row in rows if row['date'] != first]
+            for row in rows:
+                if row['date'] == last and row['customer'] == 'Aftab': row['quantity'] = '26'
+            output = StringIO(); writer = csv.DictWriter(output, fieldnames=list(rows[0]))
+            writer.writeheader(); writer.writerows(rows)
+            corrected_bytes = output.getvalue().encode()
+            shutil.copytree(fixture.root/'companies', self.root/'input/data/companies')
+            archive = self.root/'journey.zip'; capture(self.root/'input', 'tehran_a', archive)
+            checkpoint = archive.read_bytes()
+            boundary = 'forecast-revision-test'
+            upload = (f'--{boundary}\r\nContent-Disposition: form-data; name="role"\r\n\r\nhistory\r\n'
+                f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="sales.csv"\r\n'
+                'Content-Type: text/csv\r\n\r\n').encode()+corrected_bytes+f'\r\n--{boundary}--\r\n'.encode()
+            response, corrected, _, checkpoint = self.command('POST', '/sources', upload, checkpoint,
+                content_type='multipart/form-data; boundary='+boundary)
+            self.assertEqual(response.json()['api_status'], 201, corrected)
+            values = original_body | {'name':'Tehran revised sales history', 'sources':{'history':corrected['id']},
+                'parent_dataset_id':original['id'], 'request_id':'corrected-input-journey', 'accept_warnings':False}
+            response, review, _, checkpoint = self.command('POST', '/datasets/preview', values, checkpoint)
+            self.assertEqual(response.json()['api_status'], 200, review)
+            receipt = review['repeat_upload']
+            self.assertEqual(receipt['changed_groups'], 1)
+            self.assertEqual(receipt['removed_groups'], 4)
+            self.assertEqual(receipt['before_rows'], 144)
+            self.assertEqual(receipt['after_rows'], 140)
+            self.assertEqual(receipt['mode'], 'replacement_not_append')
+            response, rejected, _, failed_checkpoint = self.command('POST', '/datasets', values, checkpoint)
+            self.assertEqual(response.json()['api_status'], 400, rejected)
+            self.assertIn('repeat-upload', rejected['detail'])
+            self.assertEqual(failed_checkpoint, b'')
+            values['accept_warnings'] = True
+            response, revised, view, checkpoint = self.command('POST', '/datasets', values, checkpoint)
+            self.assertEqual(response.json()['api_status'], 201, revised)
+            self.assertEqual(revised['import_provenance']['review'], receipt)
+            self.assertEqual(revised['parent_dataset_id'], original['id'])
+            response, retry, _, checkpoint = self.command('POST', '/datasets', values, checkpoint)
+            self.assertEqual(retry['id'], revised['id'], 'Retry must not create duplicate input versions')
+            # Reuse confirmed orders, but require a new review against the revised input.
+            starter = view['views']['/datasets/'+revised['id']+'/orders']
+            inputs = starter['inputs'] | {'orders':orders['inputs']['orders'], 'reviewed':True,
+                'order_feed':'complete_snapshot', 'valid_until':orders['inputs']['valid_until'],
+                'note':'Reviewed existing confirmed orders against corrected sales history.'}
+            path = '/datasets/'+revised['id']+'/orders'
+            order_body = {'inputs':inputs, 'request_id':'revised-orders-journey'}
+            response, order_review, _, checkpoint = self.command('POST', path+'/preview', order_body, checkpoint)
+            self.assertEqual(response.json()['api_status'], 200, order_review)
+            response, new_orders, _, checkpoint = self.command('POST', path+'/snapshots',
+                order_body | {'review_token':order_review['review_token']}, checkpoint)
+            self.assertEqual(response.json()['api_status'], 201, new_orders)
+            group_body = {'name':'Tehran revised monthly demand', 'dataset_id':revised['id'],
+                'sales_input_id':new_orders['id'], 'methods':['model:Last observed','model:Recent average'],
+                'parent_forecast_id':parent['id'], 'request_id':'revised-group-journey'}
+            response, group, view, checkpoint = self.command('POST', '/forecasts', group_body, checkpoint)
+            self.assertEqual(response.json()['api_status'], 202, group)
+            self.assertEqual(len(group['jobs']), 2)
+            self.assertTrue(all(job['state']=='succeeded' for job in group['jobs']), group)
+            self.assertEqual(view['views']['/forecasts']['total'], 2, 'Two methods belong to one revised group')
+            versions = view['views']['/forecasts/'+group['id']+'/revisions']
+            self.assertEqual({row['id'] for row in versions['revisions']}, {parent['id'],group['id']})
+            run_id = group['jobs'][0]['run_id']; run = view['views']['/runs/'+run_id]
+            demand = view['views']['/runs/'+run_id+'/demand']
+            current = [row for row in demand['rows'] if row['period']==str(fixture.today.replace(day=1))]
+            self.assertEqual({row['customer'] for row in current}, {'Mehr','Aftab','Pars','Negin'})
+            by_customer = {row['customer']:row for row in current}
+            self.assertEqual(by_customer['Aftab']['baseline'], 26)
+            self.assertGreater(by_customer['Mehr']['booked'], by_customer['Mehr']['baseline'])
+            self.assertEqual(by_customer['Pars']['booked'], 0)
+            self.assertEqual(by_customer['Pars']['remaining'], 5)
+            self.assertEqual(by_customer['Negin']['remaining'], 8)
+            release_body = {'snapshot_id':run['sales_input_snapshot_id'], 'receiver':'Client MRP',
+                'mode':'combined_demand', 'request_id':'revised-release-journey'}
+            response, report, _, checkpoint = self.command('POST', '/releases/preview', release_body, checkpoint)
+            self.assertEqual(response.json()['api_status'], 200, report)
+            response, release, _, checkpoint = self.command('POST', '/releases', release_body |
+                {'reviewed':True,'review_token':report['review_token']}, checkpoint)
+            self.assertEqual(response.json()['api_status'], 201, release)
+            export_path = '/releases/'+release['id']+'/export?kind='
+            response, _, _, _ = self.command('GET', export_path+'json', None, checkpoint)
+            self.assertEqual(response.json()['api_status'], 409, 'Pending quantities cannot be exported as approved')
+            approval = {'reviewed':True,'review_token':report['review_token']}
+            response, _, _, _ = self.command('POST', '/releases/'+release['id']+'/approve', approval, checkpoint,
+                who=dict(self.who,role='approver'))
+            self.assertEqual(response.json()['api_status'], 403, 'Creator cannot independently approve')
+            response, approved, _, checkpoint = self.command('POST', '/releases/'+release['id']+'/approve', approval,
+                checkpoint, who=dict(self.who,role='approver',subject='independent-reviewer'))
+            self.assertEqual(response.json()['api_status'], 200, approved)
+            viewer = dict(self.who,role='viewer',subject='report-reader',permissions=['reports:read','reports:export'])
+            expected = {(row['customer'],row['sku'],row['period']):row['still_to_serve'] for row in demand['rows']}
+            for kind in ['json','csv','xlsx']:
+                response, descriptor, _, unchanged = self.command('GET', export_path+kind, None, checkpoint, who=viewer)
+                self.assertEqual(response.json()['api_status'], 200, descriptor)
+                self.assertEqual(unchanged, checkpoint)
+                binary = self.client.get('/output/'+self.attempts[-1]+'/artifact/api-download.bin').content
+                if kind=='json': exported = json.loads(binary)
+                elif kind=='csv': exported = list(csv.DictReader(StringIO(binary.decode('utf-8-sig'))))
+                else:
+                    workbook = load_workbook(BytesIO(binary),read_only=True)
+                    sheet_rows = workbook['Demand'].iter_rows(values_only=True)
+                    headers = next(sheet_rows); exported = [dict(zip(headers,row)) for row in sheet_rows]
+                    workbook.close()
+                self.assertEqual(len(exported),len(expected))
+                for row in exported:
+                    self.assertIn(row['sku'], {'001','002'}, 'SKU leading zeroes must survive each format')
+                    self.assertEqual(row['approval'],'approved')
+                    self.assertAlmostEqual(float(row['quantity']),expected[(row['customer'],row['sku'],row['period'])],places=9)
+            wrong = dict(viewer,company_id='tehran_b')
+            self.assertEqual(self.command('GET',export_path+'json',None,checkpoint,who=wrong)[0].status_code,422)
+            restored_archive = self.root/'journey-restored.zip'; restored_archive.write_bytes(checkpoint)
+            restore(restored_archive,self.root/'restored','tehran_a')
+            workspaces = CompanyWorkspaces(self.root/'restored/data/companies')
+            try:
+                ws = workspaces.for_principal(self.who)
+                self.assertEqual(ws.datasets.source(source['id'])[1],original_bytes)
+                self.assertEqual(ws.datasets.get(original['id'])['sources'],original['sources'])
+                self.assertEqual(ws.load_run(parent_run_id),original_run)
+                self.assertEqual(ws.datasets.get(revised['id'])['import_provenance']['review'],receipt)
+            finally: workspaces.close()
+        finally: fixture.tearDown()
+
     def test_settings_and_personal_views_use_original_permission_and_owner_gates(self):
         admin=dict(self.who,role='admin',permissions=self.who['permissions']+['settings:manage'])
         response,site,view,checkpoint=self.command('PUT','/settings/site',{'name':'Tehran test factory','province':'Tehran','timezone':'Asia/Tehran'},who=admin)

@@ -39,6 +39,9 @@
   --chart-preview-height: var(--layout-cc4b8c55);
   --control-focus-shadow: var(--composer-focus-shadow);
   --page-header-height: var(--control-height);
+  --step-marker-size: 28px;
+  --step-icon-size: 18px;
+  --radius-round: 50%;
   --page-title-size: var(--type-28);
   --page-nav-padding: var(--space-2) var(--space-4);
   --dialog-wide-width: min(960px, calc(100vw - 32px));

@@ -5,15 +5,14 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowClockwise,
-  CheckCircle,
 } from "@phosphor-icons/react";
 import { FactorBatch } from "./factor-batch.jsx";
 import { OrderReuse } from "./order-reuse";
 import { DemandImport } from "./sales-demand";
 import { orderRevision } from "./order-revision.mjs";
 import { planningBasis, planningMonth } from "./planning-calendar.mjs";
-import {t as uiText} from './localization.mjs';
-import {Page} from './ui-layout.jsx';
+import {t as uiText,unitLabel,i18n} from './localization.mjs';
+import {Page,Panel,Stack,Grid,Actions,DefinitionList,Disclosure,Collection,SearchControl,Steps} from './ui-layout.jsx';
 
 const stages = ["History", "Forecast", "Factors", "Orders", "Review"];
 const position = {
@@ -28,26 +27,12 @@ const position = {
 };
 const number = (value) =>
   value == null
-    ? "Not present"
-    : new Intl.NumberFormat("en", { maximumFractionDigits: 2 }).format(value);
+    ? uiText("Not present")
+    : new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 2 }).format(value);
+export const updateHorizons = () => Array.from({length:24},(_,i)=>[String(i+1),number(i+1)]);
 
 export function UpdateProgress({ stage }) {
-  return (
-    <ol className="update-progress" aria-label={uiText("Forecast update progress")}>
-      {stages.map((name, index) => (
-        <li
-          key={name}
-          aria-current={index === position[stage] ? "step" : undefined}
-          className={index < position[stage] ? "complete" : ""}
-        >
-          <span>
-            {index < position[stage] ? <CheckCircle size={18} /> : index + 1}
-          </span>
-          {uiText(name)}
-        </li>
-      ))}
-    </ol>
-  );
+  return <Steps items={stages} current={position[stage]} label={uiText("Forecast update progress")}/>;
 }
 
 export function MonthlyRefresh({
@@ -240,11 +225,11 @@ export function MonthlyRefresh({
     );
   if (!session)
     return (
-      <div className="forecast-update">
+      <Page title={uiText('Update forecast')}>
         <ErrorBox error={error} busy={busy} onReload={async()=>{if(busy)return;setBusy(true);try{await load();}catch(e){setError(e);}finally{setBusy(false);}}}/>
         {!error&&<p role="status">{uiText('Opening forecast update…')}</p>}
-        <Button onClick={onClose}>{uiText('Back to Home')}</Button>
-      </div>
+        <Button onClick={onClose}>{uiText('Back to forecast')}</Button>
+      </Page>
     );
   const stage = session.stage,
     source = datasets.find(
@@ -257,26 +242,16 @@ export function MonthlyRefresh({
     navigate('data');
   };
   return (
-    <Page title={uiText('Update forecast')} controls={<UpdateProgress stage={stage}/>} actions={<Button kind="ghost" disabled={busy} onClick={onClose}><ArrowLeft/>{uiText('Home')}</Button>}>
+    <Page title={uiText('Update forecast')} controls={<UpdateProgress stage={stage}/>} actions={<Button kind="ghost" disabled={busy} onClick={onClose}><ArrowLeft/>{uiText('Back to forecast')}</Button>}>
       <ErrorBox error={error} busy={busy} onReload={async()=>{if(busy)return;setBusy(true);try{await load();}catch(e){setError(e);}finally{setBusy(false);}}}/>
       {stage === "history" && (
-        <section className="surface update-step">
-          <h2>{uiText("Start with your latest sales")}</h2>
-          <p>{uiText("Upload complete updated history, or keep the saved version for this update.")}</p>
-          <div className="update-input-summary">
-            <strong>{source?.name}</strong>
-            <span>
-              {source?.review?.summary?.end
-                ? "History through " +
-                  planningMonth(
-                    source.review.summary.end,
-                    source.settings?.month_basis,
-                  )
-                : uiText("Saved sales history")}{" "}
-              · {source?.settings?.unit}
-            </span>
-          </div>
-          <div className="demand-actions">
+        <Panel title={uiText("Start with your latest sales")} description={uiText("Upload complete updated history, or keep the saved version for this update.")}>
+          <DefinitionList rows={[
+            [uiText('Sales data'),source?.name||uiText('Not present')],
+            [uiText('History through'),source?.review?.summary?.end?planningMonth(source.review.summary.end,source.settings?.month_basis):uiText('Not present')],
+            [uiText('Unit'),unitLabel(source?.settings?.unit)],
+          ]}/>
+          <Actions>
             <Button
               kind="primary"
               disabled={busy || !canEdit}
@@ -289,21 +264,17 @@ export function MonthlyRefresh({
                 reviewed: true,
               })}
             >{uiText("Use saved history")}</Button>
-          </div>
-        </section>
+          </Actions>
+        </Panel>
       )}
       {stage === "forecast" && (
-        <section className="surface update-step">
-          <h2>{uiText("Calculate the next forecast")}</h2>
-          <div className="update-settings">
+        <Panel title={uiText("Calculate the next forecast")}>
+          <Grid>
             <Field title={uiText("Months ahead")}>
               <Pick
                 label={uiText("Forecast horizon")}
                 value={months}
-                options={Array.from({ length: 24 }, (_, i) => [
-                  String(i + 1),
-                  String(i + 1),
-                ])}
+                options={updateHorizons()}
                 onChange={(value) => {
                   setMonths(value);
                   setChecked(false);
@@ -325,7 +296,7 @@ export function MonthlyRefresh({
                   ["driver", uiText("Use supplied factors")],
                   ...(base?.leaderboard || []).map((row) => [
                     "model:" + row.model,
-                    row.model,
+                    uiText(row.model),
                   ]),
                 ]}
                 onChange={(value) => {
@@ -334,7 +305,7 @@ export function MonthlyRefresh({
                 }}
               />
             </Field>
-          </div>
+          </Grid>
           <LiveCheck
             sources={session.live_sources}
             ui={ui}
@@ -345,14 +316,14 @@ export function MonthlyRefresh({
               ? uiText("Saved factors and their future values stay attached; missing coverage blocks calculation.")
               : uiText("This first calculation uses sales history and calendar patterns. Add live-factor assumptions in the next step.")}
           </p>
-          <label className="check-row">
+          <label className="ui-check">
             <input
               type="checkbox"
               checked={checked}
               disabled={busy || !canEdit}
               onChange={(e) => setChecked(e.target.checked)}
             />{uiText("I reviewed the history, method and months ahead.")}</label>
-          <div className="demand-actions">
+          <Actions>
             <Button disabled={busy} onClick={click("history_back")}>{uiText("Back")}</Button>
             <Button
               kind="primary"
@@ -365,20 +336,17 @@ export function MonthlyRefresh({
             >
               {busy ? uiText("Starting…") : uiText("Calculate forecast")}
             </Button>
-          </div>
-        </section>
+          </Actions>
+        </Panel>
       )}
       {waiting && (
-        <section className="surface update-step">
-          <h2>
-            {stage === "calculating"
+        <Panel title={stage === "calculating"
               ? uiText("Calculating your forecast")
-              : uiText("Calculating the factor comparison")}
-          </h2>
+              : uiText("Calculating the factor comparison")}>
           <p role="status">
-            {job?.error || job?.message || "Waiting for the calculation"}
+            {uiText(job?.error || job?.message || "Waiting for the calculation")}
           </p>
-          <div className="demand-actions">
+          <Actions>
             {job?.state === "succeeded" ? (
               <Button
                 kind="primary"
@@ -414,20 +382,18 @@ export function MonthlyRefresh({
                 }}
               >{uiText("Stop calculation")}</Button>
             )}
-          </div>
+          </Actions>
           <p className="table-note">{uiText("You can leave this page. The update is saved here.")}</p>
-        </section>
+        </Panel>
       )}
       {stage === "factors" && run && (
-        <section className="surface update-step">
-          <h2>{uiText("Include external factors?")}</h2>
-          <p>{uiText("Compare relevant sources such as exchange rates or global supply. Review timing and future assumptions before applying them.")}</p>
+        <Panel title={uiText("Include external factors?")} description={uiText("Compare relevant sources such as exchange rates or global supply. Review timing and future assumptions before applying them.")}>
           <LiveCheck
             sources={session.live_sources}
             ui={ui}
             onManage={manageSources}
           />
-          <div className="demand-actions">
+          <Actions>
             <FactorBatch
               run={run}
               api={api}
@@ -452,15 +418,13 @@ export function MonthlyRefresh({
               disabled={busy || !canEdit}
               onClick={click("no_factors", { reviewed: true })}
             >{uiText("Keep calculated baseline")}</Button>
-          </div>
+          </Actions>
           <p className="table-note">{uiText("Connected data is not automatically used. A comparison shows possible impact, not proof of improved accuracy.")}</p>
-        </section>
+        </Panel>
       )}
       {stage === "orders" && run && (
-        <section className="surface update-step">
-          <h2>{uiText("Review current customer orders")}</h2>
-          <p>{uiText("Use confirmed orders for each customer, product and month. The forecast covers expected demand that is not ordered yet.")}</p>
-          <div className="demand-actions">
+        <Panel title={uiText("Review current customer orders")} description={uiText("Use confirmed orders for each customer, product and month. The forecast covers expected demand that is not ordered yet.")}>
+          <Actions>
             <Button
               kind="primary"
               disabled={busy || !canEdit}
@@ -474,7 +438,7 @@ export function MonthlyRefresh({
                 onSaved={(saved) => act("orders", { snapshot_id: saved.id })}
               />
             )}
-          </div>
+          </Actions>
           <OrderChoices
             key={statusRevision}
             api={api}
@@ -486,18 +450,15 @@ export function MonthlyRefresh({
             onEdit={openOrders}
             disabled={busy || !canEdit}
           />
-        </section>
+        </Panel>
       )}
       {["review", "ready"].includes(stage) && (
-        <section className="surface update-step">
-          <h2>
-            {session.ready
+        <Panel title={session.ready
               ? uiText("Your forecast update is ready")
-              : uiText("Review what changed")}
-          </h2>
+              : uiText("Review what changed")}>
           {session.attention && (
             <p role="alert" className="source-notice">
-              {session.attention}
+              {uiText(session.attention)}
             </p>
           )}
           {session.comparison && (
@@ -505,7 +466,7 @@ export function MonthlyRefresh({
           )}
           {!session.ready && session.comparison && (
             <>
-              <label className="check-row">
+              <label className="ui-check">
                 <input
                   type="checkbox"
                   checked={checked}
@@ -522,7 +483,7 @@ export function MonthlyRefresh({
               >{uiText("Continue to export")}</Button>
             </>
           )}
-          <div className="demand-actions update-secondary">
+          <Actions>
             <Button disabled={busy || !canEdit} onClick={click("orders_back")}>{uiText("Review orders again")}</Button>
             {run && (
               <Button
@@ -537,41 +498,34 @@ export function MonthlyRefresh({
                 }}
               >{uiText("Open dashboard")}</Button>
             )}
-          </div>
+          </Actions>
           {session.ready && (
             <UpdateExports sessionId={session.id} ui={ui} />
           )}
-        </section>
+        </Panel>
       )}
-      <button
-        className="home-text-link update-recheck"
+      <Button kind="ghost"
         disabled={busy}
-        onClick={() => {
-          setError("");
-          load().catch((e) => setError(e.message));
-        }}
+        onClick={async () => {if(busy)return;setBusy(true);setError('');try{await load();}catch(e){setError(e.message);}finally{setBusy(false);}}}
       >
-        <ArrowClockwise size={16} />{uiText("Check latest status")}</button>
+        <ArrowClockwise />{uiText("Check latest status")}</Button>
     </Page>
   );
 }
 
-function LiveCheck({ sources = [], ui, onManage }) {
+export function LiveCheck({ sources = [], ui, onManage }) {
   const active = sources.filter((row) => row.enabled || row.series?.length),
     needs = active.filter(
       (row) =>
         row.status === "failed" || row.data_behind || row.refresh_overdue,
     );
   return (
-    <details className="help-details update-live">
-      <summary>{uiText("Live sources ·")}{active.length}{uiText("saved connections")}{needs.length ? " · " + needs.length + " need attention" : ""}
-      </summary>
+    <Disclosure title={uiText('Live sources ({{count}})',{count:number(active.length)})}>
       <p className="table-note">{uiText("Connection health and age only—not evidence that a source improves this forecast.")}</p>
+      {!!needs.length&&<p role="status">{uiText('{{count}} sources need attention',{count:number(needs.length)})}</p>}
       {active.map((row) => (
-        <div className="update-source" key={row.id}>
-          <strong>{row.name || row.id}</strong>
-          <span>
-            {row.status === "failed"
+        <Stack key={row.id}>
+          <DefinitionList rows={[[uiText(row.name || row.id),row.status === "failed"
               ? uiText("Refresh failed")
               : row.data_behind
                 ? uiText("Older observations")
@@ -579,19 +533,15 @@ function LiveCheck({ sources = [], ui, onManage }) {
                   ? uiText("Refresh overdue")
                   : row.status === "healthy"
                     ? uiText("Latest check succeeded")
-                    : uiText("Check required")}
-          </span>
+                    : uiText("Check required")]]}/>
           {row.series?.map((s) => (
-            <small key={s.id}>
-              {s.name} · {s.geography}{' '}{uiText("· Latest")}{" "}
-              {s.latest_period || "not available"} · {s.frequency}
-            </small>
+            <DefinitionList key={s.id} rows={[[uiText(s.name),[uiText(s.geography),s.latest_period||uiText('Not present'),uiText(s.frequency)].join(' · ')]]}/>
           ))}
-          {row.error && <small>{row.error}</small>}
-        </div>
+          {row.error && <ui.ErrorBox error={row.error}/>}
+        </Stack>
       ))}
       <ui.Button kind="ghost" onClick={onManage}>{uiText("Manage sources in Data")}</ui.Button>
-    </details>
+    </Disclosure>
   );
 }
 
@@ -612,18 +562,17 @@ function OrderChoices({ api, runId, ui, onChoose, onEdit, disabled }) {
     <>
       <ui.ErrorBox error={error} />
       {latest && (
-        <div className="update-input-summary">
-          <strong>{uiText("Latest saved review:")}{' '}{latest.name}</strong>
-          <span>{uiText("Orders as of")}{' '}{latest.as_of}</span>
-          <div className="demand-actions">
+        <Stack>
+          <DefinitionList rows={[[uiText('Latest saved review'),latest.name],[uiText('Orders as of'),latest.as_of]]}/>
+          <Actions>
             <ui.Button disabled={disabled} onClick={() => onChoose(latest.id)}>{uiText("Check & use this review")}</ui.Button>
             <ui.Button
               disabled={disabled}
               kind="ghost"
               onClick={() => onEdit(latest.id)}
             >{uiText("Update these orders")}</ui.Button>
-          </div>
-        </div>
+          </Actions>
+        </Stack>
       )}
     </>
   );
@@ -647,24 +596,15 @@ export function UpdateComparison({ report, ui }) {
           .includes(search.toLowerCase())),
   );
   return (
-    <div className="update-comparison">
-      <div className="update-change-summary">
-        <span>
-          <strong>
-            {number(report.overlap_before)} → {number(report.overlap_after)}{" "}
-            {report.unit}
-          </strong>{uiText("Calculated demand · matching months only")}</span>
-        <span>
-          {report.added_rows}{' '}{uiText("added ·")}{' '}{report.removed_rows}{uiText("outside new forecast")}</span>
-      </div>
+    <Stack>
+      <DefinitionList rows={[
+        [uiText('Calculated demand · matching months only'),`${number(report.overlap_before)} → ${number(report.overlap_after)} ${unitLabel(report.unit)}`],
+        [uiText('Added months'),number(report.added_rows)],
+        [uiText('Outside new forecast'),number(report.removed_rows)],
+      ]}/>
       <p className="table-note">{uiText("History, methods, orders and time can all change the result. Missing months are not zero. Planning quantities below exclude deliveries.")}</p>
-      <div className="compact-toolbar">
-        <input
-          aria-label={uiText("Find changed customer, product or month")}
-          placeholder={uiText("Find customer, product or month")}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <Collection label={uiText('Review changed periods')} controls={<>
+        <SearchControl label={uiText("Find changed customer, product or month")} value={search} onChange={setSearch}/>
         <ui.Pick
           label={uiText("Changes to show")}
           value={kind}
@@ -676,8 +616,7 @@ export function UpdateComparison({ report, ui }) {
             ["removed", uiText("Outside new forecast")],
           ]}
         />
-      </div>
-      <div className="order-comparison-table">
+      </>}>
         <ui.Table
           headers={[
             uiText("Customer"),
@@ -696,9 +635,9 @@ export function UpdateComparison({ report, ui }) {
               <td>
                 {planningMonth(row.period, report.month_basis)}
                 {row.change !== "overlap" && (
-                  <small>
+                  <span className="ui-record-meta">
                     {row.change === "added" ? uiText("Added") : uiText("Outside new forecast")}
-                  </small>
+                  </span>
                 )}
               </td>
               {[
@@ -712,21 +651,18 @@ export function UpdateComparison({ report, ui }) {
             </tr>
           ))}
         </ui.Table>
-      </div>
+      </Collection>
       {visible.length > 100 && (
-        <p className="table-note">{uiText("First 100 of")}{visible.length}{uiText("rows. Full demand is available in the dashboard and exports.")}</p>
+        <p className="table-note">{uiText("First 100 of")}{' '}{number(visible.length)}{' '}{uiText("rows. Full demand is available in the dashboard and exports.")}</p>
       )}
-      <details className="help-details">
-        <summary>{uiText("Order checks")}</summary>
-        <p>{report.orders_note}</p>
-        <p>{uiText("Current orders as of")}{report.as_of}{uiText("; review again after")}{" "}
-          {report.valid_until}.
-        </p>
-        {report.warnings.map((warning, index) => (
-          <p key={index}>{warning}</p>
+      <Disclosure title={uiText('Order checks')}>
+        <p>{uiText(report.orders_note)}</p>
+        <DefinitionList rows={[[uiText('Orders as of'),report.as_of],[uiText('Review again after'),report.valid_until]]}/>
+        {(report.warnings||[]).map((warning, index) => (
+          <p key={index}>{uiText(warning)}</p>
         ))}
-      </details>
-    </div>
+      </Disclosure>
+    </Stack>
   );
 }
 
@@ -734,10 +670,9 @@ export function UpdateExports({ sessionId, ui }) {
   const [hasOrders, setHasOrders] = useState("");
   const mode = hasOrders === "yes" ? "remaining_forecast" : "combined_demand";
   return (
-    <div className="update-exports">
-      <h3>{uiText("Export for planning")}</h3>
+    <Disclosure title={uiText('Export for planning')} open>
       <p>{uiText("Does the receiving system already have these customer orders?")}</p>
-      <div className="demand-actions">
+      <Actions>
         <ui.Button
           kind={hasOrders === "yes" ? "primary" : "default"}
           onClick={() => setHasOrders("yes")}
@@ -746,14 +681,14 @@ export function UpdateExports({ sessionId, ui }) {
           kind={hasOrders === "no" ? "primary" : "default"}
           onClick={() => setHasOrders("no")}
         >{uiText("No")}</ui.Button>
-      </div>
+      </Actions>
       {hasOrders && (
         <>
           <p className="table-note">
             {hasOrders === "yes"
               ? uiText("Export expected demand only to avoid counting orders twice.")
               : uiText("Export open orders plus expected demand. Delivered quantities are excluded.")}{" "}{uiText("One row per customer, product and month.")}</p>
-          <div className="demand-actions">
+          <Actions>
             {["xlsx", "csv", "json"].map((kind) => (
               <a
                 className="btn"
@@ -770,9 +705,9 @@ export function UpdateExports({ sessionId, ui }) {
                 {kind === "xlsx" ? uiText("Excel") : kind.toUpperCase()}
               </a>
             ))}
-          </div>
+          </Actions>
         </>
       )}
-    </div>
+    </Disclosure>
   );
 }

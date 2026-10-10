@@ -157,6 +157,21 @@ approval → approved export, with Persian/mobile recovery, reload and revision
 navigation, fixing workflow/design gaps through shared components. Broader legacy
 design, raw capture receipts, provider/AI/client and multi-person gates remain open.
 
+Reviewed revision/design slice, 10 October: company history replacement now reuses
+the local comparison/acknowledgement and saves an immutable receipt. The complete
+four-customer cold-start journey corrects history, re-reviews partial orders,
+compares two methods in one revised group, rejects pending exports/self-approval,
+and reconciles approved CSV/Excel/JSON after independent review. Original bytes
+and results survive restoration unchanged. Monthly updates move under Forecast;
+their panels, comparisons, live-source review and exports use shared components,
+as does the fixed approval/export dialog. The 203-line monthly appearance sheet
+and competing progress/handoff styles are removed. Host tests 34, interface 293
+and exact offline Linux image 13 pass. See REVIEWED_REVISION_DELIVERY.md for browser,
+deployment and remaining gates. Next substantial chunk: remote monthly-update
+acceptance with corrected history, retained live factors and current orders,
+including interruption/reload, stale approvals and advanced factor/revision mobile
+paths. Broader legacy design/provider/AI/client/multi-person gates remain open.
+
 ## Earlier delivery history
 
 Latest delivery, 7 October — guided read recovery across sales demand, order-import

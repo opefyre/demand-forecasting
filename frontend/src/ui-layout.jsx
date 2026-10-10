@@ -1,6 +1,6 @@
 import React,{useRef,useLayoutEffect} from "react";
 import { t as uiText,interfaceDirection } from "./localization.mjs";
-import { MagnifyingGlass,DotsThree } from "@phosphor-icons/react";
+import { MagnifyingGlass,DotsThree,CheckCircle } from "@phosphor-icons/react";
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 
 // Data collections share the same toolbar, surface, and spacing. Only their
@@ -55,6 +55,13 @@ export function PageHeader({ title, actions }) {
 }
 export function PageControls({ children }) {
   return <div className="ui-page-controls">{children}</div>;
+}
+export function Steps({items,current,label}) {
+  return <ol className="ui-steps" aria-label={label}>
+    {items.map((name,index)=><li key={name} aria-current={index===current?'step':undefined} data-complete={index<current}>
+      <span aria-hidden="true">{index<current?<CheckCircle/>:index+1}</span>{uiText(name)}
+    </li>)}
+  </ol>;
 }
 // Open the next surface only after the menu focus scope has closed. Otherwise
 // its cleanup can steal focus from the dialog or leave focus on the body.

@@ -43,7 +43,13 @@
   :where(.table-wrap tbody tr):hover {background-color:var(--color-soft);}
 }
 :where(.table-wrap tbody tr) {transition:background-color var(--motion-control) var(--motion-ease);}
-:where(.forecast-steps li,.update-progress li) {transition:var(--motion-control-transition);}
+.ui-steps {display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:var(--field-gap);padding:0;margin:0;list-style:none;}
+.ui-steps li {display:flex;align-items:center;gap:var(--action-gap);color:var(--color-muted);font-size:var(--type-body);line-height:var(--line-body);transition:var(--motion-control-transition);}
+.ui-steps li>span {width:var(--step-marker-size);height:var(--step-marker-size);display:grid;place-items:center;background:var(--color-soft);border-radius:var(--radius-round);flex:none;}
+.ui-steps svg {width:var(--step-icon-size);height:var(--step-icon-size);}
+.ui-steps li[aria-current] {color:var(--color-text);font-weight:var(--weight-heading);}
+.ui-steps li[aria-current]>span,.ui-steps li[data-complete="true"]>span {background:var(--color-accent);color:var(--color-ink);}
+@media(max-width:650px){.ui-steps {gap:var(--action-gap);}.ui-steps li {flex-direction:column;text-align:center;}}
 html,.ui-chat-transcript,.ui-chat-history-list {scroll-behavior:var(--motion-scroll-behavior);}
 :where(.surface,.ui-panel,.empty,.loading-inline,.error-box,.toast,.ui-chat-message,.ui-chat-suggestions,.ui-chat-history) {
   animation:ui-enter var(--motion-enter) var(--motion-ease) both;

@@ -1,12 +1,12 @@
 import {sessionState} from './workspace-storage.mjs';
 import React,{useEffect,useRef,useState} from 'react';
 import {useSmoothState} from './ui-motion.jsx';
-import {ArrowLeft,ArrowRight,CheckCircle,UploadSimple} from '@phosphor-icons/react';
+import {ArrowLeft,ArrowRight,UploadSimple} from '@phosphor-icons/react';
 import {t as uiText,unitLabel,i18n} from './localization.mjs';
 import {FORECAST_CHOICES,forecastInputs,remainingMethods,readForecastDraft,FORECAST_DRAFT_KEY} from './forecast-start.mjs';
 import {ForecastFactors} from './forecast-factors.jsx';
 import {ForecastOrders} from './forecast-orders.jsx';
-import {Panel,Stack,Grid,Actions} from './ui-layout.jsx';
+import {Panel,Stack,Grid,Actions,Steps} from './ui-layout.jsx';
 import {companyMode} from './company-api.mjs';
 import {cloudTransportEnabled} from './cloud-transport.mjs';
 
@@ -101,9 +101,7 @@ export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,
   }});
   return <Stack step={step}>
     {!embedded&&<div className="page-heading"><h1>{uiText(step===4?'Results':'New forecast')}</h1><div className="row-actions">{step===4&&<Button disabled={busy} onClick={beginAgain}>{uiText('Start another forecast')}</Button>}<Button onClick={()=>navigate('demand')}>{uiText('Close')}</Button></div></div>}
-    <ol className="forecast-steps" aria-label={uiText('Forecast progress')}>
-      {['Sales data','Factors','Customers & orders','Methods','Results'].map((title,index)=><li key={title} aria-current={step===index?'step':undefined} className={index<step?'complete':step===index?'current':''}><span>{index<step?<CheckCircle size={18}/>:index+1}</span>{uiText(title)}</li>)}
-    </ol>
+    <Steps items={['Sales data','Factors','Customers & orders','Methods','Results']} current={step} label={uiText('Forecast progress')}/>
     <ErrorBox error={error}/>
     <Panel title={uiText(['Choose your sales history','Check your forecast inputs','Customers & orders','Choose one or more methods','Total demand'][step])}>
       {step===0&&<>

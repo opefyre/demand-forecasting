@@ -495,10 +495,11 @@ function App({ access }) {
   const navigate = (p, target = null) => {
     if(p==='new'){startNewForecast();return;}
     if(p==='assistant')p='today';
+    if(target?.update_id)p='demand';
     p=companyPage(p);
     if(p==='customers'){p='data';setDataView('customers');}
     if(p!=='demand')setForecastRequest(null);
-    if(p==='today'&&!target?.update_id)setUpdateId(null);
+    if((p==='today'||p==='demand')&&!target?.update_id)setUpdateId(null);
     setDecisionTarget(target);
     setPage(p);
     writeWorkspaceLocation(history,location,p);
@@ -558,7 +559,7 @@ function App({ access }) {
       }else setForecastRequest(null);
       setMobile(false);
       setDecisionTarget(null);
-      if(destination==='today')setUpdateId(null);
+      if(destination==='today'||destination==='demand')setUpdateId(null);
       if(requested==='customers'){setDataView('customers');setPage('data');writeWorkspaceLocation(history,location,'data',{replace:true});}else setPage(destination);
       window.scrollTo(0,0);
     };
@@ -651,17 +652,17 @@ function App({ access }) {
   };
   async function startUpdate(runId, requestId){
     if(!canEdit)return;
-    setBusy('Opening forecast update');setError('');
+    setBusy(uiText('Opening forecast update…'));setError('');
     try{
       // Monthly workflow reads restore a checkpoint. Do that only on this
       // explicit action, never while opening a saved report or the application.
       const current=cloudTransportEnabled()&&!requestId?(await api('/api/forecast-updates')).updates:updates;
       setUpdates(current);
       const existing=current.find(value=>value.base_run_id===runId&&value.stage!=='ready');
-      if(existing&&!requestId){setUpdateId(existing.id);navigate('today',{update_id:existing.id});return;}
+      if(existing&&!requestId){setUpdateId(existing.id);navigate('demand',{update_id:existing.id});return;}
       if(!requestId&&updateAttempt.current?.runId!==runId)updateAttempt.current={runId,id:crypto.randomUUID()};
       const value=await api('/api/forecast-updates',{run_id:runId,request_id:requestId||updateAttempt.current.id});
-      setUpdateId(value.id);updateAttempt.current=null;await refresh();navigate('today',{update_id:value.id});
+      setUpdateId(value.id);updateAttempt.current=null;await refresh();navigate('demand',{update_id:value.id});
     }catch(e){setError(e.message);}finally{setBusy('');}
   }
   const context = {
@@ -695,7 +696,7 @@ function App({ access }) {
     canAdmin,
     updates,
     startUpdate,
-    resumeUpdate:id=>{setUpdateId(id);navigate('today',{update_id:id});},
+    resumeUpdate:id=>{setUpdateId(id);navigate('demand',{update_id:id});},
   };
   return (
     <Tooltip.Provider delayDuration={250}>
@@ -740,7 +741,7 @@ function App({ access }) {
           </header>
           <main id="workspace">
             <ErrorBox error={error} />
-            {!boot && !forecastRequest && !(page==='today'&&updateId) && (!companyMode()||canEdit||canReview) && (
+            {!boot && !forecastRequest && !(page==='demand'&&updateId) && (!companyMode()||canEdit||canReview) && (
               <ForecastJobs
                 includeCompleted={page==='data'||page==='today'}
                 canEdit={canEdit}
@@ -761,11 +762,11 @@ function App({ access }) {
             {boot ? (
               <div className="loading-inline">{uiText("Opening workspace…")}</div>
             ) : page === "today" || page === "assistant" ? (
-              updateId?<MonthlyRefresh id={updateId} {...context} api={api} ui={inventoryUi}
-                onClose={()=>setUpdateId(null)} renderImport={props=><ImportFlow {...props}/>}/>:<AssistantWorkspace {...context} api={api} ui={inventoryUi} home
+              <AssistantWorkspace {...context} api={api} ui={inventoryUi} home
                 onNewForecast={startNewForecast} renderImport={props=><ImportFlow {...props} onRun={runDataset}/>}/>
             ) : page === "demand" ? (
-              <SalesDemand {...context} api={api} ui={inventoryUi} />
+              updateId?<MonthlyRefresh id={updateId} {...context} api={api} ui={inventoryUi}
+                onClose={()=>setUpdateId(null)} renderImport={props=><ImportFlow {...props}/>}/>:<SalesDemand {...context} api={api} ui={inventoryUi} />
             ) : page === "data" && !canEdit ? (
               <section className="surface">
                 <h1>{uiText("Inputs")}</h1>
