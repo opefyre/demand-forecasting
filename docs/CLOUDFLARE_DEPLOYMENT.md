@@ -22,7 +22,7 @@ The local demo remains independent at `http://127.0.0.1:8010`.
 | `forecast.vrolen.com` | Worker custom domain created; HTTPS and closed app/login/API routes checked. No wildcard route. |
 | R2 `demandlab-forecast-files` | New empty Standard bucket, Western Europe location hint; public r2.dev access disabled. |
 | R2 `demandlab-forecast-backups` | New empty Standard bucket, Western Europe location hint; public r2.dev access disabled. |
-| Google client `Vrolen Forecast` | Separate Web client created with only the forecast origin and callback. Existing `Vrolen` client preserved. Not connected to app; secret replacement required below. |
+| Google client `Vrolen Forecast` | Separate Web client created with only the forecast origin and callback. Existing `Vrolen` client preserved. Replacement securely saved, exposed secret disabled; not yet connected to app. |
 | Resend `forecast.vrolen.com` | Separate domain added in Ireland without an upgrade. DNS and domain verified; enforced TLS enabled for this domain only. Receiving disabled. |
 
 The edge configuration is [wrangler.jsonc](../deploy/cloudflare/wrangler.jsonc).
@@ -46,7 +46,7 @@ Client ID: `945632758521-baj6dsc8irl5qmcknbi0tgt4ui0skjl0.apps.googleusercontent
 
 **Secret safety incident:** a browser output exposed the newly generated client
 secret. It has never been installed in Cloudflare or used by the app. Treat it as
-compromised; replace it before deployment. The download was moved out of Downloads
+compromised; it was replaced and disabled before deployment. The download was moved out of Downloads
 into the ignored `secrets/` folder with mode 0600, and is quarantined as
 `forecast-google-oauth.DO-NOT-USE.json`. Do not copy it into production.
 
@@ -55,13 +55,12 @@ moved to ignored `secrets/forecast-google-oauth.json` with mode 0600; the Downlo
 copy is gone. Client identity and replacement match were verified without
 printing the secret. The replacement has not yet been deployed or used by the app.
 
-Remaining user action on the new **Vrolen Forecast** client only:
+The owner disabled the older exposed secret on 2026-10-10. The Google client
+page confirms the older secret is **Disabled** and the replacement is **Enabled**.
+The disabled credential remains quarantined locally and must never be deployed.
+No further credential-creation action is required from the owner at this checkpoint.
 
-1. Disable the older, exposed secret on this new client. Leave the replacement
-   enabled. Do not change the existing Vrolen client.
-2. Tell Codex when complete. Only non-secret metadata will be checked.
-
-The replacement page is left open. Do not publish the shared Google consent app
+Do not publish the shared Google consent app
 or broaden its scopes merely to make this new client work. Check the existing
 test-user list read-only before making any audience change.
 

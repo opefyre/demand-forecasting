@@ -52,7 +52,8 @@ packages; retain licences and attribution. No SAML or messaging commands in v1.
   - [x] Separate Cloudflare domain hold and private R2 buckets; isolated Google/Resend identities created.
   - [ ] Cloudflare durable state/auth/vault/job migration and idle-sleeping engine deployment.
   - [x] Create and privately store a Resend sending-only key restricted to the forecast domain.
-  - [ ] Replace exposed new Google secret; wire production credentials and verify mail delivery.
+  - [x] Securely store replacement Google secret and verify the exposed secret is disabled.
+  - [ ] Wire production credentials; verify Google sign-in and real mail delivery.
   - [x] Four-role API checks against the actual identity permission catalogue.
   - [ ] Deployment-host role/browser journey, real accounts and encrypted off-device recovery.
 - [ ] Publish tested commits to the existing GitHub repository.
