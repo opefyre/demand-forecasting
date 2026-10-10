@@ -100,6 +100,10 @@ test("built identity Worker denies every HTTP route while private RPC checks nat
     const keyPrincipal=(await call("identity", { key: key.body.key })).body;
     assert.equal(keyPrincipal.company_id, company.id);
     assert.equal((await call("work/authorize",keyPrincipal)).body.allowed,false); // Read/orders scopes cannot run forecasts.
+    assert.equal((await call('work/authorize',{...keyPrincipal,required_scopes:['orders:write']})).body.allowed,true);
+    assert.equal((await call('work/authorize',{...keyPrincipal,required_scopes:['orders:write','inputs:read']})).body.allowed,false);
+    assert.equal((await call('work/authorize',{...keyPrincipal,required_scopes:[]})).body.allowed,false);
+    assert.equal((await call('work/authorize',{...keyPrincipal,required_scopes:['invented:scope']})).body.allowed,false);
     assert.equal((await call("identity", { key: key.body.key, company_id: other.id })).status, 403);
     assert.equal((await call("members/list", { key: key.body.key })).status, 403);
     const listed = await call("keys/list", adminBody);

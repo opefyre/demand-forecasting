@@ -37,9 +37,16 @@ recoverable native SQLite job/revision ledger are implemented and tested. The
 Linux mathematical engine reuses existing calculations and partial-order handling;
 bounded native container lifecycle uses five-minute inactivity and no warm pool.
 See [runtime delivery and exact limits](CLOUD_RUNTIME_DELIVERY.md).
-Next substantial slice: bridge the company API/screens and recurring/live-source
-workflows to the durable runtime, then owner-only identity/mail/browser and measured
-remote wake/sleep acceptance. Do not open public access automatically.
+Private company API slice, 10 October: the existing customer, input/upload,
+order/factor review and grouped-forecast APIs now have a durable private command
+bridge and saved read views that do not wake computation. Validation errors do
+not publish scratch changes; live scope checks and company/revision fences remain.
+See [scope, verification and remaining work](CLOUD_API_DELIVERY.md). The local UI
+has not been switched to this asynchronous cloud protocol.
+Next substantial slice: approved reports/exports and remaining resource bridges,
+then screen adapters, assistant/recurring/live-source work and owner-only
+identity/mail/browser plus measured remote wake/sleep acceptance. Do not open
+public access automatically.
 
 ## Earlier delivery history
 

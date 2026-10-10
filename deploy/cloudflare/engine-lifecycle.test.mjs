@@ -7,7 +7,7 @@ import { CloudEngineController } from './engine-lifecycle.mjs';
 globalThis.FixedLengthStream=class extends TransformStream {
   constructor(size) {let seen=0;super({transform(chunk,ctl){seen+=chunk.byteLength;if(seen>size)throw new Error('length');ctl.enqueue(chunk);},flush(){if(seen!==size)throw new Error('length');}});}
 };
-function fixture({badResponse=false,backupFailure=false,badSize=false,startFailure=false}={}) {
+function fixture({badResponse=false,backupFailure=false,badSize=false,startFailure=false,apiStatus=null}={}) {
   const values=new Map(),objects=new Map(),backup=new Map(),events=[];
   const job={company_id:'company-a',job_id:'1'.repeat(32),attempt:'2'.repeat(32),object_key:'companies/company-a/revisions/'+ '3'.repeat(32)+'.zip',deadline:Date.now()+60000,payload:{}};
   const response=(text,type='application/octet-stream')=>new Response(text,{headers:{'content-type':type,'content-length':String(Buffer.byteLength(text)+(badSize?1:0))}});
@@ -19,6 +19,8 @@ function fixture({badResponse=false,backupFailure=false,badSize=false,startFailu
     setInactivityTimeout:async ms=>events.push(['idle',ms]),getTcpPort:()=>({fetch:async(url,options)=>{
       if(url.endsWith('/ready'))return new Response('ready');
       if(url.endsWith('/forecast'))return badResponse?new Response(null,{status:500}):Response.json({job_id:job.attempt,company_id:job.company_id,run_id:'4'.repeat(12),artifacts:['result.json','forecast.csv']});
+      if(url.endsWith('/api-operation'))return Response.json({job_id:job.attempt,company_id:job.company_id,run_id:job.attempt,
+        api_status:apiStatus,artifacts:apiStatus<300?['api-response.json','company-view.json']:['api-response.json']});
       if(options?.method==='DELETE'){events.push('cleanup');return new Response(null,{status:204});}
       if(url.endsWith('/snapshot'))return response('checkpoint','application/zip');
       return response('result','application/json');
@@ -38,6 +40,17 @@ test('cold status does not wake; successful work is durable before it becomes id
 test('a busy engine rejects a second caller without destroying the active attempt',async()=>{
   const f=fixture();f.ctx.container.running=true;f.values.set('active',{attempt:'9'.repeat(32),deadline:Date.now()+60000});
   await assert.rejects(f.controller.execute(f.job),/busy/);assert.equal(f.ctx.container.running,true);assert.equal(f.events.includes('destroy'),false);assert.equal(f.values.get('active').attempt,'9'.repeat(32));
+});
+for(const apiStatus of [201,422])test('company API '+apiStatus+' saves its response and promotes only successful changes',async()=>{
+  const f=fixture({apiStatus});
+  const bodyKey='companies/company-a/requests/'+'7'.repeat(64);
+  f.objects.set(bodyKey,new Uint8Array([1,2,3]));
+  const result=await f.controller.execute({...f.job,kind:'api',object_key:null,payload:{body_key:bodyKey}});
+  assert.equal(result.api_status,apiStatus);
+  assert.ok(f.objects.has(result.artifacts['api-response.json']));
+  assert.equal(f.backup.size,apiStatus<300?1:0);
+  assert.equal(result.object_key===null,apiStatus>=300);
+  assert.equal(f.events.at(-1),'cleanup');
 });
 test('deadline alarm stops abandoned work and clears its lease',async()=>{
   const f=fixture();f.ctx.container.running=true;f.values.set('active',{attempt:f.job.attempt,deadline:Date.now()-1});f.values.set('alarm',1);

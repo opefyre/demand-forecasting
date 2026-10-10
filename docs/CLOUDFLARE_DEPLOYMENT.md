@@ -4,6 +4,20 @@ Status: 10 October 2026. Private permissions, storage and engine backbone deploy
 **The forecasting app is not deployed or ready for public use.**
 The local demo remains independent at `http://127.0.0.1:8010`.
 
+Latest private API slice: core customer/input/order/factor/grouped-forecast
+commands and saved JSON reads are implemented and verified. See
+[exact supported routes, limits and open work](CLOUD_API_DELIVERY.md).
+The UI has not been connected to the asynchronous cloud protocol; the public
+edge remains the same closed hold.
+
+Current API-bridge deployment versions: identity
+`c7e61139-1fea-41d0-afc1-a0853bdcd697`, storage
+`b962cedf-f8cd-47c0-9c78-10ad32c1e061`, engine
+`fe9f65e3-1464-447b-a9fd-37a073123957`; image
+`sha256:fa802040310c6809b9ee6aca2e31a7af87c150750556910e73187fda4ce06d32`.
+Earlier versions below record the preceding backbone checkpoint. The dedicated
+build VM was stopped and its temporary registry login cleared after the upload.
+
 ## Confirmed scope
 
 - Account: `b53df72f41f5135daf312100e73ff6a1` (Opefyre).
@@ -139,13 +153,15 @@ Native Durable Object scheduling is Cloudflare's beta policy; it does not accept
 ## Required engineering before the app can go live
 
 1. **Cloud API/screens bridge:** the local app's existing company APIs and screens
-   still need routing to the new durable runtime. Cloudflare container disk is
+   need the remaining resource bridges and screen adapters. Core customer/input/
+   order/factor/grouped-forecast commands and saved reads now have private RPC;
+   see CLOUD_API_DELIVERY.md. Cloudflare container disk is
    [ephemeral](https://developers.cloudflare.com/containers/faq/) and used as
    scratch only. Native SQLite jobs/revisions and immutable R2 company checkpoints
    now keep accepted work outside it, preserving existing calculations and orders.
    R2 FUSE is not a safe live SQLite WAL replacement. An upload on shutdown alone
    does not protect against crashes. Current private checkpoint staging is not
-   the complete end-user customer/order/import CRUD flow. No local client data was
+   the complete cloud UI flow. No local client data was
    uploaded. See [runtime delivery](CLOUD_RUNTIME_DELIVERY.md).
 2. **Identity portability:** Better Auth is maintained, but this implementation
    uses PostgreSQL and PostgreSQL-specific policy/migration SQL. Cloudflare D1

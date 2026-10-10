@@ -28,23 +28,40 @@ test('native company ledger: durable checkpoints, roles, deduplication, cancella
     if(data.op==='jobs')return Response.json(await env.STORAGE.jobs(cred));
     if(data.op==='cancel')return Response.json(await env.STORAGE.cancel(cred,data.id));
     if(data.op==='artifact')return env.STORAGE.artifact(cred,data.id,data.name);
+    if(data.op==='api' || data.op==='api_meta') {const body=JSON.stringify(data.body??null);const response=await env.STORAGE.companyApi(cred,
+      new Request('http://private.test/api/v1'+data.path,{method:data.method||'GET',
+        ...(data.method && data.method!=='GET'?{body,headers:{'content-type':'application/json','content-length':String(new TextEncoder().encode(body).length)}}:{})}),data.request_id,data.revision);
+      return data.op==='api_meta'?Response.json({status:response.status,revision:response.headers.get('x-company-revision'),body:await response.json()}):response;}
+    if(data.op==='api_result')return env.STORAGE.companyApiResult(cred,data.id);
     // Test-only alarm trigger. No such RPC exists on production entrypoint.
     if(data.op==='drain') {await env.LEDGER.get(env.LEDGER.idFromName('forecast-cloud-v1')).drainForTest();return Response.json({done:true});}
     if(data.op==='engine_count')return Response.json(await env.ENGINE.count());
   }};`;
   const identityScript=`import{WorkerEntrypoint}from'cloudflare:workers';
     export class Identity extends WorkerEntrypoint {async operation(op,body) {
-      if(op==='work/authorize')return {status:200,body:{allowed:body.subject!=='revoked'}};
+      if(op==='work/authorize')return {status:200,body:{allowed:body.subject!=='revoked',permissions:body.permissions}};
       const company=body.company_id,role=body.role;
-      const scopes={admin:['settings:manage','forecasts:run','forecasts:write','reports:export','drafts:read'],
-        planner:['forecasts:run','forecasts:write','reports:export','drafts:read'],approver:['drafts:read','reports:export'],viewer:['reports:read']};
-      if(!['tehran_a','tehran_b'].includes(company)||!scopes[role])return{status:401,body:{}};
+      const scopes={admin:['settings:manage','forecasts:run','forecasts:write','reports:export','drafts:read','customers:read','customers:write'],
+        planner:['forecasts:run','forecasts:write','reports:export','drafts:read','customers:read','customers:write'],approver:['drafts:read','reports:export'],viewer:['reports:read']};
+      if(!['tehran_a','tehran_b','tehran_c'].includes(company)||!scopes[role])return{status:401,body:{}};
       return{status:200,body:{issuer:'https://forecast.vrolen.com',company_id:company,role,subject:body.subject||role,
         auth_kind:'session',session_id:'test-only',mfa_required:!!body.mfa_required,permissions:scopes[role]}};
     }}export default{fetch(){return new Response(null,{status:404});}};`;
   const engineScript=`import{WorkerEntrypoint}from'cloudflare:workers';let calls=0;
     export class Engine extends WorkerEntrypoint {async count(){return calls;}async execute(job){calls++;
       const key='companies/'+job.company_id+'/revisions/'+job.attempt+'.zip';
+      if(job.kind==='api') {
+        const body=await(await this.env.FILES.get(job.payload.body_key)).json();
+        const root='companies/'+job.company_id+'/outputs/'+job.job_id+'/'+job.attempt+'/';
+        const artifacts={'api-response.json':root+'api-response.json'},api_status=body.customer?201:422;
+        await this.env.FILES.put(artifacts['api-response.json'],JSON.stringify(api_status===201?{id:'abc123',customer:body.customer}:{detail:'Check customer name'}));
+        if(api_status===201) {
+          await this.env.FILES.put(key,'synthetic-completed-checkpoint');await this.env.BACKUPS.put(key,'synthetic-completed-checkpoint');
+          artifacts['company-view.json']=root+'company-view.json';await this.env.FILES.put(artifacts['company-view.json'],JSON.stringify({company_id:job.company_id,
+            views:{'/customers':{customers:[{id:'abc123',customer:body.customer,active:true}],total:1},'/customers/abc123':{id:'abc123',customer:body.customer}}}));
+        }
+        return{company_id:job.company_id,attempt:job.attempt,run_id:job.attempt,object_key:api_status===201?key:null,artifacts,api_status};
+      }
       // Short pause lets cancellation enter while a real DO request is pending.
       if(job.payload.method==='cancel-test')await new Promise(resolve=>setTimeout(resolve,100));
       if(job.payload.method==='failure-test')throw new Error('Sensitive provider exception');
@@ -100,12 +117,38 @@ test('native company ledger: durable checkpoints, roles, deduplication, cancella
     await call({op:'submit',credentials:{...planner,subject:'revoked'},payload,request_id:'revoked-request'});
     await call({op:'drain'});
     assert.equal((await call({op:'jobs',credentials:planner})).body.find((r:any)=>r.message?.startsWith('Access changed')).state,'failed');
+    const fresh={company_id:'tehran_c',role:'planner'};
+    const apiRequest={op:'api',credentials:fresh,method:'POST',path:'/customers',body:{customer:'Mehr Packaging'},request_id:'cloud-customer-create',revision:null};
+    const queued=await call(apiRequest);assert.equal(queued.state,'queued',JSON.stringify(queued));
+    assert.equal((await call(apiRequest)).id,queued.id,'Duplicate command has one durable receipt');
+    assert.match((await call({...apiRequest,body:{customer:'Another'}})).detail,/different work/);
+    assert.match((await call({...apiRequest,request_id:'parallel-write'})).detail,/current company operation/);
+    await call({op:'drain'});
+    assert.deepEqual(await call({op:'api_result',credentials:fresh,id:queued.id}),{id:'abc123',customer:'Mehr Packaging'});
+    const cloudRead=await call({op:'api',credentials:fresh,path:'/customers?limit=1'});assert.equal(cloudRead.total,1);
+    const before=await call({op:'engine_count'});
+    assert.deepEqual(await call({op:'api',credentials:fresh,path:'/customers/abc123'}),{id:'abc123',customer:'Mehr Packaging'});
+    assert.equal(await call({op:'engine_count'}),before);
+    assert.match((await call({op:'api',credentials:{company_id:'tehran_c',role:'viewer'},path:'/customers'})).detail,/role/);
+    assert.equal((await call({op:'artifact',credentials:fresh,id:queued.id,name:'company-view.json'})).detail,'Forecast result not found');
+    assert.match((await call({op:'api_result',credentials:planner,id:queued.id})).detail,/not found/);
+    assert.match((await call({op:'api_result',credentials:{...fresh,subject:'other-planner'},id:queued.id})).detail,/access/);
+    assert.match((await call({...apiRequest,request_id:'stale-write'})).detail,/inputs changed/);
+    assert.match((await call({...apiRequest,path:'/members',request_id:'no-cloud-admin'})).detail,/not connected/);
+    assert.match((await call({op:'api',credentials:fresh,path:'/customers?ignored=1'})).detail,/Unsupported query/);
+    const head=await call({op:'api_meta',credentials:fresh,path:'/customers'});
+    assert.equal(head.status,200);assert.ok(head.revision);
+    const invalid=await call({...apiRequest,body:{customer:''},request_id:'invalid-customer',revision:head.revision});
+    await call({op:'drain'});
+    assert.equal((await call({op:'api_result',credentials:fresh,id:invalid.id})).detail,'Check customer name');
+    assert.equal((await call({op:'api_meta',credentials:fresh,path:'/customers'})).revision,head.revision,'Validation failure never promotes scratch state');
     const pending=await call({op:'submit',credentials:other,payload,request_id:'restart-request'});
     await runtime.dispose();
     runtime=new Miniflare(convertV4MiniflareOptions(options));caller=await runtime.getWorker('test-only-caller') as unknown as Fetcher;
     const recovered=await call({op:'jobs',credentials:planner});
     assert.equal(recovered.body.find((row:any)=>row.id===job.id)?.state,'succeeded',JSON.stringify(recovered));
     assert.deepEqual(await call({op:'artifact',credentials:planner,id:job.id,name:'result.json'}),{company:'tehran_a',total:49});
+    assert.equal((await call({op:'api',credentials:fresh,path:'/customers'})).customers[0].customer,'Mehr Packaging');
     await call({op:'drain'});
     assert.equal((await call({op:'jobs',credentials:other})).body.find((r:any)=>r.id===pending.body.id).state,'succeeded');
   } finally {await runtime.dispose();await fs.rm(persistent,{recursive:true,force:true});}

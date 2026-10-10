@@ -9,7 +9,7 @@ export class CloudEngineController {
   }
   async execute(job) {
     if (this.env.PRIVATE_ACCESS!=='closed' || !COMPANY.test(job.company_id) || !ID.test(job.job_id) || !ID.test(job.attempt) ||
-        !job.object_key?.startsWith('companies/'+job.company_id+'/revisions/') ||
+        (!(job.kind==='api' && job.object_key===null) && !job.object_key?.startsWith('companies/'+job.company_id+'/revisions/')) ||
         !Number.isSafeInteger(job.deadline) || job.deadline<=Date.now() || job.deadline>Date.now()+12*60*1000 ||
         !/^[a-f0-9]{64}$/.test(this.env.COMPANY_VAULT_KEY || '')) throw new Error('Private engine configuration unavailable');
     // Fixed singleton with a durable busy marker. No pool, random routing, warm
@@ -53,32 +53,45 @@ export class CloudEngineController {
         if(Date.now()>=bootLimit)throw new Error('Engine did not start');
         await new Promise(resolve=>setTimeout(resolve,1000));
       }
-      const input=await this.env.FILES.get(job.object_key);
-      if(!input)throw new Error('Company inputs unavailable');
-      const response=await request('/forecast',{method:'POST',body:input.body,
+      const input=job.object_key===null?null:await this.env.FILES.get(job.object_key);
+      if(job.object_key!==null && !input)throw new Error('Company inputs unavailable');
+      if(job.kind==='api') {
+        if(!job.payload?.body_key?.startsWith('companies/'+job.company_id+'/requests/'))throw new Error('Invalid company request');
+        const body=await this.env.FILES.get(job.payload.body_key);
+        if(!body || body.size>51*1024*1024)throw new Error('Company request unavailable');
+        const staged=await request('/request/'+job.attempt,{method:'PUT',body:body.body});
+        if(!staged.ok)throw new Error('Company request unavailable');
+      }
+      const response=await request(job.kind==='api'?'/api-operation':'/forecast',{method:'POST',body:input?.body || null,
         headers:{'x-forecast-job':JSON.stringify({company_id:job.company_id,job_id:job.attempt,payload:job.payload})}});
       if(!response.ok)throw new Error('Forecast calculation unavailable');
       const result=await response.json();
       if(result.job_id!==job.attempt || result.company_id!==job.company_id || !RUN.test(result.run_id) ||
-          !Array.isArray(result.artifacts) || !result.artifacts.includes('result.json') || result.artifacts.length>100 ||
+          !Array.isArray(result.artifacts) || !result.artifacts.includes(job.kind==='api'?'api-response.json':'result.json') || result.artifacts.length>100 ||
           result.artifacts.some(name=>typeof name!=='string' || !/^[a-zA-Z0-9_.-]{1,160}$/.test(name)))throw new Error('Invalid engine output');
       const root='companies/'+job.company_id+'/',key=root+'revisions/'+job.attempt+'.zip';
-      const snapshot=await request('/output/'+job.attempt+'/snapshot');
-      if(!snapshot.ok)throw new Error('Checkpoint unavailable');
-      await save(key,snapshot);
-      const saved=await this.env.FILES.get(key);
-      if(!saved || !await this.env.BACKUPS.put(key,saved.body,{onlyIf:{etagDoesNotMatch:'*'}}))throw new Error('Backup unavailable');
+      const apiStatus=job.kind==='api'?result.api_status:undefined;
+      if(job.kind==='api' && (!Number.isInteger(apiStatus) || apiStatus<200 || apiStatus>=500 ||
+          (apiStatus<300 && !result.artifacts.includes('company-view.json'))))throw new Error('Invalid company output');
+      if(apiStatus===undefined || apiStatus<300) {
+        const snapshot=await request('/output/'+job.attempt+'/snapshot');
+        if(!snapshot.ok)throw new Error('Checkpoint unavailable');
+        await save(key,snapshot);
+        const saved=await this.env.FILES.get(key);
+        if(!saved || !await this.env.BACKUPS.put(key,saved.body,{onlyIf:{etagDoesNotMatch:'*'}}))throw new Error('Backup unavailable');
+      }
       const artifacts={};
       for(const name of result.artifacts) {
         const file=await request('/output/'+job.attempt+'/artifact/'+encodeURIComponent(name));
         if(!file.ok)throw new Error('Output file unavailable');
         const object=root+'outputs/'+job.job_id+'/'+job.attempt+'/'+name;
-        await save(object,file);
+        await save(object,file,name==='company-view.json'?12*1024*1024:64*1024*1024);
         artifacts[name]=object;
       }
       if(Date.now()>=job.deadline)throw new Error('Forecast deadline exceeded');
       completed=true;
-      return {company_id:job.company_id,attempt:job.attempt,run_id:result.run_id,object_key:key,artifacts};
+      return {company_id:job.company_id,attempt:job.attempt,run_id:result.run_id,
+        object_key:apiStatus>=300?null:key,artifacts,...(apiStatus!==undefined?{api_status:apiStatus}:{})};
     } finally {
       await this.ctx.blockConcurrencyWhile(async()=>{
         const current=await this.ctx.storage.get('active');

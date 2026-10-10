@@ -19,6 +19,31 @@ from .company_workspace import CompanyWorkspaces
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 _busy = Lock()
 _outputs = {}  # Scratch artifacts only; never the authoritative job ledger.
+_requests = {}  # Bounded one-attempt request bodies, never credentials.
+
+
+@app.put('/request/{job}')
+async def stage_request(job: str, request: Request):
+    if len(job) != 32 or any(c not in '0123456789abcdef' for c in job): raise HTTPException(400, 'Invalid attempt.')
+    if not _busy.acquire(blocking=False): raise HTTPException(409, 'Engine is busy.')
+    temporary = None
+    try:
+        if _requests or job in _outputs: raise HTTPException(409, 'Attempt already staged.')
+        temporary = tempfile.TemporaryDirectory(prefix='forecast-request-')
+        path = Path(temporary.name) / 'body'
+        size = 0
+        with path.open('xb') as output:
+            path.chmod(0o600)
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > 51 * 1024 * 1024: raise HTTPException(413, 'Request is too large.')
+                output.write(chunk)
+        _requests[job] = (temporary, path)
+        temporary = None
+        return {'staged': True}
+    finally:
+        if temporary: temporary.cleanup()
+        _busy.release()
 
 
 @app.get('/ready')
@@ -53,6 +78,7 @@ def calculate(source, root, company, outer_job, payload):
         workspaces.close()
 
 
+@app.post('/api-operation')
 @app.post('/forecast')
 async def forecast(request: Request):
     if not _busy.acquire(blocking=False): raise HTTPException(409, 'Engine is busy.')
@@ -76,7 +102,13 @@ async def forecast(request: Request):
                 size += len(chunk)
                 if size > MAX_COMPRESSED: raise HTTPException(413, 'Checkpoint is too large.')
                 output.write(chunk)
-        result = await run_in_threadpool(calculate, source, folder / 'workspace', company, job_id, payload)
+        if request.url.path == '/api-operation':
+            from .cloud_api import operate
+            if job_id not in _requests: raise ValueError()
+            result = await run_in_threadpool(operate, source, folder / 'workspace', company, job_id,
+                payload, _requests[job_id][1])
+        else:
+            result = await run_in_threadpool(calculate, source, folder / 'workspace', company, job_id, payload)
         _outputs[job_id] = (temporary, result)
         temporary = None
         return result
@@ -86,6 +118,9 @@ async def forecast(request: Request):
         # Do not return uploaded content, source exceptions, credentials or paths.
         raise HTTPException(422, 'Forecast inputs could not be calculated.') from None
     finally:
+        if 'job_id' in locals() and job_id in _requests:
+            pending, _ = _requests.pop(job_id)
+            pending.cleanup()
         if temporary: temporary.cleanup()
         _busy.release()
 
@@ -99,6 +134,7 @@ def output(job):
 @app.get('/output/{job}/snapshot')
 def snapshot(job: str):
     root, _ = output(job)
+    if not (root / 'completed.zip').is_file(): raise HTTPException(404, 'Checkpoint not found.')
     return FileResponse(root / 'completed.zip', media_type='application/zip')
 
 
@@ -106,6 +142,8 @@ def snapshot(job: str):
 def artifact(job: str, name: str):
     root, metadata = output(job)
     if name not in metadata['artifacts']: raise HTTPException(404, 'Output not found.')
+    if 'api_status' in metadata:
+        return FileResponse(root / 'api-output' / name, media_type='application/json')
     return FileResponse(root / 'workspace/data/companies' / metadata['company_id'] / 'runs' / metadata['run_id'] / name)
 
 
@@ -115,5 +153,8 @@ def discard(job: str):
     # temporary directory was created by this service; no user paths are deleted.
     if job in _outputs:
         temporary, _ = _outputs.pop(job)
+        temporary.cleanup()
+    if job in _requests:
+        temporary, _ = _requests.pop(job)
         temporary.cleanup()
     return {'removed': True}

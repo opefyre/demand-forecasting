@@ -94,6 +94,12 @@ bounded private remote exercise and observation, never continuous health polling
 
 ## Next substantial build
 
+The next core API slice is now implemented: see
+[private company API bridge](CLOUD_API_DELIVERY.md) for its exact supported routes,
+checks and limits. The original paragraph below describes the wider still-open
+screen/assistant/release/recurring migration, not a claim that the core bridge is
+missing or that the whole cloud app is finished.
+
 Bridge the existing company APIs/screens to this durable runtime: customers,
 orders, import/review, factors, conversations, grouped forecasts, releases and
 saved-result views. Current `stageWorkspace` is a private administrator-only

@@ -54,7 +54,11 @@ export async function cloudAccessOperation(identity: Identity, db: D1Binding, op
         if (current.role === 'admin' && current.two_factor_enabled !== 1) return { allowed: false };
         available = permissions[current.role];
       } else return { allowed: false };
-      return { allowed: body.permissions.includes('forecasts:run') && available.includes('forecasts:run') };
+      const required = body.required_scopes ?? ['forecasts:run'];
+      if (!Array.isArray(required) || !required.length || required.length > 8 ||
+          required.some(scope => typeof scope !== 'string' || !(scope in scopeLabels))) return { allowed: false };
+      return { allowed: required.every(scope => body.permissions.includes(scope) && available.includes(scope)),
+        permissions: body.permissions.filter(scope => available.includes(scope)) };
     } catch (error) {
       if (error instanceof AccessError && error.status === 403) return { allowed: false };
       throw error;

@@ -54,6 +54,7 @@ packages; retain licences and attribution. No SAML or messaging commands in v1.
     - [x] Private native D1 access operations and concurrent last-admin protection deployed.
     - [x] Company-bound encrypted R2 checkpoints and native durable job/revision ledger deployed.
     - [x] Offline Linux engine deployed with bounded deadlines and five-minute idle policy.
+    - [x] Core customer/input/order/factor/grouped-forecast private command and saved-read bridge implemented and locally verified; see CLOUD_API_DELIVERY.md.
     - [ ] Existing company CRUD/screens, recurring/live workflows and measured remote idle/wake acceptance.
   - [x] Create and privately store a Resend sending-only key restricted to the forecast domain.
   - [x] Securely store replacement Google secret and verify the exposed secret is disabled.
