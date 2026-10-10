@@ -669,6 +669,14 @@ after the core release, only if they improve this single forecasting purpose.
 
 ## Current position and preservation
 
+10 October grouped monthly follow-up: new monthly updates and newly configured
+schedules reuse the grouped forecast wizard, review current customers/orders and
+factors before calculating, preserve originals and resume retries. Shared
+desktop/mobile and Persian dialog checks are recorded in GROUPED_MONTHLY_FORECASTS.md.
+Next: the remaining assistant proposals, order comparisons and revision screens,
+then the complete bilingual approval/export journey. Existing legacy schedules
+were not silently migrated or enabled.
+
 10 October recovery follow-up: live owner password recovery and MFA sign-in are
 verified, along with a separate cloud identity restore. The native-runtime ledger
 rehearsal tests pass, but the approved cloud trigger produced no ledger/receipt

@@ -1,5 +1,10 @@
 // Authored interface copy only. Source names, IDs, values and original evidence stay intact.
 export const faCompletion={
+ 'Future assumptions':'فرض‌های آینده',
+ 'No monthly drafts yet':'هنوز پیش‌نویس ماهانه‌ای وجود ندارد',
+ 'Check monthly draft for {{name}}':'بررسی پیش‌نویس ماهانهٔ {{name}}',
+ 'Prepare reviewed sales each month. I will check factors and orders before running the forecast.':'هر ماه سوابق فروش بررسی‌شده را آماده کن. پیش از اجرای پیش‌بینی، عوامل و سفارش‌ها را بررسی می‌کنم.',
+ 'Review factors and current customer orders before running selected methods.':'پیش از اجرای روش‌های انتخاب‌شده، عوامل و سفارش‌های فعلی مشتریان را بررسی کنید.',
  'Confirmed':'قطعی',
  'Unconfirmed':'تأییدنشده',
  'Search connections':'جست‌وجوی اتصال‌ها',
@@ -440,6 +445,7 @@ export const faCompletion={
  'Added / changed / removed periods':'دوره‌های افزوده / تغییرکرده / حذف‌شده',
  'History through':'سوابق تا',
  'Back to forecast':'بازگشت به پیش‌بینی',
+ 'Back to forecast update':'بازگشت به به‌روزرسانی پیش‌بینی',
  'Live sources ({{count}})':'منابع زنده ({{count}})',
  '{{count}} sources need attention':'{{count}} منبع نیاز به بررسی دارد',
  'Latest saved review':'آخرین بررسی ذخیره‌شده',

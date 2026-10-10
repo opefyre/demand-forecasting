@@ -13,6 +13,47 @@ import { orderRevision } from "./order-revision.mjs";
 import { planningBasis, planningMonth } from "./planning-calendar.mjs";
 import {t as uiText,unitLabel,i18n} from './localization.mjs';
 import {Page,Panel,Stack,Grid,Actions,DefinitionList,Disclosure,Collection,SearchControl,Steps} from './ui-layout.jsx';
+import {NewForecast} from './new-forecast.jsx';
+import {FORECAST_CHOICES} from './forecast-start.mjs';
+
+export function updateInputVersions(datasets,baseId) {
+  const byId=new Map(datasets.map(d=>[d.id,d]));
+  return datasets.filter(d=>{
+    const seen=new Set();let current=d;
+    while(current&&!seen.has(current.id)){
+      if(current.id===baseId)return true;
+      seen.add(current.id);current=byId.get(current.parent_dataset_id);
+    }
+    return false;
+  });
+}
+export function groupedUpdateDraft(session) {
+  return {source:session.dataset_id,step:session.group?4:0,horizon:session.months,
+    name:session.name,methods:session.group?session.methods:(session.methods||[]).filter(method=>FORECAST_CHOICES.some(([id])=>id===method)),salesInputId:session.sales_input_id||null,
+    parentForecastId:session.parent_forecast_id||null,groupId:session.group_id||session.id,
+    jobs:(session.group?.jobs||[]).map(job=>({...job,method:job.payload.method}))};
+}
+export function GroupedUpdate({session,datasets,api,ui,onClose,onSubmitted,...props}) {
+  const [working,setWorking]=useState(false),request=useRef(null);
+  async function submit(body){
+    const payload={action:'calculate_group',revision:session.revision,reviewed:true,
+      dataset_id:body.dataset_id,name:body.name,methods:body.methods,sales_input_id:body.sales_input_id};
+    const signature=JSON.stringify(payload);
+    if(request.current?.signature!==signature)request.current={signature,id:crypto.randomUUID()};
+    const value=await api('/api/forecast-updates/'+session.id+'/steps',{...payload,request_id:request.current.id});
+    onSubmitted(value);return value.group;
+  }
+  return <Page title={uiText('Update forecast')} actions={<ui.Button kind="ghost" disabled={working} onClick={onClose}><ArrowLeft/>{uiText('Back to forecast')}</ui.Button>}>
+    <NewForecast key={session.id} {...props} datasets={updateInputVersions(datasets,session.base_dataset_id)} api={api} ui={ui}
+      embedded allowAnother={false} lockCalendar onWorkingChange={setWorking} parentForecastId={session.parent_forecast_id}
+      initialDraft={groupedUpdateDraft(session)} draftKey={'demandlab.monthlyForecast.'+session.id} submitGroup={submit}
+      prepareImport={async dataset=>{
+        if(!dataset)throw Error(uiText('Choose sales data'));
+        const sourceObjects=Object.fromEntries(await Promise.all(Object.entries(dataset.sources).map(async([role,id])=>[role,await api('/api/sources/'+id)])));
+        return {...dataset,sourceObjects,repeat_upload:true};
+      }}/>
+  </Page>;
+}
 
 const stages = ["History", "Forecast", "Factors", "Orders", "Review"];
 const position = {
@@ -211,6 +252,9 @@ export function MonthlyRefresh({
       setBusy(false);
     }
   }
+  if(session?.workflow==='grouped')return <GroupedUpdate session={session} datasets={datasets} api={api} ui={ui}
+    onClose={onClose} onSubmitted={setSession} refresh={refresh} runDataset={runDataset} openRun={openRun}
+    navigate={navigate} setDataView={setDataView} renderImport={renderImport} canEdit={canEdit}/>;
   if (importing)
     return renderImport({
       initial: importing,

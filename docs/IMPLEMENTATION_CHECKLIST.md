@@ -1,5 +1,15 @@
 # DemandLab — implementation and acceptance checklist
 
+## 10 October — grouped monthly workflow
+
+- [x] New monthly updates and newly configured schedules reuse the grouped wizard.
+- [x] Sales/factors/customers/orders reviewed before calculation; multiple methods
+  remain one named forecast. Existing legacy sessions/schedules preserved.
+- [x] Shared styles, isolated drafts/imports, retry recovery, EN/Farsi and 390px
+  schedule-dialog checks. See GROUPED_MONTHLY_FORECASTS.md for evidence/boundaries.
+- [ ] Remaining assistant proposal/order-comparison/revision-screen migration and
+  complete bilingual mobile approval/export journey.
+
 ## 9 October — public platform expansion (in progress)
 
 - [x] Better Auth access foundation, four roles, session-specific admin 2FA,

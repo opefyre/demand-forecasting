@@ -1825,8 +1825,12 @@ def save_forecast_orders(dataset_id: str, payload: dict, request: Request):
     except (ValueError, KeyError, TypeError) as exc:
         raise HTTPException(400, str(exc)) from exc
 from .monthly_refresh import MonthlyRefresh, install_monthly_refresh
+def submit_monthly_group(body):
+    from .grouped_forecasts import create_group
+    return create_group(DATASET_STORE,SALES_STORE,jobs.STORE,body,jobs.forecast_job)
 MONTHLY_REFRESH = MonthlyRefresh(DATA_DIR / 'monthly-updates.sqlite3', DATASET_STORE,
-    _load_run, SALES_STORE, sales_outlook, jobs.STORE, jobs.submit, LIVE_SOURCES)
+    _load_run, SALES_STORE, sales_outlook, jobs.STORE, jobs.submit, LIVE_SOURCES,
+    submit_group=submit_monthly_group,site=SITE_PROFILE)
 install_monthly_refresh(app, MONTHLY_REFRESH)
 from .recurring_forecasts import RecurringForecasts, install_recurring_forecasts
 def recurring_owner_authorized(actor):

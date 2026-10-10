@@ -67,6 +67,23 @@ class JobTests(unittest.TestCase):
         self.assertEqual(saved['job_id'], job['id'])
         self.assertEqual(len(list((self.root / 'runs').iterdir())), 1)
 
+    def test_group_resume_follows_retry_chain_without_changing_original_ids(self):
+        group=self.store.create_group([{'dataset_id':'dataset','method':'model:Last observed'}],
+            'October revision','grouped-retry')
+        first=group['jobs'][0]
+        self.store.cancel(first['id'])
+        second=self.store.create(first['payload'],first['name'],'retry-second',retry_of=first['id'])
+        self.store.cancel(second['id'])
+        third=self.store.create(second['payload'],second['name'],'retry-third',retry_of=second['id'])
+        resumed=self.store.get_group(group['id'])
+        self.assertEqual(resumed['job_ids'],[first['id']])
+        self.assertEqual(resumed['jobs'][0]['id'],third['id'])
+        self.assertEqual(self.store.list_groups()[0]['jobs'][0]['state'],'queued')
+        self.store.cancel(third['id'])
+        self.store.create({'dataset_id':'other'},third['name'],'retry-invalid',retry_of=third['id'])
+        with self.assertRaisesRegex(ValueError,'retry inputs changed'):
+            self.store.get_group(group['id'])
+
     def test_cancel_queued_and_running_never_publishes(self):
         job = self.job()
         self.store.cancel(job['id'])

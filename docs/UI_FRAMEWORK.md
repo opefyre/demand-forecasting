@@ -91,3 +91,12 @@ the existing locale service; business identifiers remain unchanged. No appearanc
 rules were added. See MONTHLY_CLOUD_RECOVERY.md for recovery and test boundaries.
 The older assistant saved-order proposal and order-comparison surfaces still
 require migration; this is not acceptance of every legacy screen.
+
+## Grouped monthly workflow — 10 October
+
+New monthly updates reuse NewForecast instead of introducing a second wizard.
+Recurring settings share the method chooser, fixed Modal, lists and actions.
+Included-factor summaries use PanelHeader, DefinitionList and Disclosure; no
+appearance rules or authored inline styles were added. Desktop and 390px mobile
+dialog sizes, internal scrolling, EN/Farsi and RTL were checked in Chrome.
+See GROUPED_MONTHLY_FORECASTS.md for exact tests and remaining migration boundaries.

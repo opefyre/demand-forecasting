@@ -1,10 +1,23 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {useSmoothState} from './ui-motion.jsx';
-import {t as uiText} from './localization.mjs';
+import {t as uiText,i18n} from './localization.mjs';
 import {FactorSettings} from './factor-links.jsx';
 import {futureAssumptions} from './factor-assumptions.mjs';
 import {planningMonth} from './planning-calendar.mjs';
-import {Stack,Grid,Actions,PanelHeader,FieldGroup,Disclosure} from './ui-layout.jsx';
+import {Stack,Grid,Actions,PanelHeader,FieldGroup,Disclosure,DefinitionList} from './ui-layout.jsx';
+
+export function IncludedForecastFactors({dataset,ui}){
+  const definitions=dataset.settings?.factor_definitions||{};
+  const future=dataset.import_provenance?.alignment?.rows?.filter(row=>row.kind==='future')||[];
+  return <Stack><PanelHeader title={uiText('Review included factors')}/>
+    <DefinitionList rows={(dataset.settings?.drivers||[]).map(column=>{
+      const factor=definitions[column];return [uiText(factor?.name||column),factor?[uiText(factor.geography),uiText(factor.source)].filter(Boolean).join(' · '):uiText('Saved observation')];
+    })}/>
+    {!!future.length&&<Disclosure title={uiText('Future assumptions')}><ui.Table headers={['Factor','Month','Value','Source'].map(label=>uiText(label))}>
+      {future.map((row,index)=><tr key={index}><td>{uiText(row.factor)}</td><td>{planningMonth(row.sales_month,dataset.settings.month_basis)}</td><td>{row.value==null?'—':new Intl.NumberFormat(i18n.language,{maximumFractionDigits:3}).format(row.value)} {row.unit}</td><td>{uiText(row.treatment==='planning_assumption'?'Your assumption':'Saved observation')}</td></tr>)}
+    </ui.Table></Disclosure>}
+  </Stack>;
+}
 
 export function ForecastFactors({dataset,api,ui,canEdit,onSaved,onReady,onWorkingChange,navigate}){
   const {Button,ErrorBox,Table,Help,Pick}=ui;

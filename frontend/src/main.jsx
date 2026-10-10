@@ -658,10 +658,10 @@ function App({ access }) {
       // explicit action, never while opening a saved report or the application.
       const current=cloudTransportEnabled()&&!requestId?(await api('/api/forecast-updates')).updates:updates;
       setUpdates(current);
-      const existing=current.find(value=>value.base_run_id===runId&&value.stage!=='ready');
+      const existing=current.find(value=>value.base_run_id===runId&&!['ready','grouped_complete'].includes(value.stage));
       if(existing&&!requestId){setUpdateId(existing.id);navigate('demand',{update_id:existing.id});return;}
       if(!requestId&&updateAttempt.current?.runId!==runId)updateAttempt.current={runId,id:crypto.randomUUID()};
-      const value=await api('/api/forecast-updates',{run_id:runId,request_id:requestId||updateAttempt.current.id});
+      const value=await api('/api/forecast-updates',{run_id:runId,workflow:'grouped',request_id:requestId||updateAttempt.current.id});
       setUpdateId(value.id);updateAttempt.current=null;await refresh();navigate('demand',{update_id:value.id});
     }catch(e){setError(e.message);}finally{setBusy('');}
   }

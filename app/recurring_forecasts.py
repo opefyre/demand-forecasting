@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import json
 import sqlite3
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
@@ -24,6 +25,8 @@ class RecurringConfig(BaseModel):
     enabled:StrictBool=False
     confirmed:StrictBool=False
     connection_id:str|None=None
+    workflow:Literal['legacy','grouped']='legacy'
+    methods:list[str]|None=Field(default=None,min_length=1,max_length=24)
 
 
 class RecurringForecasts:
@@ -50,7 +53,7 @@ class RecurringForecasts:
     def save(self,actor,payload):
         if payload.confirmed is not True:raise ValueError('Confirm automatic draft calculation and the review steps first.')
         run,source=self.monthly.baseline(payload.run_id)
-        if source['sources'].get('future'):
+        if payload.workflow=='legacy' and source['sources'].get('future'):
             raise ValueError('Use history-only baseline inputs. External factors need fresh, separately reviewed future assumptions.')
         from .sales_groups import series_column
         if not series_column(source['settings']) or not all(source['settings'].get(k) for k in ('customer_col','sku_col')):
@@ -58,6 +61,9 @@ class RecurringForecasts:
         from .forecast_engine import _model_specs
         if payload.method not in {'recommended','seasonal','trend','intermittent','driver'}|{'model:'+s.name for s in _model_specs('deep')}:
             raise ValueError('Choose an available forecasting method.')
+        if payload.workflow=='grouped':
+            from .grouped_forecasts import check_methods
+            check_methods(payload.methods or [payload.method],{**source['settings'],'profile':'deep'})
         if payload.connection_id:
             folder=self.folders.get_config(payload.connection_id) if self.folders else None
             if not folder or folder['dataset_id']!=source['id'] or set(folder['files'])!={'history'}:
@@ -68,6 +74,8 @@ class RecurringForecasts:
             'basis':source['settings'].get('month_basis','gregorian'),'day':payload.day,
             'months':payload.months,'method':payload.method,'enabled':payload.enabled,'connection_id':payload.connection_id,
             'request_id':payload.request_id,'confirmed_at':datetime.now(timezone.utc).isoformat()}
+        if payload.workflow=='grouped':
+            value.update(workflow='grouped',methods=payload.methods or [payload.method])
         with self.db() as db:
             db.execute('BEGIN IMMEDIATE')
             old=db.execute('SELECT payload FROM recurring_forecasts WHERE id=?',(key,)).fetchone()
@@ -87,7 +95,12 @@ class RecurringForecasts:
                 config=json.loads(payload)
                 latest=db.execute('SELECT payload FROM recurring_cycles WHERE schedule_id=? ORDER BY rowid DESC LIMIT 1',(config['id'],)).fetchone()
                 cycle=json.loads(latest[0]) if latest else None
-                if cycle and cycle.get('update_id') and cycle['state']=='calculating':
+                if cycle and cycle.get('update_id') and config.get('workflow')=='grouped':
+                    try:
+                        cycle={**cycle,**self.grouped_cycle(self.monthly.get(cycle['update_id'],actor))}
+                    except (ValueError,KeyError):
+                        cycle={**cycle,'state':'attention','attention':'Saved update or calculation is unavailable. Review the saved inputs before retrying.'}
+                if config.get('workflow')!='grouped' and cycle and cycle.get('update_id') and cycle['state']=='calculating':
                     try:
                         session=self.monthly.get(cycle['update_id'],actor)
                         if session['stage']!='calculating':cycle={**cycle,'state':'review'}
@@ -121,8 +134,22 @@ class RecurringForecasts:
                     seen.add(current['id']);current=self.monthly.datasets.get(current['parent_dataset_id'])
                 if current['id']==original['id']:
                     chosen=source;break
-        if chosen['sources'].get('future'):raise ValueError('New inputs include future factors. Review them manually before using this schedule.')
+        if config.get('workflow')!='grouped' and chosen['sources'].get('future'):raise ValueError('New inputs include future factors. Review them manually before using this schedule.')
         return original,chosen
+
+    def grouped_cycle(self,session):
+        if session.get('workflow')!='grouped':
+            return {'state':'attention','stage':session['stage'],
+                'attention':'This month already has an earlier update. Finish it before the new workflow starts next month.'}
+        if not session.get('group_id'):
+            return {'state':'review','stage':'prepared','attention':None}
+        group=self.monthly.group_view(session)
+        states={job['state'] for job in group['jobs']}
+        if states & {'queued','running','publishing'}:
+            return {'state':'calculating','stage':'grouped','attention':None}
+        if states & {'failed','cancelled','interrupted'}:
+            return {'state':'attention','stage':'grouped_complete','attention':'Calculation stopped. Open the update to review and retry.'}
+        return {'state':'review','stage':'grouped_complete','attention':None}
 
     def check(self,key,actor=None,now=None):
         owner,config=self.config(key,actor)
@@ -142,8 +169,11 @@ class RecurringForecasts:
             elif value.get('update_id'):
                 try:
                     session=self.monthly.get(value['update_id'],owner)
-                    value.update(state='calculating' if session['stage']=='calculating' else 'review',stage=session['stage'],attention=None)
-                    if session['stage']=='calculating':
+                    if config.get('workflow')=='grouped':
+                        value.update(self.grouped_cycle(session))
+                    else:
+                        value.update(state='calculating' if session['stage']=='calculating' else 'review',stage=session['stage'],attention=None)
+                    if config.get('workflow')!='grouped' and session['stage']=='calculating':
                         job=self.monthly.jobs.get(session['job_id'])
                         if job['state']=='succeeded':
                             session=self.monthly.step(session['id'],owner,UpdateStep(revision=session['revision'],action='calculated',request_id=cycle_id+':completed'))
@@ -166,7 +196,18 @@ class RecurringForecasts:
                     if any((*scope,expected) not in groups for scope in scopes):
                         raise ValueError('Some customer/products have no latest-month sales record. Review missing records or explicit zero sales in Data.')
                     changes=repeat_review(self.monthly.datasets,original['id'],source['sources'],source['settings'],source['classification'])
-                    session=self.monthly.start(owner,StartUpdate(run_id=config['run_id'],request_id=cycle_id))
+                    session=self.monthly.start(owner,StartUpdate(run_id=config['run_id'],request_id=cycle_id,workflow=config.get('workflow','legacy')))
+                    if config.get('workflow')=='grouped':
+                        if session['stage']=='prepared':
+                            session=self.monthly.step(session['id'],owner,UpdateStep(revision=session['revision'],
+                                action='prepare_group',dataset_id=source['id'],months=config['months'],
+                                methods=config['methods'],reviewed=True,request_id=cycle_id+':prepare'))
+                        value.update(update_id=session['id'],dataset_id=session.get('dataset_id',source['id']),
+                            changes=changes,note='Review factors and current customer orders before running selected methods.')
+                        value.update(self.grouped_cycle(session))
+                        value['checked_at']=datetime.now(timezone.utc).isoformat()
+                        db.execute('INSERT OR REPLACE INTO recurring_cycles VALUES (?,?,?)',(cycle_id,key,json.dumps(value,allow_nan=False)))
+                        return value
                     if session['stage']=='forecast' and session.get('dataset_id')!=source['id']:
                         raise ValueError('This update already chose different sales inputs. Open it before recalculating.')
                     if session['stage']=='history':

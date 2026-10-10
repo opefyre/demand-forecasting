@@ -30,5 +30,5 @@ test('factor review indicates progress and invalidates the previous approval bef
   assert.match(source,/setReview\(null\);setApproved\(false\);setReview\(await api\(endpoint\+'\/preview'/);
   assert.match(source,/uiText\(busy&&!review\?'Checking…':'Review factors'\)/);
   const wizard=await readFile(new URL('new-forecast.jsx',import.meta.url),'utf8');
-  assert.match(wizard,/type==='forecast_factors'\?<Button disabled=\{working\|\|!canEdit\}/);
+  assert.match(wizard,/type==='forecast_factors'\?<><IncludedForecastFactors dataset=\{dataset\} ui=\{ui\}\/><Button disabled=\{working\|\|!canEdit\}/);
 });

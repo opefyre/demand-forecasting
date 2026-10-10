@@ -362,6 +362,60 @@ class CloudApiTests(unittest.TestCase):
             finally: workspaces.close()
         finally: fixture.tearDown()
 
+    def test_grouped_monthly_factor_revision_survives_cold_checkpoint_without_duplicate_jobs(self):
+        from copy import deepcopy
+        from io import BytesIO
+        import pandas as pd
+        import shutil
+        fixture=sales_fixture.PublicSalesTests();fixture.setUp()
+        try:
+            _,dataset,_=fixture.history()
+            parent,_=fixture.calculate(dataset,fixture.orders(dataset),['model:Last observed'])
+            base_id=parent['jobs'][0]['run_id'];original=deepcopy(fixture.ws.load_run(base_id))
+            history=pd.read_csv(BytesIO(fixture.ws.datasets.source(dataset['sources']['history'])[1]),dtype={'sku':str})
+            history['fx_assumption']=history.groupby('customer').cumcount()+100
+            upload=fixture.ws.datasets.upload('tehran-factors.csv',history.to_csv(index=False).encode(),'history')
+            future=pd.DataFrame({'date':pd.date_range(fixture.today.replace(day=1),periods=3,freq='MS').strftime('%Y-%m-%d'),
+                'fx_assumption':[136,138,140]})
+            assumptions=fixture.ws.datasets.upload('reviewed-future.csv',future.to_csv(index=False).encode(),'future')
+            adjusted=fixture.ws.datasets.save('Tehran reviewed factors',{'history':upload['id'],'future':assumptions['id']},
+                dataset['settings']|{'drivers':['fx_assumption'],'future_date_col':'date','future_driver_policy':'require',
+                    'evidence_policy':'reviewed_what_if'},'synthetic_sample',True,parent_dataset_id=dataset['id'])
+            orders=fixture.orders(adjusted)
+            shutil.copytree(fixture.root/'companies',self.root/'grouped-monthly/data/companies')
+            archive=self.root/'grouped-monthly.zip';capture(self.root/'grouped-monthly','tehran_a',archive)
+            response,state,_,checkpoint=self.command('POST','/forecast-updates',
+                {'run_id':base_id,'workflow':'grouped','request_id':'grouped-cold-start'},archive.read_bytes())
+            self.assertEqual(response.json()['api_status'],201,state)
+            path='/forecast-updates/'+state['id']
+            body={'action':'calculate_group','revision':state['revision'],'reviewed':True,
+                'name':'Tehran factor revision','dataset_id':adjusted['id'],'sales_input_id':orders['id'],
+                'methods':['model:Ridge + drivers','model:Elastic Net + drivers'],'request_id':'grouped-cold-calculate'}
+            response,state,view,checkpoint=self.command('POST',path+'/steps',body,checkpoint)
+            self.assertEqual(response.json()['api_status'],200,state)
+            self.assertEqual(state['stage'],'grouped_complete');self.assertEqual(len(state['group']['jobs']),2)
+            self.assertTrue(all(j['state']=='succeeded' for j in state['group']['jobs']),state)
+            self.assertEqual(view['views']['/forecasts']['total'],2)
+            response,resumed,_,_=self.command('GET',path,None,checkpoint)
+            self.assertEqual(resumed['group']['id'],state['group']['id'])
+            response,retried,view,repeated=self.command('POST',path+'/steps',body,checkpoint)
+            self.assertEqual(response.json()['api_status'],200,retried)
+            self.assertEqual(retried['group']['id'],state['group']['id'])
+            self.assertEqual(view['views']['/forecasts']['total'],2)
+            for job in resumed['group']['jobs']:
+                response,run,_,_=self.command('GET','/runs/'+job['run_id'],None,repeated)
+                self.assertEqual(run['forecast_order_inputs_id'],orders['id'])
+                saved_inputs=view['views']['/datasets/'+run['dataset_id']]
+                self.assertEqual(saved_inputs['sources']['future'],assumptions['id'])
+                self.assertEqual(run['input_manifest']['settings']['drivers'],['fx_assumption'])
+                self.assertEqual(run['forecast_group_id'],state['group']['id'])
+            _,base,_,_=self.command('GET','/runs/'+base_id,None,repeated)
+            self.assertEqual(base,{k:v for k,v in original.items() if k!='job_owner'})
+            outsider=self.who|{'subject':'another-planner'}
+            response,_,_,_=self.command('GET',path,None,repeated,who=outsider)
+            self.assertEqual(response.json()['api_status'],404)
+        finally:fixture.tearDown()
+
     def test_monthly_cold_recovery_keeps_factors_and_requires_current_orders_for_export(self):
         from copy import deepcopy
         from datetime import timedelta

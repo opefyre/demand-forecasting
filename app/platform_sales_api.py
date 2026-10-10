@@ -1,6 +1,5 @@
 """Company-scoped sales pipeline. Reuse reviewed inputs, maths and evidence stores."""
 from typing import Literal
-import uuid
 
 from fastapi import APIRouter, Request, HTTPException, UploadFile, File, Form, Query
 from fastapi.responses import Response, FileResponse
@@ -298,34 +297,9 @@ def install_platform_sales(api, workspaces, dispatcher=None):
             parent=call(lambda:ws.jobs.get_group(body.parent_forecast_id),missing=True)
             if ws.jobs.active_group_jobs(parent['id']):
                 raise HTTPException(409,'Wait for the previous forecast to finish before revising it.')
-        if value.get('scenario_provenance') or set(value['sources']) - {'history','future'}:
-            raise HTTPException(400, 'Choose reviewed sales inputs.')
-        call(lambda: reviewed(ws.datasets, ws.sales, body.dataset_id, body.sales_input_id, site=ws.site))
-        from .forecast_orders import context
-        revisions = ws.sales.list(context(ws.datasets, body.dataset_id, site=ws.site)['run_id'])
-        if not revisions or revisions[0]['id'] != body.sales_input_id:
-            raise HTTPException(409, 'A newer order review exists. Use the latest reviewed inputs.')
-        from .forecast_engine import _model_specs, _factor_specs, METHOD_GROUPS
-        drivers = value['settings'].get('drivers',[])
-        factor_specs = _factor_specs(value['settings'].get('profile','deep'), drivers) if 1 <= len(drivers) <= 8 else []
-        choices = {'recommended', *METHOD_GROUPS} | {'model:'+spec.name for spec in
-            _model_specs(value['settings'].get('profile','deep')) + factor_specs}
-        if factor_specs:
-            choices.add('factor_test')
-        if len(set(body.methods)) != len(body.methods) or any(method not in choices for method in body.methods):
-            raise HTTPException(400, 'Choose distinct supported forecasting methods.')
-        group_id = uuid.uuid5(uuid.NAMESPACE_URL, 'demandlab-group:' + body.request_id).hex
-        payloads = [{'dataset_id':body.dataset_id, 'sales_input_id':body.sales_input_id,
-            'method':method, 'forecast_group_id':group_id, 'forecast_name':body.name} for method in body.methods]
-        if body.parent_forecast_id:
-            for payload in payloads:payload['parent_forecast_id']=body.parent_forecast_id
-        group = call(lambda: ws.jobs.create_group(payloads, body.name, body.request_id))
-        # A dispatch failure leaves the durable group queued and safe to retry;
-        # every method is recorded before any is sent to Huey.
-        for job in group['jobs']:
-            if job['state'] == 'queued':
-                dispatcher(ws, job['id'])
-        return safe_group(ws.jobs.get_group(group_id))
+        from .grouped_forecasts import create_group
+        return safe_group(call(lambda: create_group(ws.datasets, ws.sales, ws.jobs,
+            body.model_dump(), lambda key: dispatcher(ws, key), lifecycle=ws.lifecycle, site=ws.site)))
 
     @router.get('/forecast-methods', tags=['Forecasts'])
     def forecast_methods(request: Request, frequency: Literal['monthly','weekly','daily'] = 'monthly',

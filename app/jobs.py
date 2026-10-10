@@ -134,8 +134,22 @@ class JobStore:
             row = conn.execute(select(self.groups).where(self.groups.c.id == identifier)).mappings().first()
         if not row:
             raise ValueError('Forecast not found.')
-        return {k:v for k,v in dict(row).items() if k != 'payloads'} | {
-            'jobs':[self.get(key) for key in row['job_ids']]}
+        current=[]
+        with self.engine.connect() as conn:
+            for key in row['job_ids']:
+                job=self.get(key)
+                seen={key}
+                while True:
+                    replacement=conn.execute(select(self.jobs).where(self.jobs.c.retry_of==job['id'])
+                        .order_by(self.jobs.c.created_at.desc(),self.jobs.c.id.desc())).mappings().first()
+                    if not replacement or replacement['id'] in seen:
+                        break
+                    # A retry remains the same immutable method/input contract.
+                    if replacement['payload']!=job['payload'] or replacement['name']!=job['name']:
+                        raise ValueError('The retry inputs changed. Review the saved forecast.')
+                    seen.add(replacement['id']);job=dict(replacement)
+                current.append(job)
+        return {k:v for k,v in dict(row).items() if k != 'payloads'} | {'jobs':current}
 
     def list_groups(self, limit=100, offset=0):
         with self.engine.connect() as conn:

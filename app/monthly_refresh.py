@@ -1,9 +1,11 @@
 """Recoverable monthly journey. Existing stores own inputs, maths, orders and exports."""
 from contextlib import closing
 import json
+import re
 import sqlite3
 import time
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
@@ -18,6 +20,7 @@ class StartUpdate(BaseModel):
     model_config = ConfigDict(extra='forbid')
     run_id: str = Field(min_length=1, max_length=80)
     request_id: str = Field(min_length=8, max_length=100)
+    workflow: Literal['legacy', 'grouped'] = 'legacy'
 
 
 class UpdateStep(BaseModel):
@@ -32,6 +35,9 @@ class UpdateStep(BaseModel):
     method: str = Field(default='recommended', max_length=100)
     reviewed: StrictBool = False
     review_token: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    methods: list[str] | None = Field(default=None, min_length=1, max_length=24)
+    sales_input_id: str | None = Field(default=None, pattern=r'^[a-f0-9]{32}$')
 
 
 def principal_actor(request):
@@ -40,10 +46,12 @@ def principal_actor(request):
 
 
 class MonthlyRefresh:
-    def __init__(self, path, datasets, load_run, sales, outlook, jobs, submit, live=None, submit_for_actor=None):
+    def __init__(self, path, datasets, load_run, sales, outlook, jobs, submit, live=None, submit_for_actor=None, submit_group=None, site=None):
         self.path, self.datasets, self.load_run = path, datasets, load_run
         self.sales, self.outlook, self.jobs, self.submit, self.live = sales, outlook, jobs, submit, live
         self.submit_for_actor = submit_for_actor
+        self.submit_group = submit_group
+        self.site = site or {}
         with self.db() as db:
             db.execute('CREATE TABLE IF NOT EXISTS monthly_updates '
                        '(id TEXT PRIMARY KEY, actor TEXT, updated REAL, payload TEXT)')
@@ -80,7 +88,7 @@ class MonthlyRefresh:
             found = db.execute('SELECT id FROM monthly_updates WHERE id=?', (key,)).fetchone()
             if found:
                 value = self.read(db, key, actor)
-                if value['base_run_id'] != payload.run_id:
+                if value['base_run_id'] != payload.run_id or value.get('workflow','legacy') != payload.workflow:
                     raise ValueError('This retry identifier already started another update.')
                 return value
             run, source = self.baseline(payload.run_id)
@@ -91,6 +99,26 @@ class MonthlyRefresh:
                      'classification':source['classification'],
                      'previous_snapshot_id':versions[0]['id'] if versions else None,
                      'created_at':time.time()}
+            if payload.workflow == 'grouped':
+                from .sales_conventions import local_today
+                previous_name=run.get('forecast_name') or source['name']
+                version=re.search(r' · R(\d+)$',previous_name)
+                number=int(version.group(1))+1 if version else 2
+                stem=re.sub(r'(?: · \d{4}-\d{2}-\d{2})*(?: · R\d+)?$','',previous_name)
+                date=str(local_today(self.site.get('timezone','Asia/Tehran')))
+                parent=run.get('forecast_group_id')
+                if parent:
+                    try:self.jobs.get_group(parent)
+                    except ValueError as exc:
+                        if str(exc)!='Forecast not found.':raise
+                        # Older local results grouped their rows without a durable
+                        # group receipt. Keep the original run reference intact.
+                        parent=None
+                value.update(workflow='grouped', stage='prepared', dataset_id=source['id'],
+                    dataset_sha256=digest(source), months=source['settings'].get('horizon',6),
+                    methods=[run.get('method_selection') or 'recommended'],
+                    parent_forecast_id=parent,
+                    name=stem[:130]+' · '+date+' · R'+str(number))
             self.write(db, actor, value)
             return value
 
@@ -101,8 +129,45 @@ class MonthlyRefresh:
     def listing(self, actor):
         with self.db() as db:
             rows = db.execute('SELECT payload FROM monthly_updates WHERE actor=? ORDER BY updated DESC LIMIT 20', (actor,)).fetchall()
-        return [{k:v for k,v in json.loads(row[0]).items() if k in
-                 {'id','stage','name','base_run_id','created_at','classification'}} for row in rows]
+        result=[]
+        for row in rows:
+            value=json.loads(row[0])
+            item={k:v for k,v in value.items() if k in
+                 {'id','stage','name','base_run_id','created_at','classification','workflow','group_id'}}
+            if value.get('group_id'):
+                group=self.group_view(value)
+                if all(j['state'] in {'succeeded','failed','interrupted','cancelled'} for j in group['jobs']):
+                    item['stage']='grouped_complete'
+            result.append(item)
+        return result
+
+    def grouped_history(self, value, identifier):
+        _, base = self.check_base(value)
+        source = self.datasets.get(identifier)
+        ancestor, seen = source, set()
+        while ancestor['id'] != base['id']:
+            if ancestor['id'] in seen or not ancestor.get('parent_dataset_id'):
+                raise ValueError('Choose the original history or a reviewed version of it.')
+            seen.add(ancestor['id'])
+            ancestor = self.datasets.get(ancestor['parent_dataset_id'])
+        defaults={'unit':None,'frequency':'monthly','month_basis':'gregorian','sales_measure':'unspecified',
+                  'history_grain':'transactions','history_calendar':'gregorian','returns_policy':'reject'}
+        if source.get('scenario_provenance') or source['classification'] != base['classification'] or any(
+                source['settings'].get(k,default) != base['settings'].get(k,default) for k,default in defaults.items()):
+            raise ValueError('Calendar, quantity meaning, grain and units must stay comparable. Start separately for a different contract.')
+        if source['sources'].get('operations') or input_report(self.datasets,source)['errors']:
+            raise ValueError('Resolve the saved history problems first.')
+        from .sales_groups import series_column
+        if not series_column(source['settings']) or not all(source['settings'].get(k) for k in ('customer_col','sku_col')):
+            raise ValueError('Map distinct customer/product series, customers and products before this update.')
+        return source
+
+    def group_view(self, value):
+        group=self.jobs.get_group(value['group_id'])
+        if digest([group['name'],[j['payload'] for j in group['jobs']]]) != value['group_sha256']:
+            raise ValueError('The grouped forecast inputs changed. Review the saved revision.')
+        return {k:v for k,v in group.items() if k not in {'request_id','job_ids','jobs'}} | {
+            'jobs':[{k:v for k,v in job.items() if k not in {'owner','heartbeat_at','request_id'}} for job in group['jobs']]}
 
     def check_base(self, value):
         run, source = self.baseline(value['base_run_id'])
@@ -192,6 +257,12 @@ class MonthlyRefresh:
         result['live_sources'] = self.source_status()
         if value.get('job_id'): result['job'] = self.jobs.get(value['job_id'])
         if value.get('dataset_id'): self.check_inputs(value)
+        if value.get('workflow') == 'grouped':
+            if value.get('group_id'):
+                result['group']=self.group_view(value)
+                if all(j['state'] in {'succeeded','failed','interrupted','cancelled'} for j in result['group']['jobs']):
+                    result['stage']='grouped_complete'
+            return result
         if value['stage'] in {'review','ready'}:
             try:
                 result['comparison'] = self.comparison(value)
@@ -216,7 +287,34 @@ class MonthlyRefresh:
             stage, action = value['stage'], payload.action
             def require(expected):
                 if stage not in expected: raise ValueError('Finish the current step before continuing.')
-            if action == 'history':
+            if value.get('workflow') == 'grouped':
+                require({'prepared'})
+                if action == 'prepare_group':
+                    if payload.reviewed is not True:
+                        raise ValueError('Review the history choice first.')
+                    source=self.grouped_history(value,payload.dataset_id or '')
+                    from .grouped_forecasts import check_methods
+                    methods=payload.methods or value['methods']
+                    check_methods(methods,{**source['settings'],'profile':'deep'})
+                    value.update(dataset_id=source['id'],dataset_sha256=digest(source),
+                        months=payload.months or value['months'],methods=methods)
+                elif action == 'calculate_group':
+                    if payload.reviewed is not True or not payload.sales_input_id or not payload.methods or not payload.name or not payload.name.strip():
+                        raise ValueError('Review sales, factors, customers, orders and methods before calculating.')
+                    source=self.grouped_history(value,payload.dataset_id or '')
+                    if not self.submit_group:
+                        raise ValueError('Grouped forecast calculation is unavailable.')
+                    dispatch='monthly-group:'+value['id']+':'+str(value['revision'])
+                    group=self.submit_group({'name':payload.name.strip(),'dataset_id':source['id'],
+                        'sales_input_id':payload.sales_input_id,'methods':payload.methods,'request_id':dispatch,
+                        'parent_forecast_id':value.get('parent_forecast_id')})
+                    value.update(stage='grouped',dataset_id=source['id'],dataset_sha256=digest(source),
+                        group_id=group['id'],name=group['name'],methods=payload.methods,
+                        sales_input_id=payload.sales_input_id,months=source['settings']['horizon'],
+                        group_sha256=digest([group['name'],[j['payload'] for j in group['jobs']]]))
+                else:
+                    raise ValueError('Use the grouped forecast workflow for this update.')
+            elif action == 'history':
                 require({'history','forecast'})
                 if payload.reviewed is not True: raise ValueError('Review the history choice first.')
                 source = self.datasets.get(payload.dataset_id or '')

@@ -45,10 +45,13 @@ def submit_draft(workspace, dispatcher, payload, name, request_id, schedule_owne
 
 
 def monthly(workspace, dispatcher, scheduled=False):
+    from .grouped_forecasts import create_group
     return MonthlyRefresh(workspace.path('monthly-updates.sqlite3'),workspace.datasets,workspace.load_run,
         workspace.sales,lambda key:outlook(workspace,key),workspace.jobs,
         lambda *args:submit_draft(workspace,dispatcher,*args),workspace.live_sources,
-        submit_for_actor=(lambda actor,*args:submit_draft(workspace,dispatcher,*args,schedule_owner=actor)) if scheduled else None)
+        submit_for_actor=(lambda actor,*args:submit_draft(workspace,dispatcher,*args,schedule_owner=actor)) if scheduled else None,
+        submit_group=lambda body:create_group(workspace.datasets,workspace.sales,workspace.jobs,body,
+            lambda key:dispatcher(workspace,key),lifecycle=workspace.lifecycle,site=workspace.site),site=workspace.site)
 
 
 def schedule_authorized(service, workspace, owner):
