@@ -1,6 +1,12 @@
 const finished=new Set(['succeeded','failed','interrupted','cancelled']);
 export const forecastFinished=job=>finished.has(job.state);
 
+// A retry replaces the previous attempt; do not offer a second retry of it.
+export function currentForecastJobs(jobs){
+  const replaced=new Set(jobs.map(job=>job.retry_of).filter(Boolean));
+  return jobs.filter(job=>!replaced.has(job.id));
+}
+
 // Read each method independently. One unavailable job must not hide the others.
 export async function readForecastProgress(jobs,api){
   const replies=await Promise.allSettled(jobs.map(job=>forecastFinished(job)?job:

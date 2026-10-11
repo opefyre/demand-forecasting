@@ -1,4 +1,5 @@
 import {apiLink} from './company-api.mjs';
+import {currentForecastJobs} from './forecast-progress.mjs';
 import {chartTheme} from './chart-theme.mjs';
 import {Page,PageTabs,Disclosure,Panel,Actions,Stack as UiStack} from './ui-layout.jsx';
 import {SalesFiles} from './sales-files.jsx';
@@ -526,7 +527,7 @@ function App({ access }) {
     const prepared=datasets.find(value=>value.id===datasetId&&['factor_link','factor_batch','factor_assumptions','factor_comparison'].includes(value.scenario_provenance?.type));
     if(prepared){startScenarioForecast(prepared,run,parentForecastId,forecastName);return;}
     try{if(typeof datasetId==='string'&&datasetId)sessionState.setItem(FORECAST_DRAFT_KEY,JSON.stringify({version:2,source:datasetId,step:1,methods:[method],customer,jobs:[],parentForecastId,
-      ...(forecastName?{name:(forecastName+' · '+new Date().toISOString().slice(0,10)).slice(0,160)}:{})}));else if(readForecastDraft(sessionState)?.step===4)sessionState.removeItem(FORECAST_DRAFT_KEY);}catch{}
+      ...(forecastName?{name:(forecastName+' · '+new Date().toISOString().slice(0,10)).slice(0,160)}:{})}));else {const saved=readForecastDraft(sessionState);if(saved?.step===4&&!saved.resumeJobs)sessionState.removeItem(FORECAST_DRAFT_KEY);}}catch{}
     navigate('demand');
     setForecastBusy(false);
     setForecastRequest({id:crypto.randomUUID(),parentForecastId});
@@ -933,7 +934,7 @@ function ForecastJobs({ revision, onFinished, onOpen, canEdit, includeCompleted=
       setAction("");
     }
   }
-  const visible = jobs.filter(
+  const visible = currentForecastJobs(jobs).filter(
     (job) =>
       ["queued", "running", "publishing"].includes(job.state) ||
       (!dismissed.includes(job.id)&&(job.state!=='succeeded'||includeCompleted&&Date.now()/1000-job.updated_at<120)),

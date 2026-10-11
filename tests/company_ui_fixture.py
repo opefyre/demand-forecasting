@@ -14,7 +14,7 @@ from tests.test_company_context import ALL,VIEW
 from app.company_jobs import execute_company_job
 
 
-def run(*,notifications=False,factors=False,complete_factors=False,revision_journey=False):
+def run(*,notifications=False,factors=False,complete_factors=False,revision_journey=False,interrupted=False):
     import uvicorn
     fixture=PublicSalesTests();fixture.setUp()
     if notifications:
@@ -123,10 +123,19 @@ def run(*,notifications=False,factors=False,complete_factors=False,revision_jour
                 confirmed_read_access=True))
             store.pull(connection['id'],'synthetic-browser-'+role)
     class InlineDispatch(list):
+        interrupt_next=interrupted
         def append(self, item):
             super().append(item)
             company, key = item
-            execute_company_job(fixture.workspaces.for_principal({'company_id':company}),key)
+            workspace=fixture.workspaces.for_principal({'company_id':company})
+            if self.interrupt_next:
+                # Simulate one lost worker lease in the disposable job store only.
+                import time
+                from app.jobs import LEASE_SECONDS
+                self.interrupt_next=False
+                workspace.jobs.claim(key)
+                workspace.jobs.recover(time.time()+LEASE_SECONDS+1)
+            else:execute_company_job(workspace,key)
     fixture.dispatched=InlineDispatch()
     app=fixture.app
     # Seed requests built the test app's stack; rebuild for the fixture-only hook.
@@ -221,4 +230,4 @@ def run(*,notifications=False,factors=False,complete_factors=False,revision_jour
 if __name__=='__main__':
     import sys
     run(notifications='--notifications' in sys.argv,factors='--factors' in sys.argv,complete_factors='--complete-factors' in sys.argv,
-        revision_journey='--revision-journey' in sys.argv)
+        revision_journey='--revision-journey' in sys.argv,interrupted='--interrupted' in sys.argv)

@@ -198,3 +198,38 @@ Next: complete the advanced assistant proposal/review journeys and the interrupt
 job/partial-summary browser matrix, then the broader English/Farsi design audit.
 No live AI/provider calls, infrastructure/deployment edits or changes to existing
 client/demo data. Full app acceptance and real-client accuracy remain pending.
+
+### Local workflow closeout — 11 October
+
+- New forecast no longer discards unfinished calculation drafts. Pending,
+  failed, interrupted, cancelled and legacy attempts resume; completed attempts
+  allow a fresh forecast. Saved status is never trusted as current server status.
+- While an order or commitment row is being edited, importing/reusing inputs,
+  changing coverage and adding customers are blocked. Apply/cancel stays usable.
+  Shared FieldGroup and existing controls provide this; no new styles or inline
+  appearance rules were introduced.
+- The calculation banner hides attempts superseded by a retry, including retry
+  chains. The newest attempt and unrelated calculations remain visible.
+
+Verification: 374 frontend tests, 44 backend forecast/job/factor/company-workflow
+tests and the production build pass. Existing bundle/resource warnings remain.
+
+Disposable browser verification: the mocked assistant prepares a factor proposal;
+explicit review opens the shared forecast wizard with the reviewed scope, horizon
+and method. Adding/cancelling a row preserves input state and disables coverage
+review during editing. Missing orders are explicitly reviewed and never treated
+as zero expected demand. An injected interrupted job survives modal close/reopen;
+Retry produces a completed scenario. An injected result-summary 503 recovers via
+Reload saved data without another calculation. Saved-result navigation works;
+missing order coverage keeps demand unknown and exports gated. The scenario uses
+four synthetic customer/product series and synthetic factor history, not live AI
+or external provider data.
+After loading the final build, Farsi result navigation shows no superseded
+Interrupted banner. Evidence: `/private/tmp/demandlab-local-closeout-fa.png`.
+
+Closeout boundary: this finishes the scoped local recovery/editing fixes, not
+whole-app or production acceptance. No infrastructure work or original data
+changes. Still outstanding: broader legacy-screen design consolidation, the full
+advanced-assistant English/Farsi/mobile exception matrix, and real-client accuracy
+validation when sufficient history and actual outcomes exist. These are recorded
+limits, not reasons to keep repeating small audits before discussing new modules.

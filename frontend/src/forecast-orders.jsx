@@ -1,7 +1,7 @@
 import React,{useCallback,useEffect,useState,useRef} from 'react';
 import {t as uiText,unitLabel,i18n} from './localization.mjs';
 import {SalesSource} from './sales-demand.jsx';
-import {Actions,Disclosure,Grid,Stack} from './ui-layout.jsx';
+import {Actions,Disclosure,Grid,Stack,FieldGroup} from './ui-layout.jsx';
 import {OrderReview} from './order-books.jsx';
 import {methodName} from './method-comparison.jsx';
 import {orderCoverageTitle,forecastOrderDraft} from './forecast-start.mjs';
@@ -49,15 +49,15 @@ export function ForecastOrders({api,ui,dataset,snapshotId,onReady,canEdit=true,o
   useEffect(()=>{if(inputs&&!targetRun)onDraftChange?.({datasetId:dataset.id,bookVersion:loaded.version,inputs,imports,reuse});},[inputs,imports,reuse,loaded?.version,dataset?.id,targetRun?.run_id,onDraftChange]);
   const fileBusy=useCallback((role,value)=>setReading(r=>({...r,[role]:value})),[]);
   function change(field,value){setInputs(i=>({...i,[field]:value,reviewed:false}));setChecked(false);setReuse('');setReview(null);onReady(null);setError(null);}
-  async function useSaved(id){if(!id||busy||!canEdit||Object.values(reading).some(Boolean))return;setBusy(true);setError(null);
+  async function useSaved(id){if(!id||busy||!canEdit||editingOrder||editingCommitment||Object.values(reading).some(Boolean))return;setBusy(true);setError(null);
     try{const saved=await api('/api/sales/inputs/'+id);setInputs({...saved.inputs,run_id:loaded.context.run_id,reviewed:false});setImports({});setReuse(id);setChecked(false);setReview(null);onReady(null);}catch(e){setError(e);}finally{setBusy(false);}}
-  async function addCustomer(){if(!customerName.trim())return;setBusy(true);setError(null);
+  async function addCustomer(){if(contextBlocked||!customerName.trim())return;setBusy(true);setError(null);
     try{const p=inputs.customers.find(c=>c.sku===product);if(!p)throw Error(uiText('Choose a product'));
       if(inputs.customers.some(c=>c.customer===customerName.trim()&&c.sku===p.sku))throw Error(uiText('This customer already has this product.'));
       await api('/api/customers',{customers:[{customer:customerName.trim(),products:[{sku:p.sku,unit:p.unit}],active:true}]});
       change('customers',[...inputs.customers,{customer:customerName.trim(),sku:p.sku,unit:p.unit,series_id:''}]);setCustomerName('');setAdding(false);
     }catch(e){setError(e);}finally{setBusy(false);}}
-  async function check(){if(submitting.current||!canEdit)return;submitting.current=true;setBusy(true);setError(null);
+  async function check(){if(submitting.current||!canEdit||editingOrder||editingCommitment)return;submitting.current=true;setBusy(true);setError(null);
     if(targetRun){try{setReview(await api('/api/sales/validate',reviewedOrderRequest(initial,inputs,imports,attempt,orderMode)));setPage(0);}catch(e){setError(e);}finally{submitting.current=false;setBusy(false);}return;}
     const payload={inputs:{...inputs,reviewed:true,note:'Customers and order coverage reviewed in the forecast wizard.'},imports,reuse_snapshot_id:reuse||undefined,request_id:attempt};
     try{const result=await checkForecastOrderReview(api,path,dataset.id,loaded.version,payload,version=>setLoaded(v=>({...v,version})));
@@ -72,6 +72,7 @@ export function ForecastOrders({api,ui,dataset,snapshotId,onReady,canEdit=true,o
     try{const saved=await api('/api/sales/inputs',{...reviewedOrderRequest(initial,inputs,imports,attempt,orderMode),review_token:review.review_token});await onReady(saved.id);}catch(e){setError(e);}finally{submitting.current=false;setBusy(false);}}
   if(!inputs||!schema)return <Stack><ErrorBox error={error} onReload={()=>setReadRevision(value=>value+1)}/>{!error&&<p role="status">{uiText('Loading…')}</p>}</Stack>;
   const blocked=busy||!canEdit||Object.values(reading).some(Boolean);
+  const contextBlocked=blocked||editingOrder||editingCommitment;
   const amount=value=>value==null?uiText('Unknown'):new Intl.NumberFormat(i18n.language,{maximumFractionDigits:2}).format(value);
   if(!targetRun&&review)return <Stack><ErrorBox error={error}/>
     <Disclosure open title={uiText('Checks to review')}><ul>{review.review.warnings.map((warning,index)=><li key={index}>{uiText(warning)}</li>)}</ul>
@@ -88,22 +89,22 @@ export function ForecastOrders({api,ui,dataset,snapshotId,onReady,canEdit=true,o
   </Stack>;
   return <Stack><ErrorBox error={error}/>
     <Disclosure title={uiText('Customers')}><Table headers={[uiText('Customer'),uiText('SKU'),uiText('Sales history')]}>{inputs.customers.map((c,i)=><tr key={i}><td>{c.customer==='Unassigned demand'?uiText('Unassigned demand'):c.customer}</td><td>{c.sku}</td><td>{uiText(c.series_id?'Linked':'No history')}</td></tr>)}</Table>
-      <Button disabled={blocked} onClick={()=>setAdding(v=>!v)}>{uiText('Add customer')}</Button>
-      {adding&&<Grid><Field title={uiText('Customer')}><input disabled={blocked} value={customerName} onChange={e=>setCustomerName(e.target.value)}/></Field><Field title={uiText('SKU')}><Pick label={uiText('SKU')} disabled={blocked} value={product} onChange={setProduct} options={[["",uiText('Choose a product')],...[...new Set(inputs.customers.map(c=>c.sku))].map(s=>[s,s])]}/></Field><Button disabled={blocked||!customerName.trim()||!product} onClick={addCustomer}>{uiText('Save customer')}</Button></Grid>}
+      <Button disabled={contextBlocked} onClick={()=>setAdding(v=>!v)}>{uiText('Add customer')}</Button>
+      {adding&&<Grid><Field title={uiText('Customer')}><input disabled={contextBlocked} value={customerName} onChange={e=>setCustomerName(e.target.value)}/></Field><Field title={uiText('SKU')}><Pick label={uiText('SKU')} disabled={contextBlocked} value={product} onChange={setProduct} options={[["",uiText('Choose a product')],...[...new Set(inputs.customers.map(c=>c.sku))].map(s=>[s,s])]}/></Field><Button disabled={contextBlocked||!customerName.trim()||!product} onClick={addCustomer}>{uiText('Save customer')}</Button></Grid>}
     </Disclosure>
     <Commitments inputs={inputs} run={loaded.context} ui={ui} canEdit={!blocked&&!editingOrder} onEditingChange={setEditingCommitment} onChange={rows=>{change('commitments',rows);setImports(v=>{const next={...v};delete next.commitments;return next;});}}/>
     {targetRun&&<Disclosure title={uiText('Import monthly commitments')}>
-      <SalesSource embedded api={api} ui={ui} role="commitments" schema={schema.commitments} config={imports.commitments} run={loaded.context} fallbackCount={inputs.commitments.length} onBusyChange={fileBusy} setConfig={config=>{setImports(v=>{const next={...v};if(config)next.commitments=config;else delete next.commitments;return next;});setChecked(false);setReview(null);}}/>
+      <FieldGroup disabled={contextBlocked}><SalesSource embedded api={api} ui={ui} role="commitments" schema={schema.commitments} config={imports.commitments} run={loaded.context} fallbackCount={inputs.commitments.length} onBusyChange={fileBusy} setConfig={config=>{setImports(v=>{const next={...v};if(config)next.commitments=config;else delete next.commitments;return next;});setChecked(false);setReview(null);}}/></FieldGroup>
     </Disclosure>}
     <OrderReview inputs={inputs} ui={ui} canEdit={!blocked&&!editingCommitment} onEditingChange={setEditingOrder} onChange={rows=>{change('orders',rows);setOrderMode('replace');setImports(v=>{const next={...v};delete next.orders;return next;});}}/>
-    <Disclosure title={uiText('Import or reuse orders')}>
-      {!!loaded.saved_orders.length&&<Field title={uiText('Reuse saved orders')}><Pick label={uiText('Reuse saved orders')} disabled={blocked} value={reuse} onChange={useSaved} options={[["",uiText('Choose saved orders')],...loaded.saved_orders.map(s=>[s.id,s.name+(s.method?' · '+methodName(s.method):'')+' · '+s.as_of])]}/></Field>}
-      {targetRun&&initial?.base_snapshot_id&&inputs.order_feed==='complete_snapshot'&&<Field title={uiText('Order file contains')}><Pick label={uiText('Order file contains')} disabled={blocked} value={orderMode} onChange={value=>{setOrderMode(value);setChecked(false);setReview(null);}} options={[["replace",uiText('Full order book')],["changes",uiText('Only changed order lines')]]}/></Field>}
+    <Disclosure title={uiText('Import or reuse orders')}><FieldGroup disabled={contextBlocked}>
+      {!!loaded.saved_orders.length&&<Field title={uiText('Reuse saved orders')}><Pick label={uiText('Reuse saved orders')} disabled={contextBlocked} value={reuse} onChange={useSaved} options={[["",uiText('Choose saved orders')],...loaded.saved_orders.map(s=>[s.id,s.name+(s.method?' · '+methodName(s.method):'')+' · '+s.as_of])]}/></Field>}
+      {targetRun&&initial?.base_snapshot_id&&inputs.order_feed==='complete_snapshot'&&<Field title={uiText('Order file contains')}><Pick label={uiText('Order file contains')} disabled={contextBlocked} value={orderMode} onChange={value=>{setOrderMode(value);setChecked(false);setReview(null);}} options={[["replace",uiText('Full order book')],["changes",uiText('Only changed order lines')]]}/></Field>}
       <SalesSource embedded api={api} ui={ui} role="orders" schema={schema.orders} config={imports.orders} run={loaded.context} templateBase={targetRun?undefined:path+'/template'} fallbackCount={inputs.orders.length} orderMode={orderMode} onBusyChange={fileBusy} setConfig={config=>{setImports(v=>{const next={...v};if(config)next.orders=config;else delete next.orders;return next;});setChecked(false);setReview(null);onReady(null);}}/>
-    </Disclosure>
-    <Disclosure title={uiText('Order coverage')}><Grid><Field title={uiText('Orders correct as of')}><input disabled={blocked} type="date" value={inputs.as_of} onChange={e=>change('as_of',e.target.value)}/></Field><Field title={uiText('Review again after')}><input disabled={blocked} type="date" value={inputs.valid_until} onChange={e=>change('valid_until',e.target.value)}/></Field></Grid></Disclosure>
-    <Field title={uiText('Order coverage')}><Pick disabled={blocked} label={uiText('Order coverage')} value={inputs.order_feed} onChange={v=>change('order_feed',v)} options={[["unknown",uiText('Orders not provided or incomplete')],["complete_snapshot",uiText(orderCoverageTitle(inputs.orders,imports.orders))]]}/></Field>
-    <label className="ui-check"><input type="checkbox" checked={checked} disabled={blocked} onChange={e=>setChecked(e.target.checked)}/>{uiText('I checked the customers, products, order quantities and coverage.')}</label>
+    </FieldGroup></Disclosure>
+    <Disclosure title={uiText('Order coverage')}><Grid><Field title={uiText('Orders correct as of')}><input disabled={contextBlocked} type="date" value={inputs.as_of} onChange={e=>change('as_of',e.target.value)}/></Field><Field title={uiText('Review again after')}><input disabled={contextBlocked} type="date" value={inputs.valid_until} onChange={e=>change('valid_until',e.target.value)}/></Field></Grid></Disclosure>
+    <Field title={uiText('Order coverage')}><Pick disabled={contextBlocked} label={uiText('Order coverage')} value={inputs.order_feed} onChange={v=>change('order_feed',v)} options={[["unknown",uiText('Orders not provided or incomplete')],["complete_snapshot",uiText(orderCoverageTitle(inputs.orders,imports.orders))]]}/></Field>
+    <label className="ui-check"><input type="checkbox" checked={checked} disabled={contextBlocked} onChange={e=>setChecked(e.target.checked)}/>{uiText('I checked the customers, products, order quantities and coverage.')}</label>
     <Actions><Button kind="primary" disabled={blocked||editingCommitment||editingOrder||!checked||(!targetRun&&!!snapshotId)} onClick={check}>{uiText(busy?'Checking…':targetRun?'Review demand':snapshotId?'Inputs ready':'Continue')}</Button></Actions>
   </Stack>;
 }

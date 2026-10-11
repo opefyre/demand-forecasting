@@ -28,6 +28,16 @@ test('initial customer/order failures expose shared reload rather than a dead-en
   assert.match(source,/targetRun\?\.run_id,readRevision\]/);
   assert.match(source,/onReload=\{\(\)=>setReadRevision\(value=>value\+1\)\}/);
 });
+test('pending order or commitment edits cannot replace their input context',async()=>{
+  const source=await readFile(new URL('forecast-orders.jsx',import.meta.url),'utf8');
+  assert.match(source,/const contextBlocked=blocked\|\|editingOrder\|\|editingCommitment/);
+  assert.match(source,/async function useSaved\(id\)\{if\([^;]*editingOrder\|\|editingCommitment/);
+  assert.match(source,/async function addCustomer\(\)\{if\(contextBlocked/);
+  assert.match(source,/async function check\(\)\{if\([^;]*editingOrder\|\|editingCommitment/);
+  assert.equal((source.match(/<FieldGroup disabled=\{contextBlocked\}>/g)||[]).length,2);
+  assert.match(source,/Pick label=\{uiText\('Reuse saved orders'\)\} disabled=\{contextBlocked\}/);
+  assert.doesNotMatch(source,/style=\{/);
+});
 test('factor reviews localize values without changing stored quantities or date direction',async()=>{
   const row={factor:'Exchange rate',sales_month:'2026-10-01',value:1250.125,unit:'tonnes',treatment:'planning_assumption',kind:'future'};
   const dataset={settings:{drivers:[],month_basis:'gregorian'},import_provenance:{alignment:{rows:[row]}}};

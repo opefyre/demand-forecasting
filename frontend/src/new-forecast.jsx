@@ -94,7 +94,7 @@ export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,
       setSaved(d);setSource(d.id);if(d.id!==dataset.id){setSalesInputId(null);setFactorDraft(value=>value?.datasetId===dataset.id?{...value,datasetId:d.id}:null);}await refresh();if(continueStep)setStep(2);
     }catch(e){setError(e);}finally{setBusy(false);}
   }
-  useEffect(()=>{try{sessionState.setItem(draftKey,JSON.stringify({version:2,source,step,methods,salesInputId,customer,groupId,name,settings,factorDraft,orderDraft,parentForecastId:revisionParent,jobs:jobs.map(({id,method})=>({id,method}))}));}catch{}},[source,step,methods,jobs,salesInputId,customer,groupId,name,settings,factorDraft,orderDraft,revisionParent,draftKey]);
+  useEffect(()=>{try{sessionState.setItem(draftKey,JSON.stringify({version:2,source,step,methods,salesInputId,customer,groupId,name,settings,factorDraft,orderDraft,parentForecastId:revisionParent,jobs:jobs.map(({id,method,state})=>({id,method,state}))}));}catch{}},[source,step,methods,jobs,salesInputId,customer,groupId,name,settings,factorDraft,orderDraft,revisionParent,draftKey]);
   useEffect(()=>{if(scenario&&jobs.length&&jobs.every(job=>job.state==='succeeded')){
     try{const pending=JSON.parse(sessionState.getItem(FORECAST_DRAFT_KEY+'.prepared')||'null');if(pending?.datasetId===source)sessionState.removeItem(FORECAST_DRAFT_KEY+'.prepared');}catch{}
   }},[scenario,source,jobs.map(job=>job.id+':'+job.state).join('|')]);

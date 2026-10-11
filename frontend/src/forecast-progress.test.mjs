@@ -1,7 +1,31 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {forecastFinished,readForecastProgress,readForecastSummaries} from './forecast-progress.mjs';
+import {forecastFinished,currentForecastJobs,readForecastProgress,readForecastSummaries} from './forecast-progress.mjs';
+import {readForecastDraft} from './forecast-start.mjs';
+
+test('global calculation status only shows the latest retry attempt',async()=>{
+  const original={id:'first',state:'interrupted'};
+  const second={id:'second',state:'failed',retry_of:'first'};
+  const third={id:'third',state:'succeeded',retry_of:'second'};
+  const other={id:'independent',state:'running'};
+  assert.deepEqual(currentForecastJobs([original,second,third,other]),[third,other]);
+  assert.deepEqual(currentForecastJobs([original,other]),[original,other]);
+  const source=await readFile(new URL('./main.jsx',import.meta.url),'utf8');
+  assert.match(source,/const visible = currentForecastJobs\(jobs\)\.filter/);
+});
+
+test('reopening keeps pending, interrupted and legacy jobs but a successful forecast allows a fresh start',async()=>{
+  for(const state of [undefined,'queued','running','publishing','failed','interrupted','cancelled','succeeded']){
+    const value={version:2,source:'history',step:4,methods:['recommended'],jobs:[{id:'job',method:'recommended',state}]};
+    const draft=readForecastDraft({getItem:()=>JSON.stringify(value)},['history']);
+    assert.equal(draft.resumeJobs,state!=='succeeded',String(state));
+    assert.equal(draft.jobs[0].state,'loading'); // Saved state never substitutes for server evidence.
+  }
+  const source=await readFile(new URL('./main.jsx',import.meta.url),'utf8');
+  assert.match(source,/saved\?\.step===4&&!saved.resumeJobs/);
+  assert.match(await readFile(new URL('./new-forecast.jsx',import.meta.url),'utf8'),/jobs:jobs.map\(\(\{id,method,state\}\)=>\(\{id,method,state\}\)\)/);
+});
 
 test('a failed job read preserves that method while exposing other completed results',async()=>{
   const jobs=[{id:'a',method:'first',state:'running'},{id:'b',method:'second',state:'running'}];
