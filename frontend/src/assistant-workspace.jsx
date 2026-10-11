@@ -37,6 +37,7 @@ import remarkGfm from "remark-gfm";
 import { canShare, recipient } from "./ai-sharing.mjs";
 import {apiLink} from './company-api.mjs';
 import {Panel,Disclosure} from './ui-layout.jsx';
+import {openAssistantForecast} from './assistant-handoff.mjs';
 
 export function AssistantWorkspace({
   api,
@@ -456,8 +457,7 @@ export function AssistantWorkspace({
               : t,
           ),
         );
-        await refresh?.();
-        onNewForecast?.(result.dataset_id, result.method, result.customer);
+        await openAssistantForecast(result,{refresh,isCurrent:()=>current===generation.current,onNewForecast});
       } else if (result.workflow === "factor_batch_review") {
         if (!run || result.run_id !== run.run_id)
           throw Error(

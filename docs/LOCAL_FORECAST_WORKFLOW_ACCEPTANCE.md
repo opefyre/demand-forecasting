@@ -104,8 +104,26 @@ future demand. Browser checks cover blank validation, applied input persistence,
 calculation/results, Farsi editing and a 390px mobile viewport. Input precision is
 retained; the commitment form is outside the horizontally scrolling table.
 
-Next: finish assistant-to-wizard exception handoffs and the broader bilingual
-navigation/error audit.
+### Assistant-to-wizard handoff
+
+- Fixed a stale navigation race: when the user changes/leaves chat during workspace
+  refresh, its old action cannot reopen a forecast. Failed refresh never navigates.
+- Executable handoff tests verify exact source, method and customer arguments and
+  cancellation before/during refresh. The existing shared wizard remains the only
+  destination; no UI elements, styles or parallel wizard were added.
+- A real company-store/API regression verifies a four-month assistant draft inherits
+  the current order book, includes the customer directory and warns about a new
+  customer without history. Inputs remain unreviewed; no job is dispatched. Repeating
+  the action reuses its draft. Revoked forecasting access and other-company access
+  are rejected. Existing suites cover advanced factor/monthly/order proposals.
+
+Verification: 355 frontend checks; 38 full-workflow, assistant, company-context and
+company-workflow backend checks; production build. All pass. AI replies are mocked;
+no provider calls or credential changes. This is automated handoff verification,
+not a new browser acceptance of every chat scenario.
+
+Next: broader English/Farsi navigation/error audit across the complete manual and
+assistant journeys, including mobile, unavailable inputs and interrupted requests.
 Do not claim the full assistant/mobile exception matrix or whole-app acceptance
 from these narrower checks.
 

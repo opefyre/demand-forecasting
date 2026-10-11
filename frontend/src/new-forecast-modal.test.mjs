@@ -47,7 +47,9 @@ test('no manual create action remains in Data, Help or the assistant tools menu'
   assert.doesNotMatch(data,/New forecast|onForecast/);
   const assistant=await readFile(new URL('assistant-workspace.jsx',import.meta.url),'utf8');
   assert.doesNotMatch(assistant,/label:uiText\('New forecast'\)/);
-  assert.match(assistant.replace(/\s+/g,''),/onNewForecast\?\.\(result.dataset_id,result.method,result.customer\)/);
+  assert.match(assistant.replace(/\s+/g,''),/openAssistantForecast\(result,\{refresh,isCurrent:\(\)=>current===generation.current,onNewForecast\}\)/);
+  const handoff=await readFile(new URL('assistant-handoff.mjs',import.meta.url),'utf8');
+  assert.match(handoff.replace(/\s+/g,''),/onNewForecast\?\.\(result.dataset_id,result.method,result.customer\)/);
   const help=await readFile(new URL('help.jsx',import.meta.url),'utf8');
   assert.doesNotMatch(help,/navigate\([^)]*'new'|>\{uiText\("New forecast"\)\}<\/button>/);
 });

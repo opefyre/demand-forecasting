@@ -3,12 +3,49 @@ import csv
 import unittest
 import uuid
 import math
+from app.company_context import personal_owner
+from app.input_review import digest
+from tests.test_company_context import ALL
 from io import BytesIO
 import pandas as pd
 from tests import test_platform_sales as fixtures
 
 
 class FullForecastWorkflowTests(unittest.TestCase):
+    def test_assistant_handoff_keeps_current_orders_and_new_customer_warnings_without_calculating(self):
+        f=fixtures.PublicSalesTests();f.setUp()
+        try:
+            f.permissions=ALL.copy()
+            _,dataset,_=f.history()
+            saved=f.orders(dataset)
+            current=f.get('/datasets/'+dataset['id']+'/orders')
+            book={key:saved['inputs'][key] for key in ('as_of','valid_until','order_feed','orders')}
+            response=f.client.put('/api/v1/datasets/'+dataset['id']+'/orders',json={**book,'version':current['version']})
+            self.assertEqual(response.status_code,200,response.text)
+            f.post('/customers',{'customer':'New Tehran Buyer','products':[{'sku':'001','unit':'tonnes'}]},201)
+            owner=personal_owner(dict(company_id=f.company,issuer='https://company.test',subject=f.subject))
+            turn=f.ws.journal.put(owner,dict(question='Prepare four months',answer='Review the inputs.',
+                dataset_id=dataset['id'],dataset_sha256=digest(dataset),
+                actions=[dict(kind='forecast',dataset_id=dataset['id'],customer='Mehr',months=4,method='model:Last observed')]))
+            path='/ai/turns/'+turn+'/actions/0'
+            result=f.post(path,{})
+            self.assertEqual(result['workflow'],'new_forecast')
+            self.assertEqual((result['method'],result['customer']),('model:Last observed','Mehr'))
+            child=f.get('/datasets/'+result['dataset_id'])
+            self.assertEqual(child['settings']['horizon'],4)
+            starter=f.get('/datasets/'+child['id']+'/orders')
+            self.assertEqual(starter['inputs']['orders'],book['orders'])
+            self.assertFalse(starter['inputs']['reviewed'])
+            reviewed={**starter['inputs'],'reviewed':True,'note':'Customer list and current order coverage checked in the wizard.'}
+            review=f.post('/datasets/'+child['id']+'/orders/preview',{'inputs':reviewed,'request_id':str(uuid.uuid4())})
+            self.assertIn({'customer':'New Tehran Buyer','sku':'001'},review['missing_history'])
+            self.assertEqual(f.post(path,{})['dataset_id'],child['id'])
+            self.assertEqual(f.dispatched,[])
+            self.assertEqual(f.ws.list_runs(),[])
+            f.permissions.remove('forecasts:run');f.post(path,{},403)
+            f.permissions=ALL.copy();f.company='tehran_b';f.post(path,{},400)
+        finally:f.tearDown()
+
     def test_persian_new_customer_commitments_and_orders_are_not_added_twice(self):
         f=fixtures.PublicSalesTests();f.setUp()
         try:
