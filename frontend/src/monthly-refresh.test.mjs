@@ -73,6 +73,14 @@ test('demand export uses a fixed shared dialog and draft downloads need an expor
   assert.doesNotMatch(html,/href=|demand-handoff|release-controls|style=/);
   assert.match(html,/Resolve the flagged inputs/);
 });
+test('draft download controls share the global button style and translated labels',async()=>{
+  await i18n.changeLanguage('fa');
+  try{
+    const html=renderToStaticMarkup(React.createElement(Handoff,{open:true,ui,canEdit:true,runId:'r',snapshotId:'s',outlook:{can_export:true,rows:[]}}));
+    assert.equal((html.match(/class="btn /g)||[]).length,3);
+    assert.match(html,/kind=xlsx/);assert.doesNotMatch(html,/Download Excel|style=/);
+  }finally{await i18n.changeLanguage('en');}
+});
 test('Persian horizon labels keep numeric request values unchanged',async()=>{
   await i18n.changeLanguage('fa');
   try {assert.equal(horizons().length,24);assert.deepEqual(horizons()[5],['6','۶']);assert.equal(Number(horizons()[23][0]),24);}

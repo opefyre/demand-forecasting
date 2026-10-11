@@ -75,6 +75,7 @@ export function recoveryPresentation(error, now=Date.now()) {
     title='Check the inputs before continuing.';next='Correct the fields or settings described below, then review again.';
   }
   if(error.operation==='read'&&(error.kind==='connection'||error.kind==='response'||status>=500))next='Reload saved data to try again.';
+  if(error.operation==='download'&&(error.kind==='connection'||error.kind==='response'||status>=500))next='Try the download again. Your forecast is unchanged.';
   return {title,next,details:error.message,fields:error.fields||[],retryAt:error.retryAt,inlineDetails:[400,422].includes(status),
     canReload:![400,401,403,404,410,422].includes(status)&&(!error.retryAt||error.retryAt<=now),plain:false};
 }

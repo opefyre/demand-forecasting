@@ -1,12 +1,15 @@
 // One transport for the existing screens; local/company-server mode is unchanged.
 // The private gateway must explicitly advertise transport:'cloud'.
-let context=null, generation=0;
+let context=null, generation=0,downloadIdentity=null,downloadVersion=0;
 export function configureCloudTransport(access) {
   const user=access?.user;
+  const identity=user?JSON.stringify([user.issuer,user.company_id,user.subject,user.role,user.permissions]):null;
+  if(identity!==downloadIdentity){downloadIdentity=identity;downloadVersion++;}
   const next=access?.transport==='cloud'&&user?.company_id?JSON.stringify([user.issuer,user.company_id,user.subject,user.role,user.permissions]):null;
   if(next!==context?.company){generation++;context=next?{company:next,revision:undefined,revisionRead:null,revisionEpoch:0}:null;}
 }
 export const cloudTransportEnabled=()=>!!context;
+export const downloadSession=()=>downloadVersion;
 const defaultPause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 export async function cloudFetch(url,options,fetcher=fetch,{pause=defaultPause,now=Date.now}={}) {
   if(!context || !url.startsWith('/api/v1/'))return fetcher(url,options);
@@ -56,25 +59,4 @@ export async function cloudFetch(url,options,fetcher=fetch,{pause=defaultPause,n
   }
   if(response.status===409){current.revisionEpoch++;current.revision=undefined;} // Next explicit action reloads; no write replay.
   return response;
-}
-export function installCloudDownloads({onStart=()=>{},onError=()=>{},root=document}={}) {
-  const busy=new WeakSet();
-  async function clicked(event){
-    if(!context||event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
-    const link=event.target.closest?.('a[href]');if(!link)return;
-    const url=new URL(link.href,location.href);
-    if(url.origin!==location.origin||!url.pathname.startsWith('/api/v1/')||!(/\/export$|\/files\/|\/orders\/template\//.test(url.pathname)))return;
-    event.preventDefault();if(busy.has(link))return;busy.add(link);onStart();
-    const current=context;
-    try{
-      const response=await cloudFetch(url.pathname+url.search,{method:'GET'});
-      if(!response.ok){const value=await response.json().catch(()=>({}));throw new Error(value.detail||'The download could not be prepared.');}
-      if(!response.headers.get('Content-Disposition'))throw new Error('The server did not return a download.');
-      const blob=await response.blob();if(context!==current)throw new Error('Company session changed');
-      const target=URL.createObjectURL(blob),a=document.createElement('a');a.href=target;
-      a.download=/filename="?([^";]+)"?/.exec(response.headers.get('Content-Disposition'))?.[1]?.replace(/[\\/]/g,'_')||'forecast-export';
-      a.click();setTimeout(()=>URL.revokeObjectURL(target),1000);
-    }catch(error){onError(error);}finally{busy.delete(link);}
-  }
-  root.addEventListener('click',clicked);return()=>root.removeEventListener('click',clicked);
 }

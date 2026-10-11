@@ -156,3 +156,45 @@ from these narrower checks.
 Daily/weekly combined order planning remains unsupported and is now explicit.
 Real-client forecast accuracy still requires actual history and future actuals;
 dummy data cannot certify it. Whole-app acceptance is not claimed.
+
+### Independent progress and export recovery — 11 October
+
+- Job reads settle independently: a failed read no longer hides other methods'
+  completed results. Terminal jobs are not repeatedly fetched. Failed reads pause
+  automatic polling; the shared Reload action retries saved reads only. Write
+  failures remain separate and are never cleared by unrelated polling.
+- Result summaries preserve available method totals, expose read failures and can
+  be reloaded without recalculation. Customer filters participate in refresh;
+  missing demand remains unknown, not zero or a raw sales prediction.
+- Known API exports are handled in local/company mode as well as the existing
+  cloud transport. Failures keep the workspace open. The shared DownloadLink
+  puts draft/approved export errors inside the dialog, not behind its overlay.
+  It prevents repeat clicks, preserves filenames/bytes, honours error/cooldown
+  information and discards replies after unmount or company/session changes.
+  Recovery instructions and download status are translated. No CSS, authored
+  inline styles or page-specific appearance rules were added.
+
+Verification: 371 frontend tests, nine backend job tests and production build pass.
+Tests cover partial status/summary failures, interrupted/cancelled terminal states,
+read-only recovery, missing customer estimates, export route selection, 429,
+connection/unreadable responses, attachment bytes and company-change cancellation.
+Backend tests cover interrupted claims, duplicate publishing prevention, retry
+chains and incomplete-file cleanup. Existing build chunk-size and backend resource
+warnings remain; they were not addressed in this change.
+
+Disposable browser checks: one English export 503 remains inside its dialog;
+retry clears the error without leaving Forecast. A real two-method calculation
+(Last period and Recent average) completes with 135 tonnes per method. After
+loading the latest build, the Farsi export 503 uses the translated inline recovery
+instruction and its retry clears the error. Screenshot:
+`/private/tmp/demandlab-export-recovery-fa.png` (temporary local evidence).
+The browser download-event waiter timed out; receipt of a saved browser file is
+not claimed. Binary delivery is covered by executable transport/download tests.
+The intended result-read fault did not trigger because the fixture originally
+matched 32-character run IDs instead of the engine's 12-character IDs; the fixture
+was corrected, but the partial-read browser test still needs rerunning.
+
+Next: complete the advanced assistant proposal/review journeys and the interrupted
+job/partial-summary browser matrix, then the broader English/Farsi design audit.
+No live AI/provider calls, infrastructure/deployment edits or changes to existing
+client/demo data. Full app acceptance and real-client accuracy remain pending.

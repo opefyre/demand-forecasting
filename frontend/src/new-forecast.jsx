@@ -14,6 +14,7 @@ import {ForecastMethods,inputMethodChoices} from './forecast-methods.jsx';
 import {BatchGroupTable} from './factor-batch.jsx';
 import {DefinitionList,Disclosure} from './ui-layout.jsx';
 import {planningMonth} from './planning-calendar.mjs';
+import {forecastFinished,readForecastProgress,readForecastSummaries} from './forecast-progress.mjs';
 
 export function PreparedFactorSummary({dataset,baseline,ui,methodsOnly=false}){
   const {Table}=ui,proof=dataset.scenario_provenance;
@@ -63,6 +64,7 @@ export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,
   useEffect(()=>{onWorkingChange?.(working);return()=>onWorkingChange?.(false);},[working,onWorkingChange]);
   const submitting=useRef(false);
   const [summaries,setSummaries]=useState({});
+  const [progressError,setProgressError]=useState(null),[summaryError,setSummaryError]=useState(null),[readRevision,setReadRevision]=useState(0);
   const [factorDraft,setFactorDraft]=useState(draft?.factorDraft||null);
   const [orderDraft,setOrderDraft]=useState(draft?.orderDraft||null);
   const [factorsReady,setFactorsReady]=useState(!draft?.factorDraft?.selected?.length);
@@ -100,26 +102,22 @@ export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,
     let live=true;
     const ready=jobs.filter(job=>job.state==='succeeded'&&job.run_id);
     if(!ready.length)return;
-    Promise.all(ready.map(async job=>{const run=await api('/api/runs/'+job.run_id);
-      if(customer&&run.sales_input_snapshot_id){const outlook=await api('/api/sales/inputs/'+run.sales_input_snapshot_id+'/outlook');const rows=outlook.rows.filter(r=>r.customer===customer);return [job.run_id,{total:rows.length&&rows.every(r=>r.total!=null)?rows.reduce((sum,r)=>sum+r.total,0):null,unit:run.unit}];}
-      return [job.run_id,run.demand_summary||{total:null,unit:run.unit}];}))
-      .then(entries=>{if(live)setSummaries(Object.fromEntries(entries));}).catch(e=>{if(live)setError(e);});
+    readForecastSummaries(ready,customer,api).then(result=>{if(live){setSummaries(previous=>({...previous,...result.summaries}));setSummaryError(result.error);}});
     return()=>{live=false;};
-  },[jobs.map(j=>j.id+':'+j.state).join('|'),api]);
+  },[jobs.map(j=>j.id+':'+j.state+':'+j.run_id).join('|'),api,customer,readRevision]);
   useEffect(()=>{
-    if(!jobs.some(j=>!['succeeded','failed','interrupted','cancelled'].includes(j.state)))return;
+    if(progressError||!jobs.some(j=>!forecastFinished(j)))return;
     let live=true,timer;
     const poll=async()=>{
-      try{const updates=await Promise.all(jobs.map(async j=>({...await api('/api/jobs/'+j.id),method:j.method})));
-        if(live){setJobs(updates);setError(null);}}
-      catch(e){if(live)setError(e);}
-      if(live)timer=setTimeout(poll,2000);
+      const result=await readForecastProgress(jobs,api);
+      if(live){setJobs(result.jobs);setProgressError(result.error);}
+      if(live&&!result.error)timer=setTimeout(poll,2000);
     };timer=setTimeout(poll,1000);
     return()=>{live=false;clearTimeout(timer);};
-  },[jobs.map(j=>j.id+':'+j.state).join('|'),api]);
+  },[jobs.map(j=>j.id+':'+j.state).join('|'),api,progressError,readRevision]);
   async function start(){
     if(submitting.current||!canEdit||!dataset||!methods.length||!salesInputId)return;
-    submitting.current=true;setBusy(true);setError(null);setStep(4);
+    submitting.current=true;setBusy(true);setError(null);setProgressError(null);setSummaryError(null);setStep(4);
     try{if(submitGroup||companyMode()){
       const body={name:name.trim(),dataset_id:dataset.id,
         sales_input_id:salesInputId,methods,request_id:groupId,parent_forecast_id:revisionParent};
@@ -135,9 +133,10 @@ export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,
     if(busy||!canEdit)return;setBusy(true);setError(null);
     try{const replacement=await api('/api/jobs/'+job.id+'/retry',{request_id:crypto.randomUUID()});
       setJobs(previous=>previous.map(row=>row.id===job.id?{...replacement,method:job.method}:row));
+      setProgressError(null);
     }catch(e){setError(e);}finally{setBusy(false);}
   }
-  function beginAgain(){setRevisionParent(null);setGroupId(crypto.randomUUID().replaceAll('-',''));setJobs([]);setCustomer('');setSalesInputId(null);setSource('');setSaved(null);setFactorDraft(null);setOrderDraft(null);setFactorsReady(true);setStep(0);setMethods(['recommended']);setError(null);}
+  function beginAgain(){setRevisionParent(null);setGroupId(crypto.randomUUID().replaceAll('-',''));setJobs([]);setSummaries({});setProgressError(null);setSummaryError(null);setCustomer('');setSalesInputId(null);setSource('');setSaved(null);setFactorDraft(null);setOrderDraft(null);setFactorsReady(true);setStep(0);setMethods(['recommended']);setError(null);}
   async function viewForecast(job){
     if(busy)return;setBusy(true);setError(null);
     try{await refresh();await openRun(job.run_id,'demand',customer?{customer}:null);}
@@ -156,7 +155,7 @@ export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,
   return <Stack step={step}>
     {!embedded&&<div className="page-heading"><h1>{uiText(step===4?'Results':'New forecast')}</h1><div className="row-actions">{step===4&&<Button disabled={busy} onClick={beginAgain}>{uiText('Start another forecast')}</Button>}<Button onClick={()=>navigate('demand')}>{uiText('Close')}</Button></div></div>}
     <Steps items={['Sales data','Factors','Customers & orders','Methods','Results']} current={step} label={uiText('Forecast progress')}/>
-    <ErrorBox error={error}/>
+    <ErrorBox error={error||progressError||summaryError} onReload={!error&&(progressError||summaryError)?()=>{setProgressError(null);setReadRevision(value=>value+1);}:undefined}/>
     <Panel title={uiText(step===3&&scenario?'Reviewed methods':['Choose your sales history','Check your forecast inputs','Customers & orders','Choose one or more methods','Total demand'][step])}
       actions={step===4&&!!jobs.length&&<Help text={uiText('Confirmed orders and calculated demand are combined for each customer, product and month. Orders are not counted twice.')}/>}>
       {step===0&&<>

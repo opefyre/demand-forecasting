@@ -4,6 +4,7 @@ import {useSmoothState} from './ui-motion.jsx';
 import React,{useEffect,useRef,useState} from 'react';
 import {releaseModes,releaseLabel,releaseDownload,releaseReady,releaseRequest} from './demand-release-state.mjs';
 import {Stack,Actions,Grid,DefinitionList,Disclosure,PageTabs,FieldGroup} from './ui-layout.jsx';
+import {DownloadLink} from './download-link.jsx';
 
 const number=v=>new Intl.NumberFormat(i18n.language,{maximumFractionDigits:2}).format(v);
 
@@ -31,7 +32,7 @@ export function DemandHandoff({open,onClose,snapshotId,runId,outlook,canEdit,api
     {tab==='draft'?<>
       <Field title={uiText("Does the receiving system already have these orders?")}><Pick label={uiText("Draft export contents")} value={mode} options={releaseModes.map(([value,label])=>[value,uiText(label)])} onChange={v=>change(()=>setMode(v))}/></Field>
       <Help text={uiText("Draft only. Use For planning when the quantities need sign-off.")}/>
-      <Actions>{['xlsx','csv','json'].map(kind=>outlook?.can_export?<a className={'btn '+(kind==='xlsx'?'primary':'secondary')} key={kind} href={apiLink(`/api/sales/inputs/${snapshotId}/export?mode=${mode}&kind=${kind}`)}>{kind==='xlsx'?uiText("Download Excel"):kind.toUpperCase()}</a>:<Button key={kind} disabled>{kind.toUpperCase()}</Button>)}</Actions>
+      <Actions>{['xlsx','csv','json'].map(kind=>outlook?.can_export?<DownloadLink primary={kind==='xlsx'} key={kind} onStart={()=>setError('')} onError={setError} href={apiLink(`/api/sales/inputs/${snapshotId}/export?mode=${mode}&kind=${kind}`)}>{kind==='xlsx'?uiText("Download Excel"):kind.toUpperCase()}</DownloadLink>:<Button key={kind} disabled>{kind.toUpperCase()}</Button>)}</Actions>
       {!outlook?.can_export&&<p role="alert">{uiText("Resolve the flagged inputs before exporting.")}</p>}
     </>:<>
       {record?<>
@@ -70,7 +71,7 @@ export function DemandHandoff({open,onClose,snapshotId,runId,outlook,canEdit,api
         })}>{record.demo_only?uiText("Approve demo"):uiText("Approve release")}</Button></Actions>
       </>}
       {record?.state==='awaiting_review'&&!record.can_approve&&!record.blocked&&<p>{uiText("A different company reviewer must approve this version.")}</p>}
-      {record?.can_export&&<Actions>{['xlsx','csv','json'].map(kind=><a key={kind} className={'btn '+(kind==='xlsx'?'primary':'secondary')} href={apiLink(releaseDownload(record,kind))}>{kind==='xlsx'?uiText("Download approved Excel"):kind.toUpperCase()}</a>)}</Actions>}
+      {record?.can_export&&<Actions>{['xlsx','csv','json'].map(kind=><DownloadLink key={kind} primary={kind==='xlsx'} onStart={()=>setError('')} onError={setError} href={apiLink(releaseDownload(record,kind))}>{kind==='xlsx'?uiText("Download approved Excel"):kind.toUpperCase()}</DownloadLink>)}</Actions>}
       {record&&!releaseId&&<Button kind="ghost" disabled={busy} onClick={()=>{setRecord(null);setReport(null);setApproved(false);attempt.current=null;}}>{uiText("Back to releases")}</Button>}
       {!!items.length&&<Disclosure title={uiText('Saved releases ({{count}})',{count:number(items.length)})}><Help text={uiText("Approved quantities are fixed. Newer orders, expired inputs or a replacement approval block old planning downloads.")}/><Table headers={[uiText("Receiver"),uiText("Version"),uiText("Status"),'']}>
         {items.map(r=><tr key={r.id}><td>{r.contract.receiver}</td><td>{number(r.version)}</td><td>{uiText(releaseLabel(r))}</td><td><Button disabled={busy} onClick={()=>act(()=>detail(r.id))}>{uiText("Review")}</Button></td></tr>)}

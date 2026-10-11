@@ -6,6 +6,8 @@ import {faPlatform} from './fa-platform.mjs';
 import {faConnections} from './fa-connections.mjs';
 import {faNotifications} from './fa-notifications.mjs';
 export const fa={
+  'Preparing download…':'در حال آماده‌سازی فایل…',
+  'Try the download again. Your forecast is unchanged.':'دوباره فایل را دریافت کنید. پیش‌بینی شما تغییر نکرده است.',
   'This forecast workflow needs monthly sales. Import monthly totals to include customer orders.':'این روند پیش‌بینی به فروش ماهانه نیاز دارد. برای در نظر گرفتن سفارش‌های مشتریان، مجموع فروش هر ماه را وارد کنید.',
   'Orders changed since this draft was saved. Current orders have been loaded; review them again.':'سفارش‌ها از زمان ذخیرهٔ این پیش‌نویس تغییر کرده‌اند. سفارش‌های فعلی بارگذاری شدند؛ دوباره آن‌ها را بررسی کنید.',
   'A selected factor is no longer available. Remove it or choose another source.':'یکی از عوامل انتخاب‌شده دیگر در دسترس نیست. آن را حذف کنید یا منبع دیگری انتخاب کنید.',

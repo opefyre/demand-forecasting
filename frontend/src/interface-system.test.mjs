@@ -128,7 +128,8 @@ test('new forecasts review customer orders before models and open combined resul
   const source=await readFile(new URL('new-forecast.jsx',root),'utf8');
   assert.match(source,/\['Sales data','Factors','Customers & orders','Methods','Results'\]/);
   assert.match(source,/<ForecastOrders/);assert.match(source,/sales_input_id:salesInputId/);
-  assert.match(source,/run.demand_summary/);
+  assert.match(source,/readForecastSummaries\(ready,customer,api\)/);
+  assert.match(await readFile(new URL('forecast-progress.mjs',root),'utf8'),/run.demand_summary/);
   assert.doesNotMatch(source,/Current orders are reviewed on the result page/);
   assert.match(source,/whatIf\|\|hasFactors/);
 });

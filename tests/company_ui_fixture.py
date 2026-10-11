@@ -138,16 +138,21 @@ def run(*,notifications=False,factors=False,complete_factors=False,revision_jour
         import re
         path=body.get('path')
         if path not in {'/api/v1/members','/api/v1/api-keys','/api/v1/connections/inputs',
-                        '/api/v1/notifications/destinations','/api/v1/notifications/deliveries'} and not re.fullmatch(r'/api/v1/datasets/[a-f0-9]{32}/orders',path or ''):
+                        '/api/v1/runs/*','/api/v1/jobs/*',
+                        '/api/v1/notifications/destinations','/api/v1/notifications/deliveries'} and not re.fullmatch(r'/api/v1/(datasets/[a-f0-9]{32}/orders|order-snapshots/[a-f0-9]{32}/export|jobs/[a-f0-9]{32}|runs/[a-f0-9]{12})',path or ''):
             raise HTTPException(400,'Only acceptance-test read routes are allowed.')
         read_failures[path]=1
         return {'ok':True}
 
     @app.middleware('http')
     async def fail_saved_read(request:Request,call_next):
-        if request.method=='GET' and read_failures.get(request.url.path,0):
+        import re
+        path=request.url.path
+        key=path if read_failures.get(path,0) else next((prefix+'*' for prefix in ('/api/v1/runs/','/api/v1/jobs/')
+            if re.fullmatch(re.escape(prefix)+(r'[a-f0-9]{12}' if prefix.endswith('runs/') else r'[a-f0-9]{32}'),path) and read_failures.get(prefix+'*',0)),path)
+        if request.method=='GET' and read_failures.get(key,0):
             from fastapi.responses import JSONResponse
-            read_failures[request.url.path]-=1
+            read_failures[key]-=1
             return JSONResponse({'detail':'Saved data is temporarily unavailable.'},status_code=503)
         return await call_next(request)
 
