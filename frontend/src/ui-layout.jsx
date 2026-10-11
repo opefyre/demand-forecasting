@@ -1,5 +1,5 @@
 import React,{useRef,useLayoutEffect} from "react";
-import { t as uiText,interfaceDirection } from "./localization.mjs";
+import { t as uiText,interfaceDirection,i18n } from "./localization.mjs";
 import { MagnifyingGlass,DotsThree,CheckCircle } from "@phosphor-icons/react";
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 
@@ -59,7 +59,7 @@ export function PageControls({ children }) {
 export function Steps({items,current,label}) {
   return <ol className="ui-steps" aria-label={label}>
     {items.map((name,index)=><li key={name} aria-current={index===current?'step':undefined} data-complete={index<current}>
-      <span aria-hidden="true">{index<current?<CheckCircle/>:index+1}</span>{uiText(name)}
+      <span aria-hidden="true">{index<current?<CheckCircle/>:new Intl.NumberFormat(i18n.language).format(index+1)}</span>{uiText(name)}
     </li>)}
   </ol>;
 }

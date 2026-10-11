@@ -1,11 +1,13 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {useSmoothState} from './ui-motion.jsx';
-import {t as uiText,i18n} from './localization.mjs';
+import {t as uiText,i18n,unitLabel} from './localization.mjs';
 import {FactorSettings} from './factor-links.jsx';
 import {futureAssumptions} from './factor-assumptions.mjs';
 import {planningMonth} from './planning-calendar.mjs';
 import {forecastFactorDraft} from './forecast-start.mjs';
 import {Stack,Grid,Actions,PanelHeader,FieldGroup,Disclosure,DefinitionList} from './ui-layout.jsx';
+
+export function factorAmount(value){return value==null?'—':new Intl.NumberFormat(i18n.language,{maximumFractionDigits:3}).format(value);}
 
 export function IncludedForecastFactors({dataset,ui}){
   const definitions=dataset.settings?.factor_definitions||{};
@@ -15,7 +17,7 @@ export function IncludedForecastFactors({dataset,ui}){
       const factor=definitions[column];return [uiText(factor?.name||column),factor?[uiText(factor.geography),uiText(factor.source)].filter(Boolean).join(' · '):uiText('Saved observation')];
     })}/>
     {!!future.length&&<Disclosure title={uiText('Future assumptions')}><ui.Table headers={['Factor','Month','Value','Source'].map(label=>uiText(label))}>
-      {future.map((row,index)=><tr key={index}><td>{uiText(row.factor)}</td><td>{planningMonth(row.sales_month,dataset.settings.month_basis)}</td><td>{row.value==null?'—':new Intl.NumberFormat(i18n.language,{maximumFractionDigits:3}).format(row.value)} {row.unit}</td><td>{uiText(row.treatment==='planning_assumption'?'Your assumption':'Saved observation')}</td></tr>)}
+      {future.map((row,index)=><tr key={index}><td>{uiText(row.factor)}</td><td><bdi>{planningMonth(row.sales_month,dataset.settings.month_basis)}</bdi></td><td>{factorAmount(row.value)} {unitLabel(row.unit)}</td><td>{uiText(row.treatment==='planning_assumption'?'Your assumption':'Saved observation')}</td></tr>)}
     </ui.Table></Disclosure>}
   </Stack>;
 }
@@ -66,10 +68,10 @@ export function ForecastFactors({dataset,api,ui,canEdit,onSaved,onReady,onWorkin
     {review&&<Stack>
       {review.missing>0&&<p role="alert">{uiText('Required values are missing. Choose another source or complete future assumptions. Historical values are never invented.')}</p>}
       <Table headers={[uiText('Factor'),uiText('Month'),uiText('Value'),uiText('Source')]}>{review.rows.filter(row=>row.kind==='future').map(row=><tr key={row.snapshot_id+row.sales_month}>
-        <td>{row.factor}</td><td>{planningMonth(row.sales_month,basis)}</td><td>{row.value??'—'} {row.unit}</td><td>{uiText(row.treatment==='planning_assumption'?'Your assumption':row.value==null?'Missing':'Saved observation')}</td>
+        <td>{row.factor}</td><td><bdi>{planningMonth(row.sales_month,basis)}</bdi></td><td>{factorAmount(row.value)} {unitLabel(row.unit)}</td><td>{uiText(row.treatment==='planning_assumption'?'Your assumption':row.value==null?'Missing':'Saved observation')}</td>
       </tr>)}</Table>
       {review.retrospective&&<p className="table-note">{uiText('Downloaded history supports a what-if forecast, not a claim of past accuracy. Choose a factor-aware method next.')}</p>}
-      <Disclosure title={uiText('Historical matching')}><Table headers={[uiText('Factor'),uiText('Month'),uiText('Observation'),uiText('Value')]}>{review.rows.filter(row=>row.kind==='history').map(row=><tr key={row.snapshot_id+row.sales_month}><td>{row.factor}</td><td>{planningMonth(row.sales_month,basis)}</td><td>{row.observation_period}</td><td>{row.value??'—'}</td></tr>)}</Table></Disclosure>
+      <Disclosure title={uiText('Historical matching')}><Table headers={[uiText('Factor'),uiText('Month'),uiText('Observation'),uiText('Value')]}>{review.rows.filter(row=>row.kind==='history').map(row=><tr key={row.snapshot_id+row.sales_month}><td>{row.factor}</td><td><bdi>{planningMonth(row.sales_month,basis)}</bdi></td><td><bdi>{row.observation_period}</bdi></td><td>{factorAmount(row.value)}</td></tr>)}</Table></Disclosure>
       <label className="ui-check"><input type="checkbox" disabled={busy||!canEdit||review.missing>0} checked={approved} onChange={e=>setApproved(e.target.checked)}/>{uiText('I reviewed locations, dates and future assumptions.')}</label>
       <Actions><Button kind="primary" disabled={!approved||busy||!canEdit||review.missing>0} onClick={()=>act(async()=>{
         attempt.current ||= crypto.randomUUID();const saved=await api(endpoint,{...body(),reviewed:true,review_token:review.review_token,request_id:attempt.current});await onSaved(saved);onReady(true);

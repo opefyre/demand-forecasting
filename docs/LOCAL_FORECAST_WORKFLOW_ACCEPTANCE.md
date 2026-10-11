@@ -124,6 +124,32 @@ not a new browser acceptance of every chat scenario.
 
 Next: broader English/Farsi navigation/error audit across the complete manual and
 assistant journeys, including mobile, unavailable inputs and interrupted requests.
+
+### Bilingual load recovery — local browser check
+
+- Customer/order initial loading failures now expose the shared Reload saved data
+  action. Reload retries reads only, keeps the wizard open and never approves or
+  writes inputs. Unmounted reads still cannot update another step.
+- Factor future/history review values and included-factor quantities use the same
+  locale formatter. Dates/month identifiers have explicit bidirectional isolation;
+  stored numbers and forecast calculations are unchanged.
+- The global Steps component now localizes step numbers, not just labels. No new
+  CSS, inline styles, page-specific layouts or UI elements were introduced beyond
+  the existing shared error recovery action.
+
+Verification: 358 frontend tests, 15 order/full-forecast-workflow backend tests and
+production build pass. The disposable browser fixture injects one failed order read
+in English, then another in Farsi. Both recover through Reload; the checkbox remains
+unchecked. Back, modal closing/reopening, review, method selection, calculation and
+saved-result navigation were exercised. Farsi mobile viewport is 390px, page width
+390px, fixed dialog width 358px. The recovered three-month/four-customer forecast
+completes with 20 open orders, 2 fulfilled, 113 expected and 135 total demand.
+The latest build's Persian step digits were checked in the browser. Factor formatting
+is covered by render tests, not a new connected-factor browser calculation here.
+
+Remaining: interrupted/polling/export errors and advanced assistant proposals need
+the same full browser pass. This is not whole-app UI or accuracy acceptance. All test
+records are temporary; existing client/demo records and cloud services are unchanged.
 Do not claim the full assistant/mobile exception matrix or whole-app acceptance
 from these narrower checks.
 

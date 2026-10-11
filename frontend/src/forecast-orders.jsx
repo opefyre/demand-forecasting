@@ -24,6 +24,7 @@ export function ForecastOrders({api,ui,dataset,snapshotId,onReady,canEdit=true,o
   const restored=forecastOrderDraft(draft,dataset?.id);
   const [imports,setImports]=useState(restored?.imports||initial?.imports||{}),[reading,setReading]=useState({}),[reuse,setReuse]=useState(restored?.reuse||'');
   const [busy,setBusy]=useState(false),[error,setError]=useState(null),[checked,setChecked]=useState(false);
+  const [readRevision,setReadRevision]=useState(0);
   const [editingOrder,setEditingOrder]=useState(false);
   const [editingCommitment,setEditingCommitment]=useState(false);
   const [review,setReview]=useState(null),[page,setPage]=useState(0),[orderMode,setOrderMode]=useState(initial?.order_mode||'replace');
@@ -34,6 +35,7 @@ export function ForecastOrders({api,ui,dataset,snapshotId,onReady,canEdit=true,o
   const submitting=useRef(false);
   const path=targetRun?'/api/sales/runs/'+targetRun.run_id:'/api/datasets/'+dataset.id+'/forecast-orders';
   useEffect(()=>{let live=true;
+    setError(null);
     const starter=targetRun?(initial?Promise.resolve({context:targetRun,inputs:initial.inputs,saved_orders:[]}):api(path+'/starter').then(inputs=>({context:targetRun,inputs,saved_orders:[]}))):api(path);
     Promise.all([starter,api('/api/sales/schema'),!targetRun&&snapshotId?api('/api/sales/inputs/'+snapshotId):Promise.resolve(null)])
       .then(([data,rules,saved])=>{if(live){setLoaded(data);setSchema(rules);
@@ -43,7 +45,7 @@ export function ForecastOrders({api,ui,dataset,snapshotId,onReady,canEdit=true,o
         if(staleDraft){setImports({});setReuse('');onReady(null);setError(Error(uiText('Orders changed since this draft was saved. Current orders have been loaded; review them again.')));}
       }})
       .catch(e=>live&&setError(e));return()=>{live=false;};
-  },[dataset?.id,targetRun?.run_id]);
+  },[dataset?.id,targetRun?.run_id,readRevision]);
   useEffect(()=>{if(inputs&&!targetRun)onDraftChange?.({datasetId:dataset.id,bookVersion:loaded.version,inputs,imports,reuse});},[inputs,imports,reuse,loaded?.version,dataset?.id,targetRun?.run_id,onDraftChange]);
   const fileBusy=useCallback((role,value)=>setReading(r=>({...r,[role]:value})),[]);
   function change(field,value){setInputs(i=>({...i,[field]:value,reviewed:false}));setChecked(false);setReuse('');setReview(null);onReady(null);setError(null);}
@@ -68,7 +70,7 @@ export function ForecastOrders({api,ui,dataset,snapshotId,onReady,canEdit=true,o
     }catch(e){setError(e);}finally{submitting.current=false;setBusy(false);}}
   async function saveReview(){if(submitting.current||!canEdit||!review)return;submitting.current=true;setBusy(true);setError(null);
     try{const saved=await api('/api/sales/inputs',{...reviewedOrderRequest(initial,inputs,imports,attempt,orderMode),review_token:review.review_token});await onReady(saved.id);}catch(e){setError(e);}finally{submitting.current=false;setBusy(false);}}
-  if(!inputs||!schema)return <Stack><ErrorBox error={error}/>{!error&&<p role="status">{uiText('Loading…')}</p>}</Stack>;
+  if(!inputs||!schema)return <Stack><ErrorBox error={error} onReload={()=>setReadRevision(value=>value+1)}/>{!error&&<p role="status">{uiText('Loading…')}</p>}</Stack>;
   const blocked=busy||!canEdit||Object.values(reading).some(Boolean);
   const amount=value=>value==null?uiText('Unknown'):new Intl.NumberFormat(i18n.language,{maximumFractionDigits:2}).format(value);
   if(!targetRun&&review)return <Stack><ErrorBox error={error}/>

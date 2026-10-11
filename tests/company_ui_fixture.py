@@ -135,9 +135,10 @@ def run(*,notifications=False,factors=False,complete_factors=False,revision_jour
     read_failures={}
     @app.post('/fixture/fail-read')
     def fail_read(body:dict):
+        import re
         path=body.get('path')
         if path not in {'/api/v1/members','/api/v1/api-keys','/api/v1/connections/inputs',
-                        '/api/v1/notifications/destinations','/api/v1/notifications/deliveries'}:
+                        '/api/v1/notifications/destinations','/api/v1/notifications/deliveries'} and not re.fullmatch(r'/api/v1/datasets/[a-f0-9]{32}/orders',path or ''):
             raise HTTPException(400,'Only acceptance-test read routes are allowed.')
         read_failures[path]=1
         return {'ok':True}
