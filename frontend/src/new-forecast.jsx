@@ -59,19 +59,22 @@ export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,
   const [ordersBusy,setOrdersBusy]=useState(false);
   const [factorsBusy,setFactorsBusy]=useState(false);
   const [ordersEditing,setOrdersEditing]=useState(false);
-  const working=busy||ordersBusy||factorsBusy;
+  const working=busy||ordersBusy||factorsBusy||ordersEditing;
   useEffect(()=>{onWorkingChange?.(working);return()=>onWorkingChange?.(false);},[working,onWorkingChange]);
   const submitting=useRef(false);
   const [summaries,setSummaries]=useState({});
-  const [factorsReady,setFactorsReady]=useState(true);
+  const [factorDraft,setFactorDraft]=useState(draft?.factorDraft||null);
+  const [orderDraft,setOrderDraft]=useState(draft?.orderDraft||null);
+  const [factorsReady,setFactorsReady]=useState(!draft?.factorDraft?.selected?.length);
   const [salesInputId,setSalesInputId]=useState(draft?.salesInputId||null);
   const [customer,setCustomer]=useState(draft?.customer||'');
   const [groupId,setGroupId]=useState(draft?.groupId||crypto.randomUUID().replaceAll('-',''));
   const [name,setName]=useState(draft?.name||uiText('Forecast')+' · '+new Date().toISOString().slice(0,10));
   const [settings,setSettings]=useState(null);
   const dataset=saved?.id===source?saved:sources.find(d=>d.id===source);
+  const monthlyInputs=(dataset?.settings?.frequency||'monthly')==='monthly';
   const settingsDirty=!!settings&&!!dataset&&['horizon','month_basis','calendar_country'].some(k=>settings[k]!==({month_basis:'gregorian',calendar_country:'IR',...dataset.settings})[k]);
-  useEffect(()=>{setSettings(dataset?{horizon:dataset.id===initialDraft?.source&&!initialDraft?.jobs?.length?initialDraft.horizon||dataset.settings.horizon:dataset.settings.horizon,month_basis:dataset.settings.month_basis||'gregorian',calendar_country:dataset.settings.calendar_country??'IR'}:null);},[dataset?.id]);
+  useEffect(()=>{setSettings(dataset?(dataset.id===draft?.source&&draft?.settings&&!draft.jobs?.length?draft.settings:{horizon:dataset.id===initialDraft?.source&&!initialDraft?.jobs?.length?initialDraft.horizon||dataset.settings.horizon:dataset.settings.horizon,month_basis:dataset.settings.month_basis||'gregorian',calendar_country:dataset.settings.calendar_country??'IR'}):null);},[dataset?.id]);
   const whatIf=dataset?.settings?.evidence_policy==='reviewed_what_if';
   const hasFactors=!!dataset?.settings?.drivers?.length;
   const choices=inputMethodChoices(dataset);
@@ -86,10 +89,10 @@ export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,
     if(!settingsDirty){if(continueStep)setStep(2);return;}
     setBusy(true);setError(null);
     try{const d=await api('/api/datasets/'+dataset.id+'/forecast-settings',{...settings,request_id:crypto.randomUUID()});
-      setSaved(d);setSource(d.id);if(d.id!==dataset.id)setSalesInputId(null);await refresh();if(continueStep)setStep(2);
+      setSaved(d);setSource(d.id);if(d.id!==dataset.id){setSalesInputId(null);setFactorDraft(value=>value?.datasetId===dataset.id?{...value,datasetId:d.id}:null);}await refresh();if(continueStep)setStep(2);
     }catch(e){setError(e);}finally{setBusy(false);}
   }
-  useEffect(()=>{try{sessionState.setItem(draftKey,JSON.stringify({version:2,source,step,methods,salesInputId,customer,groupId,name,parentForecastId:revisionParent,jobs:jobs.map(({id,method})=>({id,method}))}));}catch{}},[source,step,methods,jobs,salesInputId,customer,groupId,name,revisionParent,draftKey]);
+  useEffect(()=>{try{sessionState.setItem(draftKey,JSON.stringify({version:2,source,step,methods,salesInputId,customer,groupId,name,settings,factorDraft,orderDraft,parentForecastId:revisionParent,jobs:jobs.map(({id,method})=>({id,method}))}));}catch{}},[source,step,methods,jobs,salesInputId,customer,groupId,name,settings,factorDraft,orderDraft,revisionParent,draftKey]);
   useEffect(()=>{if(scenario&&jobs.length&&jobs.every(job=>job.state==='succeeded')){
     try{const pending=JSON.parse(sessionState.getItem(FORECAST_DRAFT_KEY+'.prepared')||'null');if(pending?.datasetId===source)sessionState.removeItem(FORECAST_DRAFT_KEY+'.prepared');}catch{}
   }},[scenario,source,jobs.map(job=>job.id+':'+job.state).join('|')]);
@@ -134,7 +137,7 @@ export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,
       setJobs(previous=>previous.map(row=>row.id===job.id?{...replacement,method:job.method}:row));
     }catch(e){setError(e);}finally{setBusy(false);}
   }
-  function beginAgain(){setRevisionParent(null);setGroupId(crypto.randomUUID().replaceAll('-',''));setJobs([]);setCustomer('');setSalesInputId(null);setSource('');setSaved(null);setStep(0);setMethods(['recommended']);setError(null);}
+  function beginAgain(){setRevisionParent(null);setGroupId(crypto.randomUUID().replaceAll('-',''));setJobs([]);setCustomer('');setSalesInputId(null);setSource('');setSaved(null);setFactorDraft(null);setOrderDraft(null);setFactorsReady(true);setStep(0);setMethods(['recommended']);setError(null);}
   async function viewForecast(job){
     if(busy)return;setBusy(true);setError(null);
     try{await refresh();await openRun(job.run_id,'demand',customer?{customer}:null);}
@@ -159,17 +162,18 @@ export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,
       {step===0&&<>
         <Field title={uiText('Forecast name')}><input value={name} maxLength={160} onChange={e=>setName(e.target.value)}/></Field>
         {scenario?<DefinitionList rows={[[uiText('Sales data'),dataset?.name]]}/>:<>
-          {!!sources.length&&<Field title={uiText('Sales data')}><Pick label={uiText('Sales data')} value={source} onChange={id=>{setSource(id);setSaved(null);setSalesInputId(null);}} options={[['',uiText('Choose sales data')],...sources.map(d=>[d.id,d.name])]}/></Field>}
+          {!!sources.length&&<Field title={uiText('Sales data')}><Pick label={uiText('Sales data')} value={source} onChange={id=>{if(id!==source){setFactorDraft(null);setFactorsReady(true);}setSource(id);setSaved(null);setSalesInputId(null);}} options={[['',uiText('Choose sales data')],...sources.map(d=>[d.id,d.name])]}/></Field>}
           <Button disabled={working||!canEdit} onClick={importHistory}><UploadSimple size={18}/>{uiText(prepareImport?'Upload updated history':'Import sales history')}</Button>
         </>}
+        {!monthlyInputs&&<p role="alert">{uiText('This forecast workflow needs monthly sales. Import monthly totals to include customer orders.')}</p>}
       </>}
       {step===1&&dataset&&(scenario?<PreparedFactorSummary dataset={dataset} baseline={scenarioBaseline} ui={ui}/>:<>
         
         {settings&&<Grid><Field title={uiText('Forecast horizon')}><input type="number" min="1" max="24" disabled={working||!canEdit} value={settings.horizon} onChange={e=>setSettings(s=>({...s,horizon:Number(e.target.value)}))}/></Field><Field title={uiText('Planning months')}><Pick disabled={working||!canEdit||hasFactors||lockCalendar} label={uiText('Planning months')} value={settings.month_basis} options={[["gregorian",uiText('Gregorian months')],["jalali",uiText('Persian months')]]} onChange={v=>setSettings(s=>({...s,month_basis:v}))}/></Field><Field title={uiText('Holiday calendar')}><Pick disabled={working||!canEdit} label={uiText('Holiday calendar')} value={settings.calendar_country} options={[["IR",uiText('Iran')],["",uiText('No public holidays')]]} onChange={v=>setSettings(s=>({...s,calendar_country:v}))}/></Field></Grid>}
         {settingsDirty&&<Button disabled={working||!canEdit||!Number.isInteger(settings.horizon)||settings.horizon<1||settings.horizon>24} onClick={()=>next(false)}>{uiText('Apply changes')}</Button>}
-        {(dataset.settings?.frequency||'monthly')!=='monthly'?<p className="table-note">{uiText('Live factor matching needs monthly sales. You can still forecast this history without extra live factors.')}</p>:dataset.import_provenance?.type==='forecast_factors'?<><IncludedForecastFactors dataset={dataset} ui={ui}/><Button disabled={working||!canEdit} onClick={()=>{setSource(dataset.parent_dataset_id);setSaved(null);setSalesInputId(null);setFactorsReady(true);setMethods(['recommended']);}}>{uiText('Change factors')}</Button></>:<ForecastFactors key={dataset.id} dataset={dataset} api={api} ui={ui} canEdit={canEdit&&!settingsDirty&&!busy} onReady={setFactorsReady} onWorkingChange={setFactorsBusy} navigate={()=>{setDataView?.('external');navigate('data');}} onSaved={async d=>{setBusy(true);try{setSaved(d);setSource(d.id);setSalesInputId(null);setFactorsReady(true);setMethods(['model:Ridge + drivers']);await refresh();}finally{setBusy(false);}}}/>}
+        {!monthlyInputs?<p role="alert">{uiText('This forecast workflow needs monthly sales. Import monthly totals to include customer orders.')}</p>:dataset.import_provenance?.type==='forecast_factors'?<><IncludedForecastFactors dataset={dataset} ui={ui}/><Button disabled={working||!canEdit} onClick={()=>{setSource(dataset.parent_dataset_id);setSaved(null);setSalesInputId(null);setFactorsReady(true);setMethods(['recommended']);}}>{uiText('Change factors')}</Button></>:<ForecastFactors key={dataset.id} dataset={dataset} api={api} ui={ui} initialDraft={factorDraft} onDraftChange={setFactorDraft} canEdit={canEdit&&!settingsDirty&&!busy} onReady={setFactorsReady} onWorkingChange={setFactorsBusy} navigate={()=>{setDataView?.('external');navigate('data');}} onSaved={async d=>{setBusy(true);try{setSaved(d);setSource(d.id);setFactorDraft(null);setSalesInputId(null);setFactorsReady(true);setMethods(['model:Ridge + drivers']);await refresh();}finally{setBusy(false);}}}/>}
       </>)}
-      {step===2&&dataset&&<ForecastOrders key={dataset.id} api={api} ui={ui} dataset={dataset} snapshotId={salesInputId} canEdit={canEdit} onWorkingChange={setOrdersBusy} onPendingEditChange={setOrdersEditing} onReady={id=>{setSalesInputId(id);if(id)setStep(3);}}/>}
+      {step===2&&dataset&&<ForecastOrders key={dataset.id} api={api} ui={ui} dataset={dataset} snapshotId={salesInputId} draft={orderDraft} onDraftChange={setOrderDraft} canEdit={canEdit} onWorkingChange={setOrdersBusy} onPendingEditChange={setOrdersEditing} onReady={id=>{setSalesInputId(id);if(id)setStep(3);}}/>}
       {step===3&&<>
         {scenario&&<Field title={uiText('Forecast name')}><input disabled={working||!canEdit} value={name} maxLength={160} onChange={e=>setName(e.target.value)}/></Field>}
         
@@ -189,8 +193,8 @@ export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,
     </Panel>
     {embedded&&step===4&&allowAnother&&!scenario&&<Actions><Button disabled={busy} onClick={beginAgain}>{uiText('Start another forecast')}</Button></Actions>}
     {step<4&&<Actions>
-      <Button disabled={working||step===0} onClick={()=>setStep(step-1)}><ArrowLeft size={18}/>{uiText('Back')}</Button>
-      {(step!==2||salesInputId)&&<Button kind="primary" disabled={working||ordersEditing||!canEdit||!dataset||!name.trim()||step===1&&(!factorsReady||!settings||!Number.isInteger(settings.horizon)||settings.horizon<1||settings.horizon>24)||step===3&&(!methods.length||!salesInputId)} onClick={()=>step===3?start():next()}>{uiText(step===3?(scenario?'Run forecast':'Run selected methods'):'Continue')}<ArrowRight size={18}/></Button>}
+      <Button disabled={working||ordersEditing||step===0} onClick={()=>setStep(step-1)}><ArrowLeft size={18}/>{uiText('Back')}</Button>
+      {(step!==2||salesInputId)&&<Button kind="primary" disabled={working||ordersEditing||!canEdit||!dataset||!monthlyInputs||!name.trim()||step===1&&(!factorsReady||!settings||!Number.isInteger(settings.horizon)||settings.horizon<1||settings.horizon>24)||step===3&&(!methods.length||!salesInputId)} onClick={()=>step===3?start():next()}>{uiText(step===3?(scenario?'Run forecast':'Run selected methods'):'Continue')}<ArrowRight size={18}/></Button>}
     </Actions>}
   </Stack>;
 }

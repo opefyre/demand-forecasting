@@ -1,5 +1,17 @@
 # DemandLab — implementation and acceptance checklist
 
+## 11 October — local full forecast workflow (infra paused)
+
+- [x] Preserve settings, factor assumptions and applied order edits across Back/reopen;
+  source/context/version fences and fresh review requirements remain in place.
+- [x] Saved-factor visibility, unavailable selection recovery, factor read retry and
+  early monthly-input guard use the shared design without new appearance rules.
+- [x] Local four-customer/two-product, six-month, two-method browser journey with
+  factors/current orders, comparison filters, Persian download and 390px modal checks.
+- [x] 344 frontend, 16 workflow/revision and 39 order/factor backend checks; build.
+- [ ] Complete exceptional-data and assistant-to-wizard acceptance next; see
+  LOCAL_FORECAST_WORKFLOW_ACCEPTANCE.md. Cloud/infra work is paused, not the next task.
+
 ## 11 October — corrected history through approved exports
 
 - [x] Combined company API/engine journey for both planning calendars: immutable

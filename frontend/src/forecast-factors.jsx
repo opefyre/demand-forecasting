@@ -4,6 +4,7 @@ import {t as uiText,i18n} from './localization.mjs';
 import {FactorSettings} from './factor-links.jsx';
 import {futureAssumptions} from './factor-assumptions.mjs';
 import {planningMonth} from './planning-calendar.mjs';
+import {forecastFactorDraft} from './forecast-start.mjs';
 import {Stack,Grid,Actions,PanelHeader,FieldGroup,Disclosure,DefinitionList} from './ui-layout.jsx';
 
 export function IncludedForecastFactors({dataset,ui}){
@@ -19,15 +20,18 @@ export function IncludedForecastFactors({dataset,ui}){
   </Stack>;
 }
 
-export function ForecastFactors({dataset,api,ui,canEdit,onSaved,onReady,onWorkingChange,navigate}){
+export function ForecastFactors({dataset,api,ui,canEdit,onSaved,onReady,onWorkingChange,navigate,initialDraft,onDraftChange}){
   const {Button,ErrorBox,Table,Help,Pick}=ui;
   const [options,setOptions]=useState(null),[error,setError]=useState(null),[busy,setBusy]=useState(false);
-  const [selected,setSelected]=useState([]),[expanded,setExpanded]=useSmoothState(''),[review,setReview]=useState(null),[approved,setApproved]=useState(false);
+  const [draft]=useState(()=>forecastFactorDraft(initialDraft,dataset.id));
+  const [selected,setSelected]=useState(draft?.selected||[]),[expanded,setExpanded]=useSmoothState(draft?.expanded||''),[review,setReview]=useState(null),[approved,setApproved]=useState(false);
+  const [readRevision,setReadRevision]=useState(0);
   const [add,setAdd]=useState('');
   useEffect(()=>{onWorkingChange?.(busy);return()=>onWorkingChange?.(false);},[busy,onWorkingChange]);
   const attempt=useRef(null);
   const endpoint='/api/datasets/'+dataset.id+'/forecast-factors';
-  useEffect(()=>{let live=true;onReady(true);api(endpoint).then(r=>{if(live)setOptions(r);}).catch(e=>{if(live)setError(e);});return()=>{live=false;};},[dataset.id]);
+  useEffect(()=>{let live=true;onReady(!selected.length);setOptions(null);setError(null);api(endpoint).then(r=>{if(live)setOptions(r);}).catch(e=>{if(live)setError(e);});return()=>{live=false;};},[dataset.id,readRevision]);
+  useEffect(()=>{onDraftChange?.({datasetId:dataset.id,selected,expanded});},[dataset.id,selected,expanded,onDraftChange]);
   function change(rows){setSelected(rows);setReview(null);setApproved(false);attempt.current=null;onReady(!rows.length);}
   function update(id,patch){change(selected.map(row=>row.id===id?{...row,...patch}:row));}
   function body(){return{method:'model:Ridge + drivers',links:selected.map(row=>{
@@ -38,21 +42,26 @@ export function ForecastFactors({dataset,api,ui,canEdit,onSaved,onReady,onWorkin
       ...(snapshot.calendar==='jalali'&&row.calendarAccepted?{period_alignment:'last_completed_jalali_month'}:{})};
   })};}
   async function act(work){setBusy(true);setError(null);try{await work();}catch(e){setError(e);}finally{setBusy(false);}}
-  const snapshots=(options?.snapshots||[]).filter(row=>row.live_what_if||row.public_vintage);
+  const snapshots=options?.snapshots||[];
+  const missingSelection=!!options&&selected.some(row=>!snapshots.some(snapshot=>snapshot.id===row.id));
   const available=snapshots.filter(row=>row.can_use!==false&&!selected.some(s=>s.id===row.id));
   const ready=selected.length&&selected.every(row=>{
     const snapshot=snapshots.find(s=>s.id===row.id);
-    return snapshot&&row.timingAccepted&&(snapshot.calendar!=='jalali'||row.calendarAccepted);
+    return snapshot&&snapshot.can_use!==false&&(!(snapshot.live_what_if||snapshot.public_vintage)||row.timingAccepted)&&(snapshot.calendar!=='jalali'||row.calendarAccepted);
   });
   const basis=dataset.settings?.month_basis||'gregorian';
   return <Stack>
     <PanelHeader title={uiText('External factors')} actions={<Help text={uiText('Sources refresh automatically. Each calculation keeps the exact source version and your future assumptions.')}/>}/>
-    <ErrorBox error={error}/>
+    <ErrorBox error={error} onReload={()=>{setReview(null);setApproved(false);setReadRevision(v=>v+1);}}/>
+    {missingSelection&&<ErrorBox error={uiText('A selected factor is no longer available. Remove it or choose another source.')} />}
     {!options&&!error&&<p role="status">{uiText('Loading…')}</p>}
     {options&&!snapshots.length&&<p className="table-note">{uiText('No connected monthly factors are available yet.')}</p>}
     {!!available.length&&selected.length<8&&<Grid actionColumn><Pick label={uiText('Factor to add')} disabled={!canEdit||busy} value={add} options={[['',uiText('Choose a factor')],...available.map(snapshot=>[snapshot.id,snapshot.name+' · '+snapshot.provider])]} onChange={setAdd}/><Button disabled={!add||!canEdit||busy} onClick={()=>{change([...selected,{id:add,lag:'2',value:'',monthly:false,monthlyValues:{},timingAccepted:false}]);setExpanded(add);setAdd('');}}>{uiText('Add')}</Button></Grid>}
     {snapshots.some(row=>row.can_use===false)&&<Disclosure title={uiText('Unavailable sources')}>{snapshots.filter(row=>row.can_use===false).map(row=><p key={row.id}>{row.name} · {uiText(row.readiness_note)}</p>)}</Disclosure>}
-    {!!selected.length&&<FieldGroup disabled={busy||!canEdit}>{selected.map(row=><FactorSettings key={row.id} factor={row} chosen={snapshots.find(s=>s.id===row.id)} periods={options.forecast_periods} ui={ui} basis={basis} disabled={busy||!canEdit} expanded={expanded===row.id} onToggle={()=>setExpanded(expanded===row.id?'':row.id)} onChange={patch=>update(row.id,patch)} onRemove={()=>change(selected.filter(r=>r.id!==row.id))}/>)}</FieldGroup>}
+    {options&&!!selected.length&&<FieldGroup disabled={busy||!canEdit}>{selected.map(row=>{
+      const chosen=snapshots.find(s=>s.id===row.id);
+      return chosen?<FactorSettings key={row.id} factor={row} chosen={chosen} periods={options.forecast_periods} ui={ui} basis={basis} disabled={busy||!canEdit} expanded={expanded===row.id} onToggle={()=>setExpanded(expanded===row.id?'':row.id)} onChange={patch=>update(row.id,patch)} onRemove={()=>change(selected.filter(r=>r.id!==row.id))}/>:<Actions key={row.id}><Button disabled={busy||!canEdit} onClick={()=>change(selected.filter(r=>r.id!==row.id))}>{uiText('Remove unavailable factor')}</Button></Actions>;
+    })}</FieldGroup>}
     {!!selected.length&&<Actions><Button disabled={!ready||busy||!canEdit} onClick={()=>act(async()=>{setReview(null);setApproved(false);setReview(await api(endpoint+'/preview',body()));})}>{uiText(busy&&!review?'Checking…':'Review factors')}</Button></Actions>}
     {review&&<Stack>
       {review.missing>0&&<p role="alert">{uiText('Required values are missing. Choose another source or complete future assumptions. Historical values are never invented.')}</p>}

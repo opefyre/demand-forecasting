@@ -46,6 +46,9 @@ def run(*,notifications=False,factors=False,complete_factors=False,revision_jour
         fixture.company=company
         _,dataset,body=fixture.history(multiplier,classification='user_provided' if revision_journey else 'synthetic_sample')
         snapshot=fixture.orders(dataset)
+        from app.order_books import BookRequest
+        fixture.ws.order_books.save(dataset['id'],BookRequest(version=0,**{
+            key:snapshot['inputs'][key] for key in ('as_of','valid_until','order_feed','orders')}))
         fixture.calculate(dataset,snapshot)
         if revision_journey:
             # Fictional uploaded-history workflow; never seed real/client stores.

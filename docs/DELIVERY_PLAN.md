@@ -1,6 +1,16 @@
 # Sales/demand forecasting delivery plan
 
-## Current priority — approved public-platform expansion, 9 October
+## Current priority — local product correctness, 11 October
+
+Infrastructure, cloud speed and deployment acceptance are paused at the owner's
+request. Work on local code, forecasting logic, shared UI and complete workflows.
+The sales/factors/orders/multiple-method journey and draft navigation fixes are
+recorded in LOCAL_FORECAST_WORKFLOW_ACCEPTANCE.md. The next code chunk is the
+exception-handling matrix: short/sparse sales, new customer/product pairs, incomplete
+orders and stale/missing factor inputs, including the assistant-to-wizard handoff.
+Do not treat older cloud next steps below as authorization to resume infra work.
+
+## Public-platform delivery history
 
 Follow [PUBLIC_PLATFORM_DELIVERY.md](PUBLIC_PLATFORM_DELIVERY.md) for the current
 build order. Older entries below are delivery history, not today's next-task plan.

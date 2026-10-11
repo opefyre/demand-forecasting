@@ -4,7 +4,7 @@ import {SalesSource} from './sales-demand.jsx';
 import {Actions,Disclosure,Grid,Stack} from './ui-layout.jsx';
 import {OrderReview} from './order-books.jsx';
 import {methodName} from './method-comparison.jsx';
-import {orderCoverageTitle} from './forecast-start.mjs';
+import {orderCoverageTitle,forecastOrderDraft} from './forecast-start.mjs';
 import {planningBasis,planningMonth} from './planning-calendar.mjs';
 import {reviewedOrderRequest} from './order-update-state.mjs';
 import {coverageStatus} from './demand-view.mjs';
@@ -17,10 +17,11 @@ export function OrderDemandReceipt({review,ui,basis,page=0}){
   </ui.Table>;
 }
 
-export function ForecastOrders({api,ui,dataset,snapshotId,onReady,canEdit=true,onWorkingChange,onPendingEditChange,targetRun=null,initial=null}){
+export function ForecastOrders({api,ui,dataset,snapshotId,onReady,canEdit=true,onWorkingChange,onPendingEditChange,targetRun=null,initial=null,draft=null,onDraftChange}){
   const {Button,Pick,Field,ErrorBox,Table}=ui;
   const [loaded,setLoaded]=useState(null),[schema,setSchema]=useState(null),[inputs,setInputs]=useState(null);
-  const [imports,setImports]=useState(initial?.imports||{}),[reading,setReading]=useState({}),[reuse,setReuse]=useState('');
+  const restored=forecastOrderDraft(draft,dataset?.id);
+  const [imports,setImports]=useState(restored?.imports||initial?.imports||{}),[reading,setReading]=useState({}),[reuse,setReuse]=useState(restored?.reuse||'');
   const [busy,setBusy]=useState(false),[error,setError]=useState(null),[checked,setChecked]=useState(false);
   const [editingOrder,setEditingOrder]=useState(false);
   const [review,setReview]=useState(null),[page,setPage]=useState(0),[orderMode,setOrderMode]=useState(initial?.order_mode||'replace');
@@ -33,9 +34,15 @@ export function ForecastOrders({api,ui,dataset,snapshotId,onReady,canEdit=true,o
   useEffect(()=>{let live=true;
     const starter=targetRun?(initial?Promise.resolve({context:targetRun,inputs:initial.inputs,saved_orders:[]}):api(path+'/starter').then(inputs=>({context:targetRun,inputs,saved_orders:[]}))):api(path);
     Promise.all([starter,api('/api/sales/schema'),!targetRun&&snapshotId?api('/api/sales/inputs/'+snapshotId):Promise.resolve(null)])
-      .then(([data,rules,saved])=>{if(live){setLoaded(data);setSchema(rules);setInputs(saved?.inputs?.run_id===data.context.run_id?saved.inputs:data.inputs);}})
+      .then(([data,rules,saved])=>{if(live){setLoaded(data);setSchema(rules);
+        const currentDraft=restored?.inputs.run_id===data.context.run_id&&restored.bookVersion===data.version;
+        const staleDraft=!!restored&&!currentDraft;
+        setInputs(currentDraft?restored.inputs:!staleDraft&&saved?.inputs?.run_id===data.context.run_id?saved.inputs:data.inputs);
+        if(staleDraft){setImports({});setReuse('');onReady(null);setError(Error(uiText('Orders changed since this draft was saved. Current orders have been loaded; review them again.')));}
+      }})
       .catch(e=>live&&setError(e));return()=>{live=false;};
   },[dataset?.id,targetRun?.run_id]);
+  useEffect(()=>{if(inputs&&!targetRun)onDraftChange?.({datasetId:dataset.id,bookVersion:loaded.version,inputs,imports,reuse});},[inputs,imports,reuse,loaded?.version,dataset?.id,targetRun?.run_id,onDraftChange]);
   const fileBusy=useCallback((role,value)=>setReading(r=>({...r,[role]:value})),[]);
   function change(field,value){setInputs(i=>({...i,[field]:value,reviewed:false}));setChecked(false);setReuse('');setReview(null);onReady(null);setError(null);}
   async function useSaved(id){if(!id||busy||!canEdit||Object.values(reading).some(Boolean))return;setBusy(true);setError(null);
