@@ -71,12 +71,12 @@ test('changed/removed order evidence uses the shared disclosure and preserves ex
 });
 test('manual and assistant order updates reuse one fixed dialog while keeping their workspaces mounted',async()=>{
  const modal=await readFile(new URL('order-update.jsx',import.meta.url),'utf8');
- assert.match(modal,/Modal open fixed wide/);assert.match(modal,/dismissible=\{!busy\}/);assert.match(modal,/<ForecastOrders/);assert.doesNotMatch(modal,/style=|className=/);
+ assert.match(modal,/Modal open fixed wide/);assert.match(modal,/dismissible=\{!busy&&!editing\}/);assert.match(modal,/onPendingEditChange=\{setEditing\}/);assert.match(modal,/<ForecastOrders/);assert.doesNotMatch(modal,/style=|className=/);
  for(const file of ['sales-demand.jsx','assistant-workspace.jsx']){
   const source=await readFile(new URL(file,import.meta.url),'utf8');assert.match(source,/<OrderUpdate/);assert.doesNotMatch(source,/return <DemandImport|return< DemandImport/);
  }
  const editor=await readFile(new URL('forecast-orders.jsx',import.meta.url),'utf8');
- assert.match(editor,/review_token:review.review_token/);assert.match(editor,/submitting.current\|\|!canEdit/);assert.match(editor,/editingOrder\|\|!checked/);assert.match(editor,/Complete monthly commitments/);assert.doesNotMatch(editor,/style=/);
+ assert.match(editor,/review_token:review.review_token/);assert.match(editor,/submitting.current\|\|!canEdit/);assert.match(editor,/editingOrder\|\|!checked/);assert.match(editor,/<Commitments/);assert.doesNotMatch(editor,/style=/);
 });
 test('saved-order reuse cannot replace inputs during validation or for a read-only actor',async()=>{
  const editor=await readFile(new URL('forecast-orders.jsx',import.meta.url),'utf8');

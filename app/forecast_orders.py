@@ -79,7 +79,20 @@ def prepare(datasets, sales, identifier, payload, load_run, *, site=None):
     missing_history = []
     commitment_periods = {}
     today = str(run_today(value))
+    committed_orders = {}
+    basis = month_basis(value)
+    for order in inputs['orders']:
+        key = (order['customer'], order['sku'], order['unit'], month(order['due_date'], basis))
+        quantity = (Decimal(order['ordered']) - Decimal(order['cancelled']) if order['status'] == 'confirmed'
+                    else Decimal(order['fulfilled']) if order['status'] == 'cancelled' else Decimal(0))
+        committed_orders[key] = committed_orders.get(key, Decimal(0)) + quantity
     for commitment in inputs['commitments']:
+        if commitment['period'] in periods:
+            if commitment['valid_until'] < today:
+                raise ValueError('Monthly commitments have expired. Update their review date or remove them.')
+            key = (commitment['customer'], commitment['sku'], commitment['unit'], commitment['period'])
+            if Decimal(commitment['quantity']) < committed_orders.get(key, Decimal(0)):
+                raise ValueError('Monthly totals cannot be lower than confirmed orders and quantities already fulfilled.')
         if commitment['valid_until'] >= today:
             key = (commitment['customer'], commitment['sku'], commitment['unit'])
             commitment_periods.setdefault(key, set()).add(commitment['period'])

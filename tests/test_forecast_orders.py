@@ -141,6 +141,22 @@ class UnifiedForecastTests(unittest.TestCase):
         child=self.datasets.save('Updated settings',self.dataset['sources'],{**self.dataset['settings'],'horizon':3},'synthetic_sample',True,parent_dataset_id=self.dataset['id'])
         self.assertEqual(books.get(child['id'])['inputs']['orders'],saved['inputs']['orders'])
 
+    def test_commitment_conflicts_and_expired_commitments_are_rejected_before_fitting(self):
+        self.setup_inputs()
+        row=dict(customer='A',sku='001',unit='tonnes',period=str(self.today.replace(day=1)),
+            quantity=15,owner='Planner',reason='Complete monthly total',valid_until=str(self.today+timedelta(days=7)))
+        self.body['inputs']['commitments']=[row]
+        result=self.client.post(self.path+'/preview',json=self.body)
+        self.assertEqual(result.status_code,400)
+        self.assertIn('lower than confirmed orders',result.text)
+        row['quantity']=16
+        self.assertEqual(self.client.post(self.path+'/preview',json=self.body).status_code,200)
+        row['valid_until']=str(self.today-timedelta(days=1))
+        result=self.client.post(self.path+'/preview',json=self.body)
+        self.assertEqual(result.status_code,400)
+        self.assertIn('Monthly commitments have expired',result.text)
+        self.assertEqual(list(self.main.RUNS_DIR.iterdir()),[])
+
     def test_one_named_forecast_keeps_each_method_and_immutable_order_evidence(self):
         self.setup_inputs();_,saved=self.stage();group='a'*32
         for method in ['model:Last observed','model:Recent average']:

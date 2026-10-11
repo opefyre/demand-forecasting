@@ -9,6 +9,7 @@ import {planningBasis,planningMonth} from './planning-calendar.mjs';
 import {reviewedOrderRequest,checkForecastOrderReview,saveForecastOrderReview} from './order-update-state.mjs';
 import {coverageStatus} from './demand-view.mjs';
 import {OrderChanges} from './order-changes.jsx';
+import {Commitments} from './commitments.jsx';
 
 export function OrderDemandReceipt({review,ui,basis,page=0}){
   const amount=value=>value==null?uiText('Unknown'):new Intl.NumberFormat(i18n.language,{maximumFractionDigits:2}).format(value);
@@ -24,8 +25,9 @@ export function ForecastOrders({api,ui,dataset,snapshotId,onReady,canEdit=true,o
   const [imports,setImports]=useState(restored?.imports||initial?.imports||{}),[reading,setReading]=useState({}),[reuse,setReuse]=useState(restored?.reuse||'');
   const [busy,setBusy]=useState(false),[error,setError]=useState(null),[checked,setChecked]=useState(false);
   const [editingOrder,setEditingOrder]=useState(false);
+  const [editingCommitment,setEditingCommitment]=useState(false);
   const [review,setReview]=useState(null),[page,setPage]=useState(0),[orderMode,setOrderMode]=useState(initial?.order_mode||'replace');
-  useEffect(()=>{onPendingEditChange?.(editingOrder);return()=>onPendingEditChange?.(false);},[editingOrder,onPendingEditChange]);
+  useEffect(()=>{onPendingEditChange?.(editingOrder||editingCommitment);return()=>onPendingEditChange?.(false);},[editingOrder,editingCommitment,onPendingEditChange]);
   useEffect(()=>{onWorkingChange?.(busy);return()=>onWorkingChange?.(false);},[busy,onWorkingChange]);
   const [customerName,setCustomerName]=useState(''),[product,setProduct]=useState(''),[adding,setAdding]=useState(false);
   const [attempt]=useState(()=>crypto.randomUUID());
@@ -87,13 +89,11 @@ export function ForecastOrders({api,ui,dataset,snapshotId,onReady,canEdit=true,o
       <Button disabled={blocked} onClick={()=>setAdding(v=>!v)}>{uiText('Add customer')}</Button>
       {adding&&<Grid><Field title={uiText('Customer')}><input disabled={blocked} value={customerName} onChange={e=>setCustomerName(e.target.value)}/></Field><Field title={uiText('SKU')}><Pick label={uiText('SKU')} disabled={blocked} value={product} onChange={setProduct} options={[["",uiText('Choose a product')],...[...new Set(inputs.customers.map(c=>c.sku))].map(s=>[s,s])]}/></Field><Button disabled={blocked||!customerName.trim()||!product} onClick={addCustomer}>{uiText('Save customer')}</Button></Grid>}
     </Disclosure>
-    {targetRun&&<Disclosure title={uiText('Complete monthly commitments')}>
-      <Table headers={['Customer','SKU','Month','Quantity'].map(label=>uiText(label))} empty={!inputs.commitments.length&&uiText('No commitments')}>
-        {inputs.commitments.map((row,index)=><tr key={index}><td>{row.customer}</td><td>{row.sku}</td><td><bdi>{planningMonth(row.period,planningBasis(targetRun))}</bdi></td><td>{amount(row.quantity)} {unitLabel(row.unit)}</td></tr>)}
-      </Table>
+    <Commitments inputs={inputs} run={loaded.context} ui={ui} canEdit={!blocked&&!editingOrder} onEditingChange={setEditingCommitment} onChange={rows=>{change('commitments',rows);setImports(v=>{const next={...v};delete next.commitments;return next;});}}/>
+    {targetRun&&<Disclosure title={uiText('Import monthly commitments')}>
       <SalesSource embedded api={api} ui={ui} role="commitments" schema={schema.commitments} config={imports.commitments} run={loaded.context} fallbackCount={inputs.commitments.length} onBusyChange={fileBusy} setConfig={config=>{setImports(v=>{const next={...v};if(config)next.commitments=config;else delete next.commitments;return next;});setChecked(false);setReview(null);}}/>
     </Disclosure>}
-    <OrderReview inputs={inputs} ui={ui} canEdit={!blocked} onEditingChange={setEditingOrder} onChange={rows=>{change('orders',rows);setOrderMode('replace');setImports(v=>{const next={...v};delete next.orders;return next;});}}/>
+    <OrderReview inputs={inputs} ui={ui} canEdit={!blocked&&!editingCommitment} onEditingChange={setEditingOrder} onChange={rows=>{change('orders',rows);setOrderMode('replace');setImports(v=>{const next={...v};delete next.orders;return next;});}}/>
     <Disclosure title={uiText('Import or reuse orders')}>
       {!!loaded.saved_orders.length&&<Field title={uiText('Reuse saved orders')}><Pick label={uiText('Reuse saved orders')} disabled={blocked} value={reuse} onChange={useSaved} options={[["",uiText('Choose saved orders')],...loaded.saved_orders.map(s=>[s.id,s.name+(s.method?' · '+methodName(s.method):'')+' · '+s.as_of])]}/></Field>}
       {targetRun&&initial?.base_snapshot_id&&inputs.order_feed==='complete_snapshot'&&<Field title={uiText('Order file contains')}><Pick label={uiText('Order file contains')} disabled={blocked} value={orderMode} onChange={value=>{setOrderMode(value);setChecked(false);setReview(null);}} options={[["replace",uiText('Full order book')],["changes",uiText('Only changed order lines')]]}/></Field>}
@@ -102,6 +102,6 @@ export function ForecastOrders({api,ui,dataset,snapshotId,onReady,canEdit=true,o
     <Disclosure title={uiText('Order coverage')}><Grid><Field title={uiText('Orders correct as of')}><input disabled={blocked} type="date" value={inputs.as_of} onChange={e=>change('as_of',e.target.value)}/></Field><Field title={uiText('Review again after')}><input disabled={blocked} type="date" value={inputs.valid_until} onChange={e=>change('valid_until',e.target.value)}/></Field></Grid></Disclosure>
     <Field title={uiText('Order coverage')}><Pick disabled={blocked} label={uiText('Order coverage')} value={inputs.order_feed} onChange={v=>change('order_feed',v)} options={[["unknown",uiText('Orders not provided or incomplete')],["complete_snapshot",uiText(orderCoverageTitle(inputs.orders,imports.orders))]]}/></Field>
     <label className="ui-check"><input type="checkbox" checked={checked} disabled={blocked} onChange={e=>setChecked(e.target.checked)}/>{uiText('I checked the customers, products, order quantities and coverage.')}</label>
-    <Actions><Button kind="primary" disabled={blocked||editingOrder||!checked||(!targetRun&&!!snapshotId)} onClick={check}>{uiText(busy?'Checking…':targetRun?'Review demand':snapshotId?'Inputs ready':'Continue')}</Button></Actions>
+    <Actions><Button kind="primary" disabled={blocked||editingCommitment||editingOrder||!checked||(!targetRun&&!!snapshotId)} onClick={check}>{uiText(busy?'Checking…':targetRun?'Review demand':snapshotId?'Inputs ready':'Continue')}</Button></Actions>
   </Stack>;
 }

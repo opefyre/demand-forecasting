@@ -80,10 +80,32 @@ Browser checks cover new-customer warnings, incomplete order coverage, explicit
 continuation, model selection, calculation, result navigation, unknown totals and
 disabled final export. English/Farsi warning screens retain the shared design.
 
+### Inline monthly commitments
+
+- New forecasts and order updates now share one inline commitment editor. Add,
+  edit or remove a full monthly total for any customer/product, including new
+  customers without history. No commitment file is required.
+- Month choices use the actual forecast periods, including Persian boundaries.
+  Quantities keep full precision; owner, reason, expiry and duplicate checks are
+  required before applying. Manual edits clear obsolete commitment import evidence.
+- Applied commitments survive Back. Pending edits block continuation and dialog
+  dismissal in both the new forecast and shared order-update dialog.
+- Preview rejects expired commitments and totals below confirmed orders plus
+  deliveries before model fitting. A monthly total replaces the estimate; it is
+  never added on top of orders.
+- Existing global disclosure, grid, fields, table, actions and fixed modal are
+  reused. No new styles or inline styles. Authored controls/errors are translated.
+
+Verification: 351 frontend checks, 30 order/full-workflow/sales-consumption backend
+checks, production build. All pass. A real company/API/engine regression covers
+three Persian periods, a new Tehran customer, partial cancellation/fulfilment,
+15.123456 monthly demand, 7 open orders, 2 already fulfilled and 13.123456 exported
+future demand. Browser checks cover blank validation, applied input persistence,
+calculation/results, Farsi editing and a 390px mobile viewport. Input precision is
+retained; the commitment form is outside the horizontally scrolling table.
+
 Next: finish assistant-to-wizard exception handoffs and the broader bilingual
-navigation/error audit. Add an inline first-forecast commitment entry for customers
-with no history (the engine/API already support reviewed complete commitments, but
-the new wizard currently only exposes their import in existing-forecast updates).
+navigation/error audit.
 Do not claim the full assistant/mobile exception matrix or whole-app acceptance
 from these narrower checks.
 

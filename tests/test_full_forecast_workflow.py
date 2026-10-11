@@ -9,6 +9,39 @@ from tests import test_platform_sales as fixtures
 
 
 class FullForecastWorkflowTests(unittest.TestCase):
+    def test_persian_new_customer_commitments_and_orders_are_not_added_twice(self):
+        f=fixtures.PublicSalesTests();f.setUp()
+        try:
+            _,dataset,_=f.history(calendar='jalali')
+            snapshot=f.orders(dataset)
+            inputs=snapshot['inputs']
+            inputs['customers'].append(dict(customer='New Tehran Buyer',sku='001',unit='tonnes',series_id=''))
+            inputs['orders'].append(dict(reference='New-1',customer='New Tehran Buyer',sku='001',unit='tonnes',
+                due_date=str(f.today),ordered=12,fulfilled=2,cancelled=3,status='confirmed'))
+            path='/datasets/'+dataset['id']+'/orders'
+            payload={'inputs':inputs,'request_id':str(uuid.uuid4())}
+            preview=f.post(path+'/preview',payload)
+            self.assertEqual(preview['missing_history'],[{'customer':'New Tehran Buyer','sku':'001'}])
+            inputs['commitments']=[dict(customer='New Tehran Buyer',sku='001',unit='tonnes',period=period,
+                quantity='15.123456',owner='Planner',reason='Customer confirmed full monthly requirement',
+                valid_until=inputs['valid_until']) for period in preview['periods']]
+            preview=f.post(path+'/preview',payload)
+            self.assertEqual(preview['missing_history'],[])
+            self.assertTrue(any(not period.endswith('-01') for period in preview['periods']))
+            saved=f.post(path+'/snapshots',{**payload,'review_token':preview['review_token']},201)
+            group,_=f.calculate(dataset,saved,['model:Last observed'])
+            key=group['jobs'][0]['run_id']
+            outlook=f.get('/runs/'+key+'/demand')
+            rows=[row for row in outlook['rows'] if row['customer']=='New Tehran Buyer']
+            self.assertTrue(outlook['can_export']);self.assertEqual(len(rows),3)
+            self.assertTrue(all(row['total']==15.123456 for row in rows))
+            self.assertEqual((rows[0]['booked'],rows[0]['fulfilled']),(7,2))
+            self.assertAlmostEqual(rows[0]['remaining'],6.123456)
+            exported=f.client.get('/api/v1/runs/'+key+'/export',params={'customer':'New Tehran Buyer','kind':'json','mode':'combined_demand'})
+            self.assertEqual(exported.status_code,200,exported.text)
+            self.assertEqual(exported.json()[0]['quantity'],13.123456)
+        finally:f.tearDown()
+
     def test_short_and_intermittent_history_keep_customer_order_math_and_grouped_results(self):
         for periods,method in [(7,'model:Last observed'),(36,'model:Croston')]:
             with self.subTest(periods=periods,method=method):

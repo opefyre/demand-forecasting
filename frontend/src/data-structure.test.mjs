@@ -193,7 +193,7 @@ test('order edits are explicit and cannot be skipped while preparing the forecas
   const wizard=await readFile(new URL('forecast-orders.jsx',import.meta.url),'utf8');
   assert.match(orders,/orders\[index\]=editing.row/);
   assert.match(orders,/onEditingChange\?\.\(!!editing\)/);
-  assert.match(wizard,/disabled=\{blocked\|\|editingOrder\|\|!checked/);
+  assert.match(wizard,/disabled=\{blocked\|\|editingCommitment\|\|editingOrder\|\|!checked/);
   assert.match(wizard,/<OrderReview/);assert.doesNotMatch(wizard,/<OrderRows/);
 });
 test('collection/search/record appearance has one CSS owner and no obsolete tab overrides',async()=>{
