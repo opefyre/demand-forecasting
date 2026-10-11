@@ -71,7 +71,7 @@ class AssistantFactorBatch:
             payloads.append({'payload':payload,'review_token':report['review_token']});summaries.append(summary)
         report={'groups':summaries,'unchanged_series_ids':sorted(set(self.run['series'])-{'__all__'}-seen),
             'months':options['forecast_periods'],'orders_changed':False,
-            'policy':'Each group is calculated separately. Others keep the baseline. Review current orders afterwards. No combined accuracy or range claim.'}
+            'policy':'Groups keep their reviewed methods; other products keep the baseline. Review current orders before calculation. No combined accuracy or range claim.'}
         token=digest({'report':report,'inputs':payloads,'run':self.run})
         return payloads,report,token
 

@@ -111,6 +111,7 @@ export function AssistantWorkspace({
     : dataset?.name || uiText("No sales data selected");
   const keyFor = (s) => chatKey(run?.run_id, s, datasetId);
   const generation = useRef(0);
+  const actionInFlight = useRef(false);
   const previousRun = useRef(currentRun?.run_id);
   useEffect(() => {
     if (previousRun.current !== currentRun?.run_id) {
@@ -426,6 +427,8 @@ export function AssistantWorkspace({
     }
   }
   async function execute(turn, index, confirmation = {}) {
+    if (actionInFlight.current) return;
+    actionInFlight.current = true;
     const key = turn.id + index;
     setActionBusy(key);
     setError("");
@@ -436,7 +439,16 @@ export function AssistantWorkspace({
         confirmation,
       );
       if (current !== generation.current) return;
-      if (result.workflow === "new_forecast") {
+      if (result.workflow === "prepared_factors") {
+        setTurns((v) => v.map((t) => t.id === turn.id
+          ? { ...t, results: { ...t.results, [index]: result } } : t));
+        const [source, baseline] = await Promise.all([
+          api('/api/datasets/' + result.dataset_id),
+          api('/api/runs/' + result.base_run_id),
+        ]);
+        if (current !== generation.current) return;
+        onPreparedForecast?.(source, baseline);
+      } else if (result.workflow === "new_forecast") {
         setTurns((v) =>
           v.map((t) =>
             t.id === turn.id
@@ -505,6 +517,7 @@ export function AssistantWorkspace({
     } catch (e) {
       if (current === generation.current) setError(e.message);
     } finally {
+      actionInFlight.current = false;
       if (current === generation.current) setActionBusy("");
     }
   }
@@ -1064,6 +1077,7 @@ export function AssistantMessages({
                   key={index}
                   {...props}
                   basis={basis}
+                  onResume={() => execute(turn, index, { assumptions_confirmed: true })}
                   onConfirm={() =>
                     execute(turn, index, { assumptions_confirmed: true })
                   }
@@ -1079,6 +1093,7 @@ export function AssistantMessages({
                   turnId={turn.id}
                   index={index}
                   onOpen={openBatchResult}
+                  onResume={() => execute(turn, index, { batch_confirmed: true })}
                   onConfirm={() =>
                     execute(turn, index, { batch_confirmed: true })
                   }

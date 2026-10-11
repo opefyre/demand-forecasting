@@ -138,11 +138,12 @@ class GuidedFactorTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(saved.json()['orders_copied'])
         draft=self.f.store.get(saved.json()['dataset_id'])
         self.assertEqual(draft['scenario_provenance']['alignment']['series_ids'],['A'])
-        self.assertEqual(self.submit.call_args.args[0]['method'],None) # Saved scenario owns its method.
-        self.assertEqual(self.submit.call_args.args[0]['base_run_id'],'base')
-        count=len(self.f.store.list());request=self.submit.call_args.args[2]
+        self.assertEqual(saved.json()['workflow'],'prepared_factors')
+        self.assertEqual(saved.json()['base_run_id'],'base')
+        self.assertNotIn('job',saved.json())
+        count=len(self.f.store.list())
         self.assertEqual(self.client.post(route,json={'assumptions_confirmed':True}).json(),saved.json())
-        self.assertEqual(self.submit.call_args.args[2],request);self.assertEqual(len(self.f.store.list()),count)
+        self.submit.assert_not_called();self.assertEqual(len(self.f.store.list()),count)
         self.assertEqual(self.f.store.get(parent['id']),parent)
 
     async def test_changed_inputs_and_corrupt_retained_factor_block_confirmation(self):
@@ -182,7 +183,8 @@ class GuidedFactorTests(unittest.IsolatedAsyncioTestCase):
             with client_for(self.journal,lambda _:base,None,self.f.store,self.submit,self.f.factors) as client:
                 confirmed=client.post(f'/api/ai/turns/{key}/actions/0',json={'assumptions_confirmed':True})
             self.assertEqual(confirmed.status_code,200,confirmed.text)
-            result=real_client.post('/api/run-saved',json=self.submit.call_args.args[0])
+            self.submit.assert_not_called()
+            result=real_client.post('/api/run-saved',json={'dataset_id':confirmed.json()['dataset_id'],'base_run_id':base['run_id']})
             self.assertEqual(result.status_code,200,result.text)
             candidate=result.json()
             self.assertEqual(candidate['base_run_id'],base['run_id'])

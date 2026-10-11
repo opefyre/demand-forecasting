@@ -53,4 +53,13 @@ test('manual and assisted factor editor handoffs review orders before dispatchin
   const editors=assistant.slice(assistant.indexOf('preparing?.workflow === "factor_batch_review"'),assistant.indexOf('className="ui-chat-workspace"'));
   assert.equal((editors.match(/onSaved=\{saved=>onPreparedForecast\(saved,run\)\}/g)||[]).length,2);
   assert.doesNotMatch(editors,/runDataset\(/);
+  assert.match(assistant,/result.workflow === "prepared_factors"/);
+  assert.match(assistant,/onPreparedForecast\?\.\(source, baseline\)/);
+});
+test('closing unchanged input reviews does not enter save state or refresh cloud data',async()=>{
+  const root=await readFile(new URL('main.jsx',import.meta.url),'utf8');
+  const finish=root.slice(root.indexOf('  async function finish(run)'),root.indexOf('  const mapped ='));
+  assert.ok(finish.indexOf('if (unchanged && !run)')<finish.indexOf('setPending("save")'));
+  assert.match(finish,/return onCancel \? onCancel\(\) : onSaved\(initial\)/);
+  assert.match(finish,/if \(run && onRun\) await onRun\(d.id\)/);
 });

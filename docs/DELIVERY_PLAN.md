@@ -669,6 +669,18 @@ after the core release, only if they improve this single forecasting purpose.
 
 ## Current position and preservation
 
+11 October complete AI factor proposals: confirmations now save reviewed inputs
+and enter the shared customer/order wizard instead of calculating directly.
+Resume, explicit order coverage, exact groups/methods, company gates and legacy
+receipt compatibility pass backend/interface and bilingual mobile checks. The
+private engine/edge are updated; cloud input projections reuse preparation only
+within the exact immutable company checkpoint. Unchanged saved-data reviews close
+without a false save state or global refresh. See ASSISTED_FACTOR_REVIEW_DELIVERY.md
+for measured processing/read improvements and limits. Next: controlled cold/warm
+full forecast timing, legacy advanced calculation/revision paths, and complete
+bilingual design/workflow acceptance. Cloud AI eligibility and client accuracy
+remain separate gates; no whole-app acceptance claim.
+
 11 October factor/order consolidation: manual batch and assistant factor review
 editors now enter the shared fixed forecast wizard before any calculation.
 Recorded scope/methods/assumptions and current customers/orders stay together;

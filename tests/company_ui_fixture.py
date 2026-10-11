@@ -125,6 +125,22 @@ def run(*,notifications=False,factors=False,complete_factors=False):
         return FileResponse(root/'app/static/client/index.html')
 
     async def reply(payload,forecast,outlook,**kwargs):
+        if complete_factors and forecast and payload.question in {'Prepare factor scenario', 'Prepare factor batch'}:
+            from app.ai_factor_batch import AssistantFactorBatch
+            workspace=fixture.ws
+            adapter=AssistantFactorBatch(forecast,workspace.datasets,workspace.factors,workspace.live_sources,workspace.profiles)
+            options=adapter.choices()
+            snapshot=next(row for row in options['snapshots'] if row['ready'])
+            links=[{'snapshot_id':snapshot['id'],'lag_months':1,'future_value':75.0}]
+            method=options['methods'][0]
+            if payload.question=='Prepare factor batch':
+                groups=[{'series_ids':[key],'method':method,'links':links}
+                        for key in sorted(set(forecast['series'])-{'__all__'})[:2]]
+                action=adapter.proposal(groups)
+            else:
+                action=adapter.scenarios.proposal(links,method)
+            return dict(answer='Review these factor assumptions before continuing.',actions=[action],run_id=forecast['run_id'],
+                dataset_id=payload.dataset_id,snapshot_id=payload.snapshot_id,role='decision',model='mock',usage={},provider='mock')
         if factors and forecast and payload.question=='Review customer factors':
             from app.ai_factor_batch import AssistantFactorBatch
             workspace=fixture.ws

@@ -47,6 +47,14 @@ async def invoke(api, who, method, path, body=b'', content_type='application/jso
 
 
 async def projection(api, workspace, company):
+    from .forecast_inputs import projection_input_reads
+    # The private engine owns this immutable scratch checkpoint. GET routes do
+    # not change input contents; release the cache before any other operation.
+    with projection_input_reads(workspace.datasets):
+        return await _projection(api, workspace, company)
+
+
+async def _projection(api, workspace, company):
     # Private projection creation is NOT login or privilege escalation. It has
     # read-only resource scopes. Consumers must independently check each route's
     # live key/session scopes. Unpublished results require drafts:read throughout.

@@ -1428,6 +1428,10 @@ function ImportFlow({ initial, onCancel, onSaved, onRun, draftStorageKey, choose
     setStep(step + 1);
   }
   async function finish(run) {
+    if (unchanged && !run) {
+      localState.removeItem(draftKey);
+      return onCancel ? onCancel() : onSaved(initial);
+    }
     setPending("save");
     setError("");
     let inputsSaved = false;

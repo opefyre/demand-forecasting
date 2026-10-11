@@ -64,7 +64,7 @@ const preview={scope:'1 selected customer–SKU series; others keep their baseli
 
 test('factor card requires explicit review and labels assumptions and what-if limits',()=>{
   const html=renderToStaticMarkup(React.createElement(Factor,{action:{preview},ui,canEdit:true,basis:'jalali'}));
-  assert.match(html,/Confirm &amp; calculate/);assert.match(html,/<button disabled=""/);
+  assert.match(html,/Continue/);assert.match(html,/<button disabled=""/);
   assert.match(html,/type="checkbox"/);assert.match(html,/What-if comparison only/);
   assert.match(html,/Your assumption/);assert.match(html,/1405-01/);
   assert.match(html,/others keep their baseline/);
@@ -74,6 +74,18 @@ test('queued factor result never claims orders copied or an approved forecast',(
   assert.match(html,/Comparison queued/);assert.match(html,/Orders have not been copied/);
   assert.doesNotMatch(html,/type="checkbox"|Confirm &amp; calculate/);
 });
+test('prepared factor receipts resume the shared review, never pretend to calculate',()=>{
+  for(const component of [Factor,Batch]){
+    const action={preview:component===Factor?preview:batchPreview};
+    const props={action,result:{workflow:'prepared_factors',dataset_id:'saved'},ui,canEdit:true};
+    const html=renderToStaticMarkup(React.createElement(component,props));
+    assert.match(html,/Review customers &amp; orders/);
+    assert.doesNotMatch(html,/type="checkbox"|Confirm &amp; calculate|Waiting to calculate|Forecast ready|style=/);
+    for(const restricted of [{canEdit:false},{expired:true},{busy:true}]){
+      assert.match(renderToStaticMarkup(React.createElement(component,{...props,...restricted})),/<button disabled=""/);
+    }
+  }
+});
 test('expired factor proposal cannot execute',()=>{
   const html=renderToStaticMarkup(React.createElement(Factor,{action:{preview},expired:true,ui,canEdit:true}));
   assert.match(html,/expired/);assert.doesNotMatch(html,/Confirm &amp; calculate/);
@@ -82,7 +94,7 @@ test('long factor explanations remain available but collapsed instead of duplica
   const html=renderToStaticMarkup(React.createElement(Messages,{turns:[{id:'t',question:'Compare',
     answer:'Detailed reasoning. '.repeat(30),actions:[{kind:'factor_scenario',preview}]}],ui,canEdit:true}));
   assert.match(html,/<details class="help-details"><summary>Why this scenario\?/);
-  assert.match(html,/Detailed reasoning/);assert.match(html,/Compare this factor scenario/);
+  assert.match(html,/Detailed reasoning/);assert.match(html,/Review forecast factors/);
 });
 test('order-import card opens review instead of pretending to save or export',()=>{
   const html=renderToStaticMarkup(React.createElement(Messages,{turns:[{id:'t',question:'Add current orders',
@@ -103,13 +115,13 @@ const batchPreview={groups:[{...preview,scope:[{id:'A',customer:'Customer A',sku
 test('batch proposal shows exact scope and dated assumptions, with approval required',()=>{
   const html=renderToStaticMarkup(React.createElement(Batch,{action:{preview:batchPreview},ui,canEdit:true,basis:'jalali'}));
   assert.match(html,/Customer A/);assert.match(html,/SKU 1/);assert.match(html,/1405-01/);
-  assert.match(html,/Your assumption/);assert.match(html,/1 other products keep their baseline/);
+  assert.match(html,/Your assumption/);assert.match(html,/Keep baseline instead/);
   assert.match(html,/type="checkbox"/);assert.match(html,/<button disabled=""/);
-  assert.match(html,/Confirm &amp; calculate/);assert.match(html,/What-if only/);
+  assert.match(html,/Continue/);assert.match(html,/What-if only/);
 });
 test('expired batch cannot calculate and queued batch does not claim completion',()=>{
   const render=extra=>renderToStaticMarkup(React.createElement(Batch,{action:{preview:batchPreview},ui,canEdit:true,...extra}));
-  assert.doesNotMatch(render({expired:true}),/Confirm &amp; calculate|type="checkbox"/);
+  assert.doesNotMatch(render({expired:true}),/Continue|type="checkbox"/);
   assert.match(render({result:{job:{id:'job'}}}),/Waiting to calculate/);
   assert.doesNotMatch(render({result:{job:{id:'job'}}}),/Forecast ready|Confirm &amp; calculate/);
 });

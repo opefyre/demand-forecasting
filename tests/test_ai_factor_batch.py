@@ -107,7 +107,8 @@ class AIBatchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(saved['scenario_provenance']['type'],'factor_batch');self.assertTrue(saved['scenario_provenance']['require_connected_sources'])
         self.assertEqual([g['series_ids'] for g in saved['scenario_provenance']['alignment']['groups']],[['A'],['B']])
         count=len(self.f.store.list());self.assertEqual(self.client.post(path,json={'batch_confirmed':True}).json(),result)
-        self.assertEqual(len(self.f.store.list()),count);self.submit.assert_called_once();self.assertEqual(self.f.store.get(parent['id']),parent)
+        self.assertEqual(result['workflow'],'prepared_factors');self.assertNotIn('job',result)
+        self.assertEqual(len(self.f.store.list()),count);self.submit.assert_not_called();self.assertEqual(self.f.store.get(parent['id']),parent)
         self.state['refresh_overdue']=True
         with self.assertRaises(ValueError):check_saved_batch(self.f.base,saved,self.f.store,self.f.factors,self.live)
 
@@ -125,6 +126,9 @@ class AIBatchTests(unittest.IsolatedAsyncioTestCase):
     async def test_progress_is_owner_bound_exact_result_no_private_job_fields(self):
         key,path=self.record(self.adapter.proposal(self.groups))
         response=self.client.post(path,json={'batch_confirmed':True}).json();dataset=response['dataset_id']
+        self.assertEqual(self.client.get(path+'/progress').status_code,400)
+        # Existing queued receipts remain readable, but new confirmations do not dispatch.
+        self.journal.record_result(key,self.actor,0,{**response,'job':{'id':'legacy-job'}})
         self.job.return_value={'state':'running','payload':{'dataset_id':dataset,'base_run_id':'base'},'owner':'PRIVATE','run_id':None}
         progress=self.client.get(path+'/progress');self.assertEqual(progress.status_code,200,progress.text)
         self.assertEqual(progress.json(),{'state':'running','run_id':None,'orders_copied':False})
@@ -157,7 +161,8 @@ class AIBatchTests(unittest.IsolatedAsyncioTestCase):
             key=self.journal.put(self.actor,{'run_id':base['run_id'],'actions':[action]})
             confirmed=self.client.post(f'/api/ai/turns/{key}/actions/0',json={'batch_confirmed':True})
             self.assertEqual(confirmed.status_code,200,confirmed.text)
-            result=real_client.post('/api/run-saved',json=self.submit.call_args.args[0])
+            self.submit.assert_not_called()
+            result=real_client.post('/api/run-saved',json={'dataset_id':confirmed.json()['dataset_id'],'base_run_id':base['run_id']})
             self.assertEqual(result.status_code,200,result.text)
             candidate=result.json()
             self.assertEqual(candidate['base_run_id'],base['run_id'])

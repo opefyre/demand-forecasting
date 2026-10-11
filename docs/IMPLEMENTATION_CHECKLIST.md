@@ -1,5 +1,18 @@
 # DemandLab — implementation and acceptance checklist
 
+## 11 October — complete AI factor proposals and cloud processing
+
+- [x] Complete single/batch AI proposals enter the shared order-reviewed wizard;
+  original scopes/methods retained, no direct calculation or silent order copy.
+- [x] Repeat-safe confirmation, resume, legacy receipts, stale-source/company gates,
+  global components and English/Persian mobile browser checks.
+- [x] Projection-scoped input reuse, exact read/permission equivalence and private
+  engine/interface deployment; unchanged review no longer pretends to save.
+- [x] 57 backend, 327 interface and 57 cloud controller tests/build pass. See
+  ASSISTED_FACTOR_REVIEW_DELIVERY.md for measurements and provider boundaries.
+- [ ] Controlled cold/warm full-job cloud timing, legacy advanced calculation
+  paths and full bilingual product/design acceptance remain open.
+
 ## 11 October — factor inputs and orders in one reviewed flow
 
 - [x] Manual batch/factor draft and assistant preparation/review editors enter
@@ -10,8 +23,10 @@
   correct result/revision navigation; English desktop and Persian 390px checks.
 - [x] 44 focused backend, 87 additional regression and 325 frontend tests/build pass; see
   UNIFIED_FACTOR_ORDER_REVIEW.md for evidence and boundaries.
-- [ ] Remaining complete AI-proposal confirmations and legacy advanced factor
-  execution paths; private cloud rollout/latency and full bilingual acceptance.
+- [x] Complete AI-proposal confirmations and private rollout; see
+  ASSISTED_FACTOR_REVIEW_DELIVERY.md.
+- [ ] Legacy advanced execution paths, controlled cloud latency and full bilingual
+  acceptance remain open.
 
 ## 10 October — shared order/proposal review
 

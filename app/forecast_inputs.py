@@ -4,6 +4,8 @@ Reuse the scenario alignment contract without inventing a calculated baseline.
 The context contains dates and identities only, never predictions or scores.
 """
 from copy import deepcopy
+from contextlib import contextmanager
+from contextvars import ContextVar
 
 from .data import actual_history, read_table, prepare_history, build_future_covariates
 from .sales_conventions import normalize_history
@@ -11,8 +13,39 @@ from .sales_groups import series_column, customer_product_future
 from .forecast_engine import _engine_versions
 from .factor_links import choices, preview_link, save_link
 
+_projection_context = ContextVar('forecast_read_projection', default=None)
+
+
+@contextmanager
+def projection_input_reads(store):
+    """Reuse validated input context only within one immutable cloud checkpoint.
+
+    Never use for write operations or across requests. Each projection has its
+    own store identity and cache; readiness and approval proofs stay uncached.
+    """
+    token = _projection_context.set((store, {}))
+    try:
+        yield
+    finally:
+        _projection_context.reset(token)
+
 
 def input_context(store, identifier, *, reviewed_scenario=False):
+    scoped = _projection_context.get()
+    if scoped is None or scoped[0] is not store:
+        return _input_context(store, identifier, reviewed_scenario=reviewed_scenario)
+    dataset = store.get(identifier)
+    proof = dataset.get('scenario_provenance')
+    if proof and not (reviewed_scenario and proof.get('type') in {'factor_link', 'factor_batch'}):
+        # The permission/shape gate is checked even on a cache hit.
+        return _input_context(store, identifier, reviewed_scenario=reviewed_scenario)
+    key = (identifier, reviewed_scenario if proof else False)
+    if key not in scoped[1]:
+        scoped[1][key] = _input_context(store, identifier, reviewed_scenario=reviewed_scenario)
+    return deepcopy(scoped[1][key])
+
+
+def _input_context(store, identifier, *, reviewed_scenario=False):
     dataset = store.get(identifier)
     proof=dataset.get('scenario_provenance')
     if (proof and not (reviewed_scenario and proof.get('type') in {'factor_link','factor_batch'})) or set(dataset['sources']) - {'history', 'future'}:

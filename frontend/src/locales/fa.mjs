@@ -6,6 +6,9 @@ import {faPlatform} from './fa-platform.mjs';
 import {faConnections} from './fa-connections.mjs';
 import {faNotifications} from './fa-notifications.mjs';
 export const fa={
+  'Review customers & orders':'بررسی مشتریان و سفارش‌ها',
+  'All customer–SKU series in this forecast':'همهٔ مشتریان و محصولات این پیش‌بینی',
+  'Global reference':'مرجع جهانی',
   'Item options':'گزینه‌های مورد',
   'Item options for {{name}}':'گزینه‌های {{name}}',
   'Archive / restore':'بایگانی / بازیابی',
