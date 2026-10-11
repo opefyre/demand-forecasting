@@ -2,11 +2,48 @@
 import csv
 import unittest
 import uuid
+import math
+from io import BytesIO
 import pandas as pd
 from tests import test_platform_sales as fixtures
 
 
 class FullForecastWorkflowTests(unittest.TestCase):
+    def test_short_and_intermittent_history_keep_customer_order_math_and_grouped_results(self):
+        for periods,method in [(7,'model:Last observed'),(36,'model:Croston')]:
+            with self.subTest(periods=periods,method=method):
+                f=fixtures.PublicSalesTests();f.setUp()
+                try:
+                    _,base,body=f.history()
+                    frame=pd.read_csv(BytesIO(f.ws.datasets.source(base['sources']['history'])[1]),dtype={'sku':str})
+                    frame=frame.groupby(['customer','sku'],group_keys=False).tail(periods).copy()
+                    if periods==36:
+                        frame.loc[pd.to_datetime(frame.date).dt.month.mod(3).ne(0),'quantity']=0
+                    source=f.ws.datasets.upload('exception-sales.csv',frame.to_csv(index=False).encode(),'history')
+                    body={**body,'name':'Short history' if periods==7 else 'Intermittent history',
+                        'sources':{'history':source['id']},'parent_dataset_id':base['id'],'request_id':str(uuid.uuid4())}
+                    dataset=f.post('/datasets',body,201)
+                    snapshot=f.orders(dataset)
+                    inputs=snapshot['inputs']
+                    inputs['orders'] += [dict(reference='cancelled',customer='Pars',sku='002',unit='tonnes',
+                        due_date=str(f.today),ordered=9,fulfilled=0,cancelled=9,status='cancelled'),
+                        dict(reference='not-confirmed',customer='Negin',sku='002',unit='tonnes',
+                        due_date=str(f.today),ordered=99,fulfilled=0,cancelled=0,status='unconfirmed')]
+                    path='/datasets/'+dataset['id']+'/orders'
+                    payload={'inputs':inputs,'request_id':str(uuid.uuid4())}
+                    review=f.post(path+'/preview',payload)
+                    snapshot=f.post(path+'/snapshots',{**payload,'review_token':review['review_token']},201)
+                    group,_=f.calculate(dataset,snapshot,[method])
+                    outlook=f.get('/runs/'+group['jobs'][0]['run_id']+'/demand')
+                    self.assertEqual(len(outlook['rows']),12)
+                    self.assertEqual(sum(r['booked'] for r in outlook['rows']),20)
+                    self.assertEqual(sum(r['fulfilled'] for r in outlook['rows']),2)
+                    self.assertTrue(all(math.isfinite(r['total']) and r['total']>=0 for r in outlook['rows']))
+                    self.assertTrue(all(r['booked']==0 for r in outlook['rows'] if r['customer'] in {'Pars','Negin'}))
+                    for row in outlook['rows']:
+                        self.assertAlmostEqual(row['total'],row['fulfilled']+row['booked']+row['remaining'])
+                finally:f.tearDown()
+
     def test_factors_current_order_book_two_methods_and_exports(self):
         f=fixtures.PublicSalesTests();f.setUp()
         try:

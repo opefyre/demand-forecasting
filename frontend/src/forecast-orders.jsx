@@ -6,7 +6,7 @@ import {OrderReview} from './order-books.jsx';
 import {methodName} from './method-comparison.jsx';
 import {orderCoverageTitle,forecastOrderDraft} from './forecast-start.mjs';
 import {planningBasis,planningMonth} from './planning-calendar.mjs';
-import {reviewedOrderRequest} from './order-update-state.mjs';
+import {reviewedOrderRequest,checkForecastOrderReview,saveForecastOrderReview} from './order-update-state.mjs';
 import {coverageStatus} from './demand-view.mjs';
 import {OrderChanges} from './order-changes.jsx';
 
@@ -46,23 +46,35 @@ export function ForecastOrders({api,ui,dataset,snapshotId,onReady,canEdit=true,o
   const fileBusy=useCallback((role,value)=>setReading(r=>({...r,[role]:value})),[]);
   function change(field,value){setInputs(i=>({...i,[field]:value,reviewed:false}));setChecked(false);setReuse('');setReview(null);onReady(null);setError(null);}
   async function useSaved(id){if(!id||busy||!canEdit||Object.values(reading).some(Boolean))return;setBusy(true);setError(null);
-    try{const saved=await api('/api/sales/inputs/'+id);setInputs({...saved.inputs,run_id:loaded.context.run_id,reviewed:false});setImports({});setReuse(id);setChecked(false);onReady(null);}catch(e){setError(e);}finally{setBusy(false);}}
+    try{const saved=await api('/api/sales/inputs/'+id);setInputs({...saved.inputs,run_id:loaded.context.run_id,reviewed:false});setImports({});setReuse(id);setChecked(false);setReview(null);onReady(null);}catch(e){setError(e);}finally{setBusy(false);}}
   async function addCustomer(){if(!customerName.trim())return;setBusy(true);setError(null);
     try{const p=inputs.customers.find(c=>c.sku===product);if(!p)throw Error(uiText('Choose a product'));
+      if(inputs.customers.some(c=>c.customer===customerName.trim()&&c.sku===p.sku))throw Error(uiText('This customer already has this product.'));
       await api('/api/customers',{customers:[{customer:customerName.trim(),products:[{sku:p.sku,unit:p.unit}],active:true}]});
       change('customers',[...inputs.customers,{customer:customerName.trim(),sku:p.sku,unit:p.unit,series_id:''}]);setCustomerName('');setAdding(false);
     }catch(e){setError(e);}finally{setBusy(false);}}
   async function check(){if(submitting.current||!canEdit)return;submitting.current=true;setBusy(true);setError(null);
     if(targetRun){try{setReview(await api('/api/sales/validate',reviewedOrderRequest(initial,inputs,imports,attempt,orderMode)));setPage(0);}catch(e){setError(e);}finally{submitting.current=false;setBusy(false);}return;}
     const payload={inputs:{...inputs,reviewed:true,note:'Customers and order coverage reviewed in the forecast wizard.'},imports,reuse_snapshot_id:reuse||undefined,request_id:attempt};
-    try{const review=await api(path+'/preview',payload);const {as_of,valid_until,order_feed,orders}=review.inputs;
-      const book=await api('/api/order-books/'+dataset.id,{version:loaded.version,as_of,valid_until,order_feed,orders},'PUT');setLoaded(v=>({...v,version:book.version}));
-      const saved=await api(path,{...payload,review_token:review.review_token});onReady(saved.id);}catch(e){setError(e);}finally{submitting.current=false;setBusy(false);}}
+    try{const result=await checkForecastOrderReview(api,path,dataset.id,loaded.version,payload,version=>setLoaded(v=>({...v,version})));
+      if(result.review){setReview(result);return;}
+      setLoaded(v=>({...v,version:result.version}));onReady(result.saved.id);
+    }catch(e){setError(e);}finally{submitting.current=false;setBusy(false);}}
+  async function continueWithWarnings(){if(submitting.current||!canEdit||!review)return;submitting.current=true;setBusy(true);setError(null);
+    try{const result=await saveForecastOrderReview(api,path,dataset.id,loaded.version,review.payload,review.review,version=>setLoaded(v=>({...v,version})));
+      setLoaded(v=>({...v,version:result.version}));onReady(result.saved.id);
+    }catch(e){setError(e);}finally{submitting.current=false;setBusy(false);}}
   async function saveReview(){if(submitting.current||!canEdit||!review)return;submitting.current=true;setBusy(true);setError(null);
     try{const saved=await api('/api/sales/inputs',{...reviewedOrderRequest(initial,inputs,imports,attempt,orderMode),review_token:review.review_token});await onReady(saved.id);}catch(e){setError(e);}finally{submitting.current=false;setBusy(false);}}
   if(!inputs||!schema)return <Stack><ErrorBox error={error}/>{!error&&<p role="status">{uiText('Loading…')}</p>}</Stack>;
   const blocked=busy||!canEdit||Object.values(reading).some(Boolean);
   const amount=value=>value==null?uiText('Unknown'):new Intl.NumberFormat(i18n.language,{maximumFractionDigits:2}).format(value);
+  if(!targetRun&&review)return <Stack><ErrorBox error={error}/>
+    <Disclosure open title={uiText('Checks to review')}><ul>{review.review.warnings.map((warning,index)=><li key={index}>{uiText(warning)}</li>)}</ul>
+      {!!review.review.missing_history?.length&&<Table headers={[uiText('Customer'),uiText('SKU')]}>{review.review.missing_history.map((row,index)=><tr key={index}><td>{row.customer}</td><td>{row.sku}</td></tr>)}</Table>}
+    </Disclosure>
+    <Actions><Button disabled={busy} onClick={()=>setReview(null)}>{uiText('Edit inputs')}</Button><Button kind="primary" disabled={blocked} onClick={continueWithWarnings}>{uiText(busy?'Saving…':'Continue after review')}</Button></Actions>
+  </Stack>;
   if(targetRun&&review)return <Stack><ErrorBox error={error}/>
     <OrderChanges changes={review.order_changes} ui={ui}/>
     <OrderDemandReceipt review={review} ui={ui} basis={planningBasis(targetRun)} page={page}/>

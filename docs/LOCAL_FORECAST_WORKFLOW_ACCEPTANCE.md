@@ -55,11 +55,37 @@ All pass. Live refresh/auth/cloud deployment are not tested in this slice.
 
 ## Remaining code work
 
-Next: exercise the full exception matrix through the assistant and shared wizard:
-short/intermittent sales, new customers/products without history, cancelled/partial
-or incomplete orders, stale factors and missing future assumptions. Resolve any
-remaining blockers with the same global components, then review bilingual error
-wording and keyboard/mobile behavior for those exception paths.
+### Exception-path follow-up
+
+- Fixed a silent warning bypass: new forecasts now stop on input warnings before
+  saving the order book or reviewed snapshot. Users can edit the same modal or
+  explicitly continue. The normal, warning-free path adds no extra screen.
+- New customer/product pairs without history or full monthly commitments are
+  identified before calculation. Known orders remain available; missing additional
+  demand stays unknown, never zero. Complete reviewed commitments can supply the
+  missing monthly totals; no customer forecast is invented.
+- Duplicate customer/product additions are rejected before changing the directory.
+- If saving the reviewed snapshot fails after saving the order book, the editor
+  keeps the new book version so a retry does not conflict with its own save.
+- Review uses existing shared disclosures/tables/actions, with authored Farsi
+  translations. No CSS or inline style changes.
+
+Verification: 346 frontend checks; 26 order/workflow/consumption backend checks;
+16 public-platform/full-workflow checks; 16 factor-link checks; production build.
+Synthetic seven-month history and 36-month intermittent sales exercise real model
+calculations. Cancelled and unconfirmed orders do not inflate confirmed demand;
+partial fulfilment/cancellation preserves the outstanding balance. Existing factor
+checks reject missing/unpublished observations and missing future assumptions.
+Browser checks cover new-customer warnings, incomplete order coverage, explicit
+continuation, model selection, calculation, result navigation, unknown totals and
+disabled final export. English/Farsi warning screens retain the shared design.
+
+Next: finish assistant-to-wizard exception handoffs and the broader bilingual
+navigation/error audit. Add an inline first-forecast commitment entry for customers
+with no history (the engine/API already support reviewed complete commitments, but
+the new wizard currently only exposes their import in existing-forecast updates).
+Do not claim the full assistant/mobile exception matrix or whole-app acceptance
+from these narrower checks.
 
 Daily/weekly combined order planning remains unsupported and is now explicit.
 Real-client forecast accuracy still requires actual history and future actuals;

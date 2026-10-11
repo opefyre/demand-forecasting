@@ -76,6 +76,21 @@ def prepare(datasets, sales, identifier, payload, load_run, *, site=None):
     if inputs['valid_until'] < str(run_today(value)):
         raise ValueError('Orders have expired. Refresh and review before calculating.')
     from .sales_demand import month, month_basis
+    missing_history = []
+    commitment_periods = {}
+    today = str(run_today(value))
+    for commitment in inputs['commitments']:
+        if commitment['valid_until'] >= today:
+            key = (commitment['customer'], commitment['sku'], commitment['unit'])
+            commitment_periods.setdefault(key, set()).add(commitment['period'])
+    for customer in inputs['customers']:
+        if customer['series_id']:
+            continue
+        covered = commitment_periods.get((customer['customer'], customer['sku'], customer['unit']), set())
+        if set(periods) - covered:
+            missing_history.append({'customer': customer['customer'], 'sku': customer['sku']})
+    if missing_history:
+        warnings.append('Some customers have no sales history or complete monthly commitments. Their known orders are kept, but additional demand is unknown and final exports will be blocked.')
     for order in inputs['orders']:
         if order['status'] == 'confirmed' and Decimal(order['ordered']) > Decimal(order['fulfilled']) + Decimal(order['cancelled']):
             if month(order['due_date'], month_basis(value)) not in periods:
@@ -85,7 +100,7 @@ def prepare(datasets, sales, identifier, payload, load_run, *, site=None):
                      'context_sha256': run_hash(value)})
     report = {'customer_count': len({c['customer'] for c in inputs['customers']}),
               'relationship_count': len(inputs['customers']), 'order_count': len(inputs['orders']),
-              'periods': periods, 'warnings': warnings, 'inputs': inputs}
+              'periods': periods, 'warnings': warnings, 'missing_history': missing_history, 'inputs': inputs}
     report['review_token'] = run_hash({'inputs': inputs, 'evidence': evidence})
     return report, inputs, value, evidence
 

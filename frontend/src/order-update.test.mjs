@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {createServer} from 'vite';
-import {reviewedOrderRequest} from './order-update-state.mjs';
+import {reviewedOrderRequest,checkForecastOrderReview,saveForecastOrderReview} from './order-update-state.mjs';
 let server,Receipt,OrderTable,OrderChanges,language;
 before(async()=>{
  server=await createServer({server:{middlewareMode:true,hmr:false,watch:null},appType:'custom'});
@@ -15,6 +15,24 @@ before(async()=>{
 });
 after(async()=>{await language?.changeLanguage('en');await server?.close();});
 const ui={Table:({headers,children})=>React.createElement('table',null,React.createElement('thead',null,React.createElement('tr',null,headers.map((label,index)=>React.createElement('th',{key:index},label)))),React.createElement('tbody',null,children))};
+test('new forecast warnings stop before writes; explicit continuation saves the exact reviewed inputs',async()=>{
+ const calls=[],payload={inputs:{orders:[]},request_id:'same-attempt'};
+ const review={inputs:{orders:[],as_of:'2026-10-11',valid_until:'2026-11-11',order_feed:'unknown'},warnings:['Orders are missing or incomplete. Final demand totals and exports will be blocked.'],review_token:'token'};
+ const api=async(path,body,method)=>{calls.push({path,body,method});return path.endsWith('/preview')?review:path.startsWith('/api/order-books/')?{version:8}:{id:'snapshot'};};
+ const pending=await checkForecastOrderReview(api,'/orders','dataset',7,payload);
+ assert.deepEqual(calls.map(c=>c.path),['/orders/preview']);assert.equal(pending.review,review);
+ let version;
+ const saved=await saveForecastOrderReview(api,'/orders','dataset',7,pending.payload,pending.review,v=>version=v);
+ assert.equal(saved.saved.id,'snapshot');assert.equal(version,8);
+ assert.deepEqual(calls[1].body,{version:7,...review.inputs});assert.equal(calls[1].method,'PUT');
+ assert.deepEqual(calls[2].body,{...payload,review_token:'token'});
+});
+test('a failed snapshot save keeps the new order-book version for a safe retry',async()=>{
+ let version;
+ const api=async(path)=>{if(path.startsWith('/api/order-books/'))return {version:4};throw Error('Snapshot unavailable');};
+ await assert.rejects(saveForecastOrderReview(api,'/orders','dataset',3,{}, {inputs:{},review_token:'token'},v=>version=v),/Snapshot unavailable/);
+ assert.equal(version,4);
+});
 test('review request preserves complete inputs, original revision, connected-source guard and import evidence',()=>{
  const inputs={run_id:'runA',customers:[{customer:'Mehr',sku:'001',unit:'tonnes'}],orders:[{reference:'ORD-01',ordered:30,fulfilled:2,cancelled:1}],commitments:[{quantity:40}],as_of:'2026-10-10',valid_until:'2026-11-10',order_feed:'complete_snapshot',reviewed:false};
  const initial={base_snapshot_id:'v1',order_refresh_source:{id:'source',sha:'evidence'}},imports={orders:{source_id:'file',mapping:{ordered:'QTY'}}};

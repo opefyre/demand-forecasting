@@ -97,10 +97,35 @@ class UnifiedForecastTests(unittest.TestCase):
         self.body['request_id']='unified-new-customer'
         self.body['inputs']['order_feed']='complete_snapshot'
         self.body['inputs']['customers'].append(dict(customer='New',sku='001',unit='tonnes',series_id=''))
-        _,saved = self.stage()
+        report,saved = self.stage()
+        self.assertEqual(report['missing_history'],[{'customer':'New','sku':'001'}])
+        self.assertTrue(any('no sales history' in warning for warning in report['warnings']))
         result = self.post('/api/run-saved',{'dataset_id':self.dataset['id'],'sales_input_id':saved['id']})
         outlook = demand_outlook(self.orders.get(result['sales_input_snapshot_id'])['inputs'],result)
         self.assertTrue(all(r['total'] is None for r in outlook['rows'] if r['customer']=='New'))
+
+    def test_new_customer_orders_are_retained_and_complete_commitments_can_fill_missing_history(self):
+        self.setup_inputs()
+        self.body['inputs']['customers'].append(dict(customer='New',sku='001',unit='tonnes',series_id=''))
+        self.body['inputs']['orders'].append(dict(reference='New/1',customer='New',sku='001',unit='tonnes',
+            due_date=str(self.today),ordered=12,fulfilled=2,cancelled=3,status='confirmed'))
+        report,saved=self.stage()
+        self.assertEqual(report['missing_history'],[{'customer':'New','sku':'001'}])
+        result=self.post('/api/run-saved',{'dataset_id':self.dataset['id'],'sales_input_id':saved['id'],'method':'model:Last observed'})
+        outlook=demand_outlook(self.orders.get(result['sales_input_snapshot_id'])['inputs'],result)
+        first=next(r for r in outlook['rows'] if r['customer']=='New' and r['period']==str(self.today.replace(day=1)))
+        self.assertEqual((first['booked'],first['fulfilled']),(7,2))
+        self.assertIsNone(first['remaining']);self.assertIsNone(first['total']);self.assertFalse(outlook['can_export'])
+        self.body['request_id']='new-customer-complete-commitments'
+        self.body['inputs']['commitments']=[dict(customer='New',sku='001',unit='tonnes',period=period,
+            quantity=15,owner='Planner',reason='Customer confirmed full monthly requirement.',
+            valid_until=str(self.today+timedelta(days=7))) for period in report['periods']]
+        report,saved=self.stage()
+        self.assertEqual(report['missing_history'],[])
+        result=self.post('/api/run-saved',{'dataset_id':self.dataset['id'],'sales_input_id':saved['id'],'method':'model:Last observed'})
+        outlook=demand_outlook(self.orders.get(result['sales_input_snapshot_id'])['inputs'],result)
+        self.assertTrue(outlook['can_export'])
+        self.assertTrue(all(r['total']==15 for r in outlook['rows'] if r['customer']=='New'))
 
     def test_directory_and_order_book_are_reused_and_versioned(self):
         from app.order_books import BookRequest
