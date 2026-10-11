@@ -599,7 +599,7 @@ export function AssistantWorkspace({
           },
         ]
       : []),
-    ...(navigate
+    ...(canEdit && navigate
       ? [
           {
             id: "inputs",
@@ -610,6 +610,10 @@ export function AssistantWorkspace({
               navigate("data");
             },
           },
+        ]
+      : []),
+    ...(navigate
+      ? [
           {
             id: "forecasts",
             label: uiText("View forecasts"),

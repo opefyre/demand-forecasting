@@ -92,6 +92,18 @@ test('connection reviews refresh mapping after a worksheet/header change and sco
   assert.match(source,/\/api\/v1\/sources\//);assert.match(source,/\/api\/v1\/connections\/imports\//);
   assert.doesNotMatch(source,/style=|\/api\/customers|\/api\/orders/);
 });
+test('connection recovery reads only, and pending review inputs cannot be changed or dismissed',async()=>{
+  const list=await readFile(new URL('business-connections.jsx',import.meta.url),'utf8');
+  const reload=list.match(/async function reload\(\)\{(.+?)\}\n/)[1];
+  assert.match(reload,/await refresh\(\)/);assert.doesNotMatch(reload,/act\(|api\(|fetch|save\(/);
+  assert.match(list,/onReload=\{reload\} busy=\{!!busy\}/);
+  assert.match(list,/loaded&&!visible.length/);
+  assert.equal([...list.matchAll(/<Modal[^>]+dismissible=\{!busy\}/g)].length,3);
+  const source=await readFile(new URL('connection-review.jsx',import.meta.url),'utf8');
+  assert.match(source,/<Modal[^>]+dismissible=\{!busy\}/);
+  for(const control of source.matchAll(/<(input|Pick)\b[^>]*>/g))assert.match(control[0],/disabled=\{busy\}/);
+  for(const action of ['preview','updateTable','save'])assert.match(source,new RegExp('async function '+action+'\\(\\)\\{if\\(busy\\)return'));
+});
 test('all five Data tabs render one shared toolbar/controls/actions/body structure',()=>{
   for(const Component of[SalesFiles,Customers,OrderBooks,LiveSources,FolderInputs,InputConnections]){
     const html=renderToStaticMarkup(React.createElement(Component,common));

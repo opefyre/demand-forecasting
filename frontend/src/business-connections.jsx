@@ -15,13 +15,14 @@ const providerName={http:'HTTPS',sftp:'SFTP',sheets:'Google Sheets',odoo18:'Odoo
 export function InputConnections({api,ui,datasets,canAdmin,canEdit,onReview,onViewRole}){
   const {Button,Field,Pick,Table,Modal,ErrorBox}=ui;
   const [rows,setRows]=useState([]),[search,setSearch]=useState(''),[archived,setArchived]=useState(false);
-  const [editing,setEditing]=useState(null),[busy,setBusy]=useState(''),[error,setError]=useState(null),[loading,setLoading]=useState(true);
+  const [editing,setEditing]=useState(null),[busy,setBusy]=useState(''),[error,setError]=useState(null),[loading,setLoading]=useState(true),[loaded,setLoaded]=useState(false);
   const [reviewing,setReviewing]=useState(null),[schedule,setSchedule]=useState(null);
   const [details,setDetails]=useState(null);
   const detail=rows.find(row=>row.id===details);
-  const refresh=()=>api(ROOT+'?include_archived=true').then(r=>setRows(r.connections));
+  const refresh=()=>api(ROOT+'?include_archived=true').then(r=>{setRows(r.connections);setLoaded(true);});
+  async function reload(){if(busy)return;setBusy('reload');try{await refresh();setError(null);}catch(e){setError(e);}finally{setBusy('');}}
   useEffect(()=>{let active=true;refresh().catch(e=>active&&setError(e)).finally(()=>active&&setLoading(false));return()=>{active=false;};},[api]);
-  async function act(key,fn){setBusy(key);setError(null);try{await fn();await refresh();}catch(e){setError(e);await refresh().catch(()=>{});}finally{setBusy('');}}
+  async function act(key,fn){if(busy)return;setBusy(key);setError(null);try{await fn();await refresh();}catch(e){setError(e);await refresh().catch(()=>{});}finally{setBusy('');}}
   async function save(event){event.preventDefault();await act('save',async()=>{
     const {id,version,credential,...config}=editing;
     await api(id?ROOT+'/'+id:ROOT,{...config,port:Number(config.port),template_dataset_id:config.template_dataset_id||null,
@@ -35,9 +36,9 @@ export function InputConnections({api,ui,datasets,canAdmin,canEdit,onReview,onVi
   const date=value=>new Date(value*1000).toLocaleString(i18n.language==='fa'?'fa-IR':'en-GB');
   return <>
     <Collection label={uiText('Sales data connections')} controls={<><SearchControl label={uiText('Search connections')} value={search} onChange={setSearch}/><label className="ui-check"><input type="checkbox" checked={archived} onChange={e=>setArchived(e.target.checked)}/>{uiText('Show archived')}</label></>}
-      actions={canAdmin&&<Button kind="primary" disabled={!!busy} onClick={()=>{setError(null);setEditing(empty());}}><Plus/>{uiText('Add connection')}</Button>}>
-      {!editing&&!schedule&&<ErrorBox error={error}/>}
-      <Table headers={[uiText('Name'),uiText('Source'),uiText('Status'),'']} empty={loading?uiText('Loading connections…'):!visible.length&&uiText('No matching connections.')}>
+      actions={canAdmin&&<Button kind="primary" disabled={!!busy||loading||!loaded} onClick={()=>{setError(null);setEditing(empty());}}><Plus/>{uiText('Add connection')}</Button>}>
+      {!editing&&!schedule&&<ErrorBox error={error} onReload={reload} busy={!!busy}/>}
+      <Table headers={[uiText('Name'),uiText('Source'),uiText('Status'),'']} empty={loading?uiText('Loading connections…'):loaded&&!visible.length&&uiText('No matching connections.')}>
         {visible.map(row=>{const latest=row.pulls[0];return <ConnectionRecord key={row.id} name={row.name} icon={CloudArrowDown} provider={providerName[row.provider]}
           category={uiText(roleName[row.role])} tone={row.archived?undefined:latest?.state==='failed'?'warning':latest?.state==='ready'?'success':undefined}
           status={uiText(row.archived?'Archived':latest?.state==='failed'?'Fetch failed':latest?.accepted_dataset_id||latest?.accepted_resource?'Inputs ready':latest?.message||'Not checked yet')} meta={latest&&date(latest.started)}
@@ -49,7 +50,7 @@ export function InputConnections({api,ui,datasets,canAdmin,canEdit,onReview,onVi
           </>}/>;})}
       </Table>
     </Collection>
-    <Modal title={detail?.name||uiText('Details')} open={!!detail} onClose={()=>!busy&&setDetails(null)} fixed>
+    <Modal title={detail?.name||uiText('Details')} open={!!detail} dismissible={!busy} onClose={()=>!busy&&setDetails(null)} fixed>
       {detail&&<Stack>
         <Field title={uiText('Export filename')}><span>{detail.filename}</span></Field>
         {detail.schedule&&<Field title={uiText('Refresh schedule')}><span>{uiText(detail.schedule.enabled?'Scheduled':'Paused')} · {uiText(detail.schedule.last_status)}</span>
@@ -64,7 +65,7 @@ export function InputConnections({api,ui,datasets,canAdmin,canEdit,onReview,onVi
         </Table>
       </Stack>}
     </Modal>
-    <Modal title={uiText(editing?.id?'Edit connection':'Add connection')} open={!!editing} onClose={()=>!busy&&setEditing(null)} fixed>
+    <Modal title={uiText(editing?.id?'Edit connection':'Add connection')} open={!!editing} dismissible={!busy} onClose={()=>!busy&&setEditing(null)} fixed>
       {editing&&<form className="ui-stack" onSubmit={save}><ErrorBox error={error}/>
         <Field title={uiText('Connection name')}><input required maxLength={120} value={editing.name} onChange={e=>change('name',e.target.value)}/></Field>
         <Grid><Field title={uiText('Source')}><Pick label={uiText('Source')} disabled={!!editing.id} value={editing.provider} onChange={provider=>setEditing(form=>({...empty(),name:form.name,role:provider.startsWith('odoo')?'sales_customers':form.role,provider,filename:provider.startsWith('odoo')?'sales.json':'sales.csv',template_dataset_id:form.template_dataset_id}))} options={Object.entries(providerName)}/></Field>
@@ -92,7 +93,7 @@ export function InputConnections({api,ui,datasets,canAdmin,canEdit,onReview,onVi
       </form>}
     </Modal>
     {reviewing&&<ConnectionRowReview candidate={reviewing} api={api} ui={ui} onClose={()=>setReviewing(null)} onSaved={refresh}/>}
-    <Modal title={uiText('Refresh schedule')} open={!!schedule} onClose={()=>!busy&&setSchedule(null)} fixed>
+    <Modal title={uiText('Refresh schedule')} open={!!schedule} dismissible={!busy} onClose={()=>!busy&&setSchedule(null)} fixed>
       {schedule&&<form className="ui-stack" onSubmit={e=>{e.preventDefault();act('schedule',async()=>{await api(ROOT+'/'+schedule.row.id+'/schedule',{
         version:schedule.row.schedule?.version||0,connection_version:schedule.row.version,minutes:schedule.minutes,enabled:schedule.enabled,confirmed:schedule.confirmed},'PUT');setSchedule(null);});}}><ErrorBox error={error}/>
         <Field title={uiText('Fetch every')}><Pick label={uiText('Fetch every')} value={String(schedule.minutes)} onChange={v=>setSchedule(s=>({...s,minutes:Number(v)}))} options={[["60",uiText('Hour')],["360",uiText('6 hours')],["1440",uiText('Day')]]}/></Field>

@@ -1,5 +1,18 @@
 # DemandLab — implementation and acceptance checklist
 
+## 11 October — bilingual management and connected-input acceptance
+
+- [x] Shared saved-data recovery for notifications/connections; failed reads do
+  not appear empty or allow premature creation in management screens.
+- [x] Pending modal and connected-input mapping guards, translated language option,
+  report-only Home quick actions aligned with available routes.
+- [x] Four-customer/order imports, explicit dates/statuses, chat rename/archive/
+  restore, two-company isolation and recovery without resend checked in browser.
+- [x] Actual 390px Persian notification dialog and keyboard focus/close checked;
+  335 interface, 46 focused backend, 64 cloud tests and build pass.
+- [ ] Full bilingual correction/revision/approval/export and wider mobile journey;
+  see BILINGUAL_MANAGEMENT_ACCEPTANCE.md. Whole app is not accepted.
+
 ## 11 October — cold startup and legacy scenarios
 
 - [x] Company-safe future edits/no-factor comparisons enter the shared order

@@ -5,12 +5,13 @@ import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {createServer} from 'vite';
 import postcss from 'postcss';
-let server,Page,ChatHistory,ChatSurface,useMenuHandoff;
+let server,Page,ChatHistory,ChatSurface,useMenuHandoff,AssistantWorkspace;
 before(async()=>{
  server=await createServer({server:{middlewareMode:true,hmr:false,watch:null},appType:'custom'});
  ({Page,useMenuHandoff}=await server.ssrLoadModule('/src/ui-layout.jsx'));
  ({ChatHistory}=await server.ssrLoadModule('/src/ui-chat-history.jsx'));
  ({ChatSurface}=await server.ssrLoadModule('/src/ui-chat.jsx'));
+ ({AssistantWorkspace}=await server.ssrLoadModule('/src/assistant-workspace.jsx'));
 });
 after(async()=>{await server?.close();});
 test('shared pages always order title/actions, controls, then content',()=>{
@@ -56,6 +57,14 @@ test('quick actions are only on the welcome screen and the composer stays single
  const active=renderToStaticMarkup(React.createElement(ChatSurface,{...props,active:true}));
  assert.doesNotMatch(active,/Quick actions|Import sales/);
  assert.equal((active.match(/<textarea/g)||[]).length,1);
+});
+test('read-only assistant entry never links to an unavailable Data page',()=>{
+ const ui={Button:({children})=>React.createElement('button',null,children),ErrorBox:()=>null,Modal:()=>null,Field:()=>null};
+ const props={api:async()=>({}),ui,home:true,navigate:()=>{},renderImport:()=>null};
+ const viewer=renderToStaticMarkup(React.createElement(AssistantWorkspace,{...props,canEdit:false}));
+ assert.match(viewer,/View forecasts/);assert.doesNotMatch(viewer,/Customers &amp; orders|Import sales/);
+ const planner=renderToStaticMarkup(React.createElement(AssistantWorkspace,{...props,canEdit:true}));
+ assert.match(planner,/Customers &amp; orders/);assert.match(planner,/Import sales/);
 });
 test('menu actions wait for focus restoration before opening a dialog',async()=>{
  let handoff;const order=[];

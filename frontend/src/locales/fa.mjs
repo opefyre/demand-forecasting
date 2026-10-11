@@ -6,6 +6,7 @@ import {faPlatform} from './fa-platform.mjs';
 import {faConnections} from './fa-connections.mjs';
 import {faNotifications} from './fa-notifications.mjs';
 export const fa={
+  'English':'انگلیسی',
   'Add forecast factors':'افزودن عوامل پیش‌بینی',
   'monthly':'ماهانه','daily':'روزانه','weekly':'هفتگی','annual':'سالانه','quotes':'قیمت‌های ثبت‌شده',
   'Annual':'سالانه',

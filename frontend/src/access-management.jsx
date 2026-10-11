@@ -130,7 +130,7 @@ export function PeopleSettings({ api, ui, access }) {
           empty={
             loading
               ? t("Loading…")
-              : data.members.length
+              : !loaded || data.members.length
                 ? null
                 : t("No people yet.")
           }
@@ -370,7 +370,7 @@ export function ApiAccessSettings({ api, ui, canAdmin, date, access }) {
         <Table
           headers={[t("Name"), t("Access"), t("Expires"), t("Status"), ""]}
           empty={
-            loading ? t("Loading…") : keys.length ? null : t("No API keys yet.")
+            loading ? t("Loading…") : !policy || keys.length ? null : t("No API keys yet.")
           }
         >
           {keys.map((row) => (

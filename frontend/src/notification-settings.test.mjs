@@ -39,3 +39,19 @@ test('authored notification labels, events and receipt states have Persian trans
   for(const match of source.matchAll(/\bt\((["'])([^"']+)\1/g))assert.ok(fa[match[2]],match[2]);
   for(const label of [...Object.values(notificationEvents),...Object.values(deliveryStates)])assert.ok(fa[label],label);
 });
+test('notification recovery reads saved state and prevents dismissal while a write is pending',async()=>{
+  const source=await readFile(new URL('notification-settings.jsx',import.meta.url),'utf8');
+  const reload=source.match(/async function reload\(\)\{(.+?)\}\n/)[1];
+  assert.match(reload,/if\(busy\)return/);
+  assert.match(reload,/await refresh\(\)/);
+  assert.match(reload,/setError\(null\)/);
+  assert.doesNotMatch(reload,/sendAction|notificationPayload|api\(/);
+  assert.equal([...source.matchAll(/onReload=\{reload\} busy=\{busy\}/g)].length,2);
+  assert.equal([...source.matchAll(/<Modal[^>]+dismissible=\{!busy\}/g)].length,3);
+  assert.match(source,/\["en",t\("English"\)\]/);
+  assert.equal(fa.English,'انگلیسی');
+  assert.match(source,/loaded&&!visible.length/);
+  assert.match(source,/loaded&&!history.deliveries.length/);
+  assert.match(source,/controls=\{loaded&&/);
+  assert.match(source,/disabled=\{busy\|\|loading\|\|!loaded\}/);
+});

@@ -114,6 +114,27 @@ def run(*,notifications=False,factors=False,complete_factors=False):
             execute_company_job(fixture.workspaces.for_principal({'company_id':company}),key)
     fixture.dispatched=InlineDispatch()
     app=fixture.app
+    # Seed requests built the test app's stack; rebuild for the fixture-only hook.
+    app.middleware_stack=None
+    # A bounded read failure for visible recovery tests; no mutation interception.
+    read_failures={}
+    @app.post('/fixture/fail-read')
+    def fail_read(body:dict):
+        path=body.get('path')
+        if path not in {'/api/v1/members','/api/v1/api-keys','/api/v1/connections/inputs',
+                        '/api/v1/notifications/destinations','/api/v1/notifications/deliveries'}:
+            raise HTTPException(400,'Only acceptance-test read routes are allowed.')
+        read_failures[path]=1
+        return {'ok':True}
+
+    @app.middleware('http')
+    async def fail_saved_read(request:Request,call_next):
+        if request.method=='GET' and read_failures.get(request.url.path,0):
+            from fastapi.responses import JSONResponse
+            read_failures[request.url.path]-=1
+            return JSONResponse({'detail':'Saved data is temporarily unavailable.'},status_code=503)
+        return await call_next(request)
+
     @app.get('/api/auth/session')
     def session(request:Request):
         who=request.state.principal

@@ -73,6 +73,11 @@ test('sign-in uses the shared entry surface and action-menu contract',async()=>{
   const source=await readFile(new URL('access-management.jsx',import.meta.url),'utf8');
   assert.match(source,/<ActionMenu name=/);assert.doesNotMatch(source,/select-menu|select-option|Dropdown\.Content/);
 });
+test('failed management reads do not claim the company has no people or API keys',async()=>{
+  const source=await readFile(new URL('access-management.jsx',import.meta.url),'utf8');
+  assert.match(source,/!loaded \|\| data.members.length/);
+  assert.match(source,/!policy \|\| keys.length/);
+});
 test('failed sign-in chunk has a shared bilingual recovery instead of a blank screen',async()=>{
   const {AccessRecovery,AccessBoundary}=await server.ssrLoadModule('/src/access.jsx');
   const {EntrySurface}=await server.ssrLoadModule('/src/ui-layout.jsx');

@@ -669,6 +669,17 @@ after the core release, only if they improve this single forecasting purpose.
 
 ## Current position and preservation
 
+11 October bilingual management/import/chat: safe read recovery and honest failed-
+load states now cover notifications, sales connections, people and API keys.
+Pending dialogs and import mapping are guarded; report-only Home no longer offers
+an unavailable Data shortcut. Four-customer/order imports, Persian chat lifecycle,
+actual 390px notification dialog and keyboard recovery pass on disposable company
+data. Shared components only; 335 interface, 46 focused backend and 64 cloud tests
+plus build pass. See BILINGUAL_MANAGEMENT_ACCEPTANCE.md for scope and limitations.
+Next: bilingual history correction through revised grouped forecast, independent
+approval and filtered export, including error/reload and narrow-screen paths.
+Live AI, client accuracy and whole-product acceptance remain open.
+
 11 October cold startup/legacy scenarios: future assumption edits and no-factor
 comparisons now use company-safe reviewed inputs and the common order wizard,
 reachable through the existing Forecast menu. Browser acceptance caught and
