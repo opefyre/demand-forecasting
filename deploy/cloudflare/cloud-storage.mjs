@@ -3,6 +3,7 @@ import { companyRoute, savedResponse, sameReportDay } from './company-api.mjs';
 import {managementRoute,managementResponse} from './management-api.mjs';
 import { validateRecovery } from './recovery-ledger.mjs';
 import {persistBackup} from './backup-retention.mjs';
+import {reviewedReadLifetime,reusableRead} from './reviewed-read.mjs';
 
 const FORECAST_DEADLINE_MS = 12 * 60 * 1000;
 const ID = /^[a-f0-9]{32}$/;
@@ -53,7 +54,7 @@ export class ForecastCloud extends DurableObject {
     this.sql.exec(`CREATE TABLE IF NOT EXISTS schedules(company TEXT NOT NULL,id TEXT NOT NULL,subject TEXT NOT NULL,due INTEGER NOT NULL,
       path TEXT NOT NULL,body TEXT NOT NULL,paused INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(company,id));
       CREATE INDEX IF NOT EXISTS cloud_schedule_due ON schedules(paused,due);`);
-    for(const [table,name,type] of [['companies','view_key','TEXT'],['jobs','kind',"TEXT NOT NULL DEFAULT 'forecast'"],['jobs','api_status','INTEGER']])
+    for(const [table,name,type] of [['companies','view_key','TEXT'],['jobs','kind',"TEXT NOT NULL DEFAULT 'forecast'"],['jobs','api_status','INTEGER'],['jobs','completed_at','INTEGER']])
       if(!this.rows('PRAGMA table_info('+table+')').some(row=>row.name===name))this.sql.exec('ALTER TABLE '+table+' ADD COLUMN '+name+' '+type);
   }
   rows(sql, ...values) { return this.sql.exec(sql, ...values).toArray(); }
@@ -99,6 +100,18 @@ export class ForecastCloud extends DurableObject {
     });
   }
   async checkpoint(company) { return this.head(company); }
+  async reviewedRead(who,path) {
+    if(!COMPANY.test(who.company_id) || who.issuer!=='https://forecast.vrolen.com' || who.mfa_required ||
+      !reviewedReadLifetime(path,who))return null;
+    const revision=this.head(who.company_id)?.revision || '',cutoff=now()-reviewedReadLifetime(path,who);
+    const rows=this.rows("SELECT * FROM jobs WHERE company=? AND kind='api' AND state='succeeded' AND api_status=200 AND input_revision=? AND completed_at>? AND json_extract(payload,'$.method')='GET' AND json_extract(payload,'$.path')=? ORDER BY completed_at DESC LIMIT 50",
+      who.company_id,revision,cutoff,path);
+    for(const row of rows) {
+      const response_key=reusableRead(row,path,who,revision);
+      if(response_key)return {response_key,revision};
+    }
+    return null;
+  }
   // Read-only operator RPC on the private native object. Not forwarded through
   // ForecastStorage, the app gateway or any HTTP endpoint. Cloudflare operators
   // may bind a separate rehearsal Worker; it cannot replace the live ledger.
@@ -310,7 +323,7 @@ export class ForecastCloud extends DurableObject {
         }
         if(payload.method==='GET' && result.api_status<300 && result.artifacts['company-view.json'])
           this.sql.exec('UPDATE companies SET view_key=? WHERE company=? AND revision=?',result.artifacts['company-view.json'],row.company,row.input_revision);
-        this.sql.exec("UPDATE jobs SET state='succeeded',run_id=?,artifacts=?,api_status=?,message=NULL WHERE id=?",result.run_id,JSON.stringify(result.artifacts),result.api_status || null,row.id);
+        this.sql.exec("UPDATE jobs SET state='succeeded',run_id=?,artifacts=?,api_status=?,completed_at=?,message=NULL WHERE id=?",result.run_id,JSON.stringify(result.artifacts),result.api_status || null,now(),row.id);
       });
     } catch (error) {
       this.sql.exec("UPDATE jobs SET state='failed',message=? WHERE id=? AND attempt=? AND state='running'",
@@ -354,6 +367,15 @@ export class ForecastStorage extends WorkerEntrypoint {
       if(!entry.scopes.every(scope=>who.permissions.includes(scope)))throw new CloudStorageError(403,'Your role does not allow this action');
       if(entry.interactive&&who.auth_kind!=='session'||entry.admin&&who.role!=='admin')throw new CloudStorageError(403,'Interactive administrator access required');
       const head=await this.ledger().checkpoint(who.company_id);
+      if(entry.method==='GET'&&reviewedReadLifetime(path+url.search,who)) {
+        const saved=await this.ledger().reviewedRead(who,path+url.search);
+        if(saved && saved.revision===(head?.revision || '')) {
+          const object=await this.env.FILES.get(saved.response_key);
+          if(object && object.size<=12*1024*1024)return new Response(object.body,{headers:{
+            'Content-Type':'application/json','Cache-Control':'no-store','X-Company-Revision':saved.revision,
+            'X-Company-Read':'saved','X-Content-Type-Options':'nosniff'}});
+        }
+      }
       if(entry.method==='GET'&&!entry.queued) {
         if(!head && entry.collection)return Response.json({[entry.collection]:[],total:0,offset:0,limit:100},{headers:{'Cache-Control':'no-store','X-Company-Revision':''}});
         if(!head?.view_key&&!entry.fresh)throw new CloudStorageError(409,'No saved cloud read view is available yet');

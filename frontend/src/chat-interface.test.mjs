@@ -15,6 +15,7 @@ const {ChatSurface,ChatMessage,CHAT_EXAMPLES,composerShouldSend}=await compiler.
 const locale=await compiler.ssrLoadModule('/src/localization.mjs');
 const {AppSidebar,readSidebarPreference,saveSidebarPreference}=await compiler.ssrLoadModule('/src/ui-sidebar.jsx');
 const {ChatHistory}=await compiler.ssrLoadModule('/src/ui-chat-history.jsx');
+const {RequestFailure}=await compiler.ssrLoadModule('/src/request-errors.mjs');
 const {mascotRhythm}=await compiler.ssrLoadModule('/src/assistant-mascot.jsx');
 const {MotionPresence}=await compiler.ssrLoadModule('/src/ui-motion.jsx');
 const base={value:'',onChange:()=>{},onSend:()=>{},sourceName:'Synthetic history',onNewChat:()=>{}};
@@ -195,6 +196,22 @@ test('chat history empty, loading and failure states do not invent conversations
   for(const [props,label]of[[{},'No chats yet'],[{loading:true},'Loading chats…'],[{error:true},'Could not load chats.']]){
     const html=renderToStaticMarkup(React.createElement(ChatHistory,{chats:[],...props}));assert.ok(html.includes(label));assert.doesNotMatch(html,/ui-chat-history-item/);
   }
+});
+test('history failures retain evidence and use shared read-only recovery in both languages',async()=>{
+  const error=new RequestFailure('Company read unavailable',{status:503});error.operation='read';
+  for(const language of ['en','fa']){
+    await locale.changeInterfaceLanguage(language);
+    const html=renderToStaticMarkup(React.createElement(ChatHistory,{chats:[],error,onMore:()=>{}}));
+    assert.match(html,/role="alert" class="error-box request-recovery"/);
+    assert.match(html,/Company read unavailable/);
+    assert.match(html,/<details>/);assert.match(html,/request-reload/);
+    assert.doesNotMatch(html,/No chats yet|ui-chat-history-item/);
+    if(language==='fa')assert.doesNotMatch(html,/Reload saved data|The server could not complete/);
+  }
+  await locale.changeInterfaceLanguage('en');
+  const forbidden=new RequestFailure('Role does not allow chats',{status:403});
+  const html=renderToStaticMarkup(React.createElement(ChatHistory,{chats:[],error:forbidden,onMore:()=>{}}));
+  assert.match(html,/You cannot perform this action/);assert.doesNotMatch(html,/request-reload/);
 });
 test('history chrome translates but user-authored titles stay untouched',async()=>{
   await locale.changeInterfaceLanguage('fa');

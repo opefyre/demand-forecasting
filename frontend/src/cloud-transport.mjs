@@ -4,7 +4,7 @@ let context=null, generation=0;
 export function configureCloudTransport(access) {
   const user=access?.user;
   const next=access?.transport==='cloud'&&user?.company_id?JSON.stringify([user.issuer,user.company_id,user.subject,user.role,user.permissions]):null;
-  if(next!==context?.company){generation++;context=next?{company:next,revision:undefined}:null;}
+  if(next!==context?.company){generation++;context=next?{company:next,revision:undefined,revisionRead:null,revisionEpoch:0}:null;}
 }
 export const cloudTransportEnabled=()=>!!context;
 const defaultPause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -14,12 +14,24 @@ export async function cloudFetch(url,options,fetcher=fetch,{pause=defaultPause,n
   const active=()=>{if(context!==current||generation!==version)throw new Error('Company session changed');};
   const request=(target,init)=>fetcher(target,{...init,credentials:'same-origin',cache:'no-store'});
   if(current.revision===undefined){
-    const response=await request('/api/v1/cloud/revision',{method:'GET'});
-    active();if(!response.ok)return response;
-    const value=await response.json();
-    if(value.revision!==null&&!/^[a-f0-9]{32}$/.test(value.revision))throw new Error('Invalid company revision');
+    // Bootstrap screens share one head read, not one request per panel. This
+    // shares only a read; writes and saved-operation polling are never replayed.
+    const epoch=current.revisionEpoch;
+    const reading=current.revisionRead ||= request('/api/v1/cloud/revision',{method:'GET'}).then(async response=>{
+      if(!response.ok)return {response};
+      const value=await response.json();
+      if(value.revision!==null&&!/^[a-f0-9]{32}$/.test(value.revision))throw new Error('Invalid company revision');
+      return value;
+    });
+    let value;
+    try {value=await reading;active();}
+    finally {if(current.revisionRead===reading)current.revisionRead=null;}
+    if(value.response)return value.response.clone();
     // Parallel bootstrap reads may finish after a write. Never rewind its head.
-    if(current.revision===undefined)current.revision=value.revision;
+    if(current.revision===undefined){
+      if(epoch!==current.revisionEpoch)throw new Error('Company inputs changed. Reload saved data.');
+      current.revision=value.revision;
+    }
   }
   const id=crypto.randomUUID(),headers=new Headers(options?.headers);
   headers.set('X-Company-Request',id);headers.set('X-Company-Revision',current.revision || '');
@@ -40,9 +52,9 @@ export async function cloudFetch(url,options,fetcher=fetch,{pause=defaultPause,n
     if(revision!==''&&!/^[a-f0-9]{32}$/.test(revision))throw new Error('Invalid company revision');
     // Read projections can legitimately describe an older revision. Only a
     // completed write advances optimistic-write authority in this session.
-    if(!['GET','HEAD'].includes((options?.method || 'GET').toUpperCase()))current.revision=revision || null;
+    if(!['GET','HEAD'].includes((options?.method || 'GET').toUpperCase())){current.revisionEpoch++;current.revision=revision || null;}
   }
-  if(response.status===409)current.revision=undefined; // Next explicit action reloads; no write replay.
+  if(response.status===409){current.revisionEpoch++;current.revision=undefined;} // Next explicit action reloads; no write replay.
   return response;
 }
 export function installCloudDownloads({onStart=()=>{},onError=()=>{},root=document}={}) {

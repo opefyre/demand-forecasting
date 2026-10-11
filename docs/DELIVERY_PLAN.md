@@ -669,6 +669,17 @@ after the core release, only if they improve this single forecasting purpose.
 
 ## Current position and preservation
 
+11 October private read follow-up: repeated cloud chat lists and short-lived
+factor choices can reuse completed responses bound to the same company, actor,
+permissions and input revision. Opening screens share one revision lookup; chat
+failures use the global recovery component. Live repeated list reads return
+direct 200 responses, and a fresh workspace reload succeeds. The first read during
+deployment failed and recovered on retry; its cause and cold-start latency are
+not closed. See CLOUD_SAVED_READS.md. Next: consolidate advanced factor
+scenario/batch review, remaining calculation/projection performance, and the
+complete bilingual design/workflow acceptance journey. No whole-app acceptance
+or client-accuracy claim.
+
 10 October unified order update: active manual and assistant order updates now
 reuse the forecast wizard's editor in the shared fixed dialog. Reviewed quantities,
 original revisions, company boundaries and read-only permissions are verified;

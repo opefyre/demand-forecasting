@@ -31,7 +31,7 @@ test('native company ledger: durable checkpoints, roles, deduplication, cancella
     if(data.op==='api' || data.op==='api_meta') {const body=JSON.stringify(data.body??null);const response=await env.STORAGE.companyApi(cred,
       new Request('http://private.test/api/v1'+data.path,{method:data.method||'GET',
         ...(data.method && data.method!=='GET'?{body,headers:{'content-type':'application/json','content-length':String(new TextEncoder().encode(body).length)}}:{})}),data.request_id,data.revision);
-      return data.op==='api_meta'?Response.json({status:response.status,revision:response.headers.get('x-company-revision'),body:await response.json()}):response;}
+      return data.op==='api_meta'?Response.json({status:response.status,revision:response.headers.get('x-company-revision'),read:response.headers.get('x-company-read'),body:await response.json()}):response;}
     if(data.op==='api_result')return env.STORAGE.companyApiResult(cred,data.id);
     // Test-only alarm trigger. No such RPC exists on production entrypoint.
     if(data.op==='drain') {await env.LEDGER.get(env.LEDGER.idFromName('forecast-cloud-v1')).drainForTest();return Response.json({done:true});}
@@ -44,7 +44,7 @@ test('native company ledger: durable checkpoints, roles, deduplication, cancella
       if(op==='schedules/authorize')return {status:200,body:{allowed:body.subject!=='revoked',role:'admin',permissions:['connections:manage','connections:sync','factors:write']}};
       const company=body.company_id,role=body.role;
       const scopes={admin:['settings:manage','forecasts:run','forecasts:write','reports:read','reports:export','drafts:read','customers:read','customers:write','connections:manage','connections:sync','factors:write'],
-        planner:['forecasts:run','forecasts:write','reports:read','reports:export','drafts:read','customers:read','customers:write'],approver:['drafts:read','reports:export'],viewer:['reports:read','reports:export']};
+        planner:['forecasts:run','forecasts:write','reports:read','reports:export','drafts:read','customers:read','customers:write','inputs:read','ai:query','chats:own','factors:read'],approver:['drafts:read','reports:export'],viewer:['reports:read','reports:export']};
       if(!['tehran_a','tehran_b','tehran_c'].includes(company)||!scopes[role])return{status:401,body:{}};
       return{status:200,body:{issuer:'https://forecast.vrolen.com',company_id:company,role,subject:body.subject||role,
         auth_kind:'session',session_id:'test-only',mfa_required:!!body.mfa_required,permissions:scopes[role]}};
@@ -62,6 +62,11 @@ test('native company ledger: durable checkpoints, roles, deduplication, cancella
         if(body.customer==='__synthetic_engine_failure__')throw new Error('Sensitive provider exception');
         const root='companies/'+job.company_id+'/outputs/'+job.job_id+'/'+job.attempt+'/';
         if(job.payload.method==='GET') {
+          if(job.payload.path.startsWith('/ai/conversations') || job.payload.path.endsWith('/factor-links') || job.payload.path.endsWith('/factor-profiles')) {
+            const response_key=root+'api-response.json';
+            await this.env.FILES.put(response_key,JSON.stringify({chats:[{title:'Private synthetic review',owner:job.payload.principal.subject}],next_offset:null}));
+            return{company_id:job.company_id,attempt:job.attempt,run_id:job.attempt,object_key:null,artifacts:{'api-response.json':response_key},api_status:200};
+          }
           if(!job.payload.path.includes('/export')) {
             const artifacts={'api-response.json':root+'api-response.json','company-view.json':root+'company-view.json'};
             await this.env.FILES.put(artifacts['api-response.json'],JSON.stringify({runs:[{run_id:'approved'}],total:1}));
@@ -213,6 +218,25 @@ test('native company ledger: durable checkpoints, roles, deduplication, cancella
     assert.equal((await call({op:'api',credentials:viewer,path:'/runs'})).runs[0].run_id,'approved');
     assert.equal(await call({op:'engine_count'}),refreshedCount,'Same-day reports remain saved reads');
     assert.equal((await call({op:'api_meta',credentials:fresh,path:'/customers'})).revision,reportHead.revision,'Read refresh does not mutate business data');
+    const privateRead={op:'api',credentials:fresh,path:'/ai/conversations',request_id:'first-private-history',revision:reportHead.revision};
+    const history=await call(privateRead);assert.equal(history.state,'queued');await call({op:'drain'});
+    const privateCount=await call({op:'engine_count'});
+    const reread=await call({...privateRead,op:'api_meta',request_id:'repeat-private-history'});
+    assert.equal(reread.status,200);assert.equal(reread.read,'saved');assert.equal(reread.body.chats[0].owner,'planner');
+    assert.equal(await call({op:'engine_count'}),privateCount,'Reopening private history never wakes the engine');
+    const another=await call({...privateRead,credentials:{...fresh,subject:'another-owner'},request_id:'other-owner-history'});
+    assert.equal(another.state,'queued','No private result crosses owners');await call({op:'drain'});
+    assert.equal((await call({op:'api_result',credentials:{...fresh,subject:'another-owner'},id:another.id})).chats[0].owner,'another-owner');
+    const profileRead={...privateRead,path:'/runs/abcdef123456/factor-links',request_id:'factor-choice-read'};
+    const choice=await call(profileRead);assert.equal(choice.state,'queued');await call({op:'drain'});
+    const choiceCount=await call({op:'engine_count'});
+    assert.equal((await call({...profileRead,op:'api_meta',request_id:'repeat-factor-choice'})).read,'saved');
+    assert.equal(await call({op:'engine_count'}),choiceCount);
+    const change=await call({...apiRequest,body:{customer:'New revision'},request_id:'invalidate-private-history',revision:reportHead.revision});
+    assert.equal(change.state,'queued');await call({op:'drain'});
+    const changedHead=await call({op:'api_meta',credentials:fresh,path:'/customers'});
+    const invalidated=await call({...privateRead,revision:changedHead.revision,request_id:'new-revision-history'});
+    assert.equal(invalidated.state,'queued','Writes invalidate saved reads');await call({op:'drain'});
     const pending=await call({op:'submit',credentials:other,payload,request_id:'restart-request'});
     await runtime.dispose();
     runtime=new Miniflare(convertV4MiniflareOptions(options));caller=await runtime.getWorker('test-only-caller') as unknown as Fetcher;

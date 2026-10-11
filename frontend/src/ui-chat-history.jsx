@@ -15,6 +15,7 @@ import {
 } from "@phosphor-icons/react";
 import { t as uiText, interfaceDirection } from "./localization.mjs";
 import {useMenuHandoff} from './ui-layout.jsx';
+import {RequestRecovery} from './request-recovery.jsx';
 
 function ChatMenu({ chat, busy, onAction }) {
   const trigger = useRef(null),handoff=useMenuHandoff();
@@ -217,16 +218,8 @@ export function ChatHistory({
           </p>
         )}
         {error && (
-          <p role="alert" className="ui-chat-history-status">
-            {uiText("Could not load chats.")}{" "}
-            <button
-              type="button"
-              className="text-btn"
-              onClick={() => onMore(0)}
-            >
-              {uiText("Retry")}
-            </button>
-          </p>
+          <RequestRecovery error={error===true?new Error('Could not load chats.'):error}
+            onReload={() => onMore(0)} busy={loading}/>
         )}
         {nextOffset != null && (
           <button

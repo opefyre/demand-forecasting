@@ -92,7 +92,7 @@ export function AssistantWorkspace({
   const [chatReset, setChatReset] = useState(0);
   const [chats, setChats] = useState([]),
     [historyLoading, setHistoryLoading] = useState(false),
-    [historyError, setHistoryError] = useState(false),
+    [historyError, setHistoryError] = useState(null),
     [nextOffset, setNextOffset] = useState(null);
   const [historyVisible, setHistoryVisible] = useSmoothState(true),
     [historyMobile, setHistoryMobile] = useSmoothState(false);
@@ -127,7 +127,7 @@ export function AssistantWorkspace({
   async function loadChats(offset = 0) {
     const request = ++historyRequest.current;
     setHistoryLoading(true);
-    setHistoryError(false);
+    setHistoryError(null);
     try {
       const { folder, search } = historyFilter.current;
       const result = await api(
@@ -146,8 +146,8 @@ export function AssistantWorkspace({
           : result.chats,
       );
       setNextOffset(result.next_offset);
-    } catch {
-      if (request === historyRequest.current) setHistoryError(true);
+    } catch (error) {
+      if (request === historyRequest.current) setHistoryError(error);
     } finally {
       if (request === historyRequest.current) setHistoryLoading(false);
     }

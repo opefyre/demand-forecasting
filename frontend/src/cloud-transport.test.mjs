@@ -4,6 +4,25 @@ import {configureCloudTransport,cloudFetch} from './cloud-transport.mjs';
 import {requestJSON} from './request-errors.mjs';
 const access=subject=>({mode:'better_auth',transport:'cloud',user:{issuer:'https://forecast.vrolen.com',company_id:'tehran-a',subject,role:'planner',permissions:['customers:write']}});
 const revision='a'.repeat(32),operation='b'.repeat(32),next='c'.repeat(32);
+test('parallel opening screens share one revision read, without sharing their requests',async()=>{
+  configureCloudTransport(access('parallel-bootstrap'));
+  let finish,heads=0;const reads=[],ready=new Promise(resolve=>{finish=resolve;});
+  const fetcher=async(url,options)=>{
+    if(url.endsWith('/revision')){heads++;await ready;return Response.json({revision});}
+    reads.push([url,options.headers.get('X-Company-Revision')]);return Response.json({ok:true});
+  };
+  const pending=['datasets','runs','workspace'].map(path=>cloudFetch('/api/v1/'+path,{method:'GET'},fetcher));
+  assert.equal(heads,1);finish();await Promise.all(pending);
+  assert.equal(reads.length,3);assert.ok(reads.every(([,head])=>head===revision));configureCloudTransport(null);
+});
+test('failed shared head reads give each caller its own response and allow an explicit retry',async()=>{
+  configureCloudTransport(access('bootstrap-failure'));
+  let heads=0;
+  const fetcher=async(url)=>url.endsWith('/revision')?(++heads===1?Response.json({detail:'Unavailable'},{status:503}):Response.json({revision})):Response.json({ok:true});
+  const responses=await Promise.all([1,2].map(()=>cloudFetch('/api/v1/workspace',{method:'GET'},fetcher)));
+  for(const response of responses){assert.equal(response.status,503);assert.equal((await response.json()).detail,'Unavailable');}
+  assert.equal(heads,1);assert.equal((await cloudFetch('/api/v1/workspace',{method:'GET'},fetcher)).status,200);assert.equal(heads,2);configureCloudTransport(null);
+});
 test('one cloud write, saved polling and exact completed response; local mode unchanged',async()=>{
   configureCloudTransport(access('planner'));
   const calls=[];
