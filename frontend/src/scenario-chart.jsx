@@ -1,4 +1,6 @@
-import {t as uiText} from './localization.mjs';
+import {t as uiText,unitLabel} from './localization.mjs';
+import {Panel,Stack,Actions,Disclosure} from './ui-layout.jsx';
+import {salesSeriesLabel} from './demand-view.mjs';
 import React, { useState } from "react";
 import {
   ResponsiveContainer,
@@ -30,34 +32,38 @@ export function ScenarioChart({ base, scenarios, ui, fmt, date, api, canEdit }) 
   const scores=factorComparisonScores(base,scenario);
   const periodDate=planningBasis(base)==='jalali'?(value=>planningMonth(value,'jalali')):date;
   return (
-    <section className="scenario-comparison" id="scenario-period-comparison">
-      <div className="section-heading">
-        <h3>Forecast by period · {base.unit}</h3>
+    <Panel title={uiText('Forecast by period')+' · '+unitLabel(base.unit)}><Stack>
+      <Actions>
         <Pick
           label={uiText("Chart scenario")}
           value={scenario.run_id}
           options={scenarios.map((row) => [row.run_id, row.scenario_name])}
           onChange={setSelected}
         />
-      </div>
+      </Actions>
       <ErrorBox error={error} />
-      <div className="scenario-comparison-controls">
+      <Actions>
       <Pick label={uiText("Comparison customer and SKU")} value={item} onChange={setItem} options={[
-        ['__all__',uiText("All customers and SKUs")],...Object.keys(base.series).filter(i=>i!=='__all__').map(i=>[i,i])
+        ['__all__',uiText("All customers and SKUs")],...Object.keys(base.series).filter(i=>i!=='__all__').map(i=>[i,salesSeriesLabel(base,i)])
       ]}/>
       {scenario.scenario?.type==='factor_link'&&<OrderComparison key={scenario.run_id} base={base} scenario={scenario} api={api} ui={ui} fmt={fmt} canEdit={canEdit}/>}
-      </div>
-      {scores&&(scores.error?<p role="status">{scores.error}</p>:<p>Past error · all customers and SKUs: {fmt(scores.before,2)}% baseline → {fmt(scores.after,2)}% {scenario.scenario?.type==='factor_link'?'with factors':'without extra factors'}. {scores.difference>0?'The baseline had lower error.':scores.difference<0?'This scenario had lower error.':'Past error is unchanged.'} {scenario.factor_validation?.method_changed?'The method or model mix also changed. ':''}Future accuracy and original factor release dates remain unverified.</p>)}
-      {scenario.metrics?.evidence_policy==='reviewed_what_if'&&base.method_selection!==scenario.method_selection&&<p className="table-note">Methods also differ: {base.best_model} → {scenario.best_model}. The change is not due to factors alone.</p>}
+      </Actions>
+      {scores&&(scores.error?<p role="status">{uiText(scores.error)}</p>:<Disclosure title={uiText('Past error')}>
+        <Table headers={[uiText('Baseline'),uiText('Scenario')]}><tr><td>{fmt(scores.before,2)}%</td><td>{fmt(scores.after,2)}%</td></tr></Table>
+        <p>{uiText(scores.difference>0?'The baseline had lower error.':scores.difference<0?'This scenario had lower error.':'Past error is unchanged.')}</p>
+        <p>{uiText('Future accuracy and original factor release dates remain unverified.')}</p>
+        {scenario.factor_validation?.method_changed&&<p>{uiText('Methods also differ. The change is not due to factors alone.')}</p>}
+      </Disclosure>)}
+      {scenario.metrics?.evidence_policy==='reviewed_what_if'&&base.method_selection!==scenario.method_selection&&<p className="table-note">{uiText('Methods also differ. The change is not due to factors alone.')} {base.best_model} → {scenario.best_model}</p>}
       {rows && (
         <>
-          <div className="scenario-chart-key">
+          <Actions>
             <span>
               <i className="baseline-key" />{uiText("Baseline")}</span>
             <span>
               <i className="scenario-key" />{uiText("Scenario")}</span>
-          </div>
-          <div className="scenario-chart">
+          </Actions>
+          <div className="chart-frame">
             <ResponsiveContainer>
               <ComposedChart
                 data={rows}
@@ -84,13 +90,13 @@ export function ScenarioChart({ base, scenarios, ui, fmt, date, api, canEdit }) 
                 <Tooltip
                   labelFormatter={periodDate}
                   formatter={(value, name) => [
-                    `${Array.isArray(value) ? value.map((v) => fmt(v, 1)).join(" – ") : fmt(value, 1)} ${base.unit}`,
+                    `${Array.isArray(value) ? value.map((v) => fmt(v, 1)).join(" – ") : fmt(value, 1)} ${unitLabel(base.unit)}`,
                     name,
                   ]}
                 />
                 <Area
                   dataKey="range"
-                  name="Indicative range"
+                  name={uiText('Indicative range')}
                   fill="var(--chart-range)"
                   fillOpacity={0.45}
                   stroke="none"
@@ -100,7 +106,7 @@ export function ScenarioChart({ base, scenarios, ui, fmt, date, api, canEdit }) 
                   dataKey="baseline"
                   name={uiText("Baseline")}
                   stroke="var(--chart-history)"
-                  strokeWidth={2}
+                  strokeWidth="var(--chart-line-width)"
                   strokeDasharray="6 4"
                   dot={false}
                   isAnimationActive={false}
@@ -109,7 +115,7 @@ export function ScenarioChart({ base, scenarios, ui, fmt, date, api, canEdit }) 
                   dataKey="scenario"
                   name={uiText("Scenario")}
                   stroke="var(--chart-forecast)"
-                  strokeWidth={2}
+                  strokeWidth="var(--chart-line-width)"
                   dot={rows.length < 4}
                   isAnimationActive={false}
                 />
@@ -117,19 +123,18 @@ export function ScenarioChart({ base, scenarios, ui, fmt, date, api, canEdit }) 
             </ResponsiveContainer>
           </div>
           {scenario.metrics?.evidence_policy!=='reviewed_what_if'&&<p className="table-note">
-            {rows.some((row) => row.range)
+            {uiText(rows.some((row) => row.range)
               ? "The shaded scenario range uses earlier model errors; its future coverage is not independently verified."
-              : "A planning range is not available for this scenario."}{" "}
-            Assumptions are not confidence limits.
+              : "A planning range is not available for this scenario.")}{" "}
+            {uiText('Assumptions are not confidence limits.')}
           </p>}
-          <details className="help-details">
-            <summary>{uiText("Exact comparison values")}</summary>
+          <Disclosure title={uiText("Exact comparison values")}>
             <Table
               headers={[
                 uiText("Period"),
-                `Baseline (${base.unit})`,
-                `Scenario (${base.unit})`,
-                `Change (${base.unit})`,
+                `${uiText('Baseline')} (${unitLabel(base.unit)})`,
+                `${uiText('Scenario')} (${unitLabel(base.unit)})`,
+                `${uiText('Change')} (${unitLabel(base.unit)})`,
               ]}
             >
               {rows.map((row) => (
@@ -149,9 +154,9 @@ export function ScenarioChart({ base, scenarios, ui, fmt, date, api, canEdit }) 
                 </tr>
               ))}
             </Table>
-          </details>
+          </Disclosure>
         </>
       )}
-    </section>
+    </Stack></Panel>
   );
 }

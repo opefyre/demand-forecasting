@@ -45,6 +45,17 @@ test('owner runtime inspection reads private status without starting an engine',
   assert.equal((await edge.fetch(request('/api/auth/runtime',{method:'POST'}),f.env)).status,404);
   assert.equal(reads,2);
 });
+test('startup timings expose only bounded measurements to the private administrator',async()=>{
+  const f=setup({email:'opefyre@gmail.com',mfa_required:false,role:'admin'});
+  const timing={kind:'forecast',cold:true,startup_ms:100,input_ms:20,calculation_ms:500,persistence_ms:60,total_ms:680,artifacts:6,secret:'never expose'};
+  f.env.ENGINE={status:async()=>({running:false,busy:false,idle_timeout_ms:300000,last_timing:timing})};
+  const value=await (await edge.fetch(request('/api/auth/runtime'),f.env)).json();
+  assert.equal(value.last_timing.total_ms,680);assert.equal(value.last_timing.secret,undefined);
+  timing.total_ms=-1;
+  assert.equal((await (await edge.fetch(request('/api/auth/runtime'),f.env)).json()).last_timing,undefined);
+  const viewer=setup({email:'opefyre@gmail.com',mfa_required:false,role:'viewer'});viewer.env.ENGINE=f.env.ENGINE;timing.total_ms=680;
+  assert.equal((await (await edge.fetch(request('/api/auth/runtime'),viewer.env)).json()).last_timing,undefined);
+});
 test('source diagnostics are admin-only, bounded codes with no credentials or raw exception fields',async()=>{
   const f=setup({email:'opefyre@gmail.com',mfa_required:false,role:'admin'});
   const source_failure={reason:'dns',checked_at:'2026-10-10T17:00:00.000Z',url:'private',headers:{authorization:'private'},message:'private'};

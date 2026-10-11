@@ -32,7 +32,7 @@ export function companyPath(value,method='GET'){
     [/^\/api\/order-books\/([^/]+)$/,'/datasets/$1/orders'],
     [/^\/api\/jobs\/([^/]+)(.*)$/,'/jobs/$1$2'],
     [/^\/api\/runs\/([^/]+)$/,'/runs/$1'],
-    [/^\/api\/runs\/([^/]+)\/(factor-links|factor-batch|factor-preparation|factor-profiles|factor-comparison|factors)(.*)$/,'/runs/$1/$2$3'],
+    [/^\/api\/runs\/([^/]+)\/(factor-links|factor-batch|factor-preparation|factor-profiles|factor-comparison|factors|assumptions)(.*)$/,'/runs/$1/$2$3'],
     [/^\/api\/sales\/runs\/([^/]+)\/(order-reuse|order-comparison)(.*)$/,'/runs/$1/$2$3'],
     [/^\/api\/sales\/runs\/([^/]+)\/inputs$/,'/runs/$1/order-snapshots'],
     [/^\/api\/sales\/runs\/([^/]+)\/starter$/,'/runs/$1/orders/starter'],

@@ -1407,7 +1407,7 @@ async def calculate_saved(payload: SavedRunConfig, workspace=None):
                 review_scenario(dataset,DATASET_STORE,FACTOR_STORE,_load_run,LIVE_SOURCES,FACTOR_PROFILES)
             reviewed(DATASET_STORE, SALES_STORE, dataset['id'], payload.sales_input_id, site=workspace.site if workspace else None)
         assumption = dataset.get('scenario_provenance')
-        if workspace and assumption and assumption.get('type') not in {'factor_link','factor_batch','factor_comparison'}:
+        if workspace and assumption and assumption.get('type') not in {'factor_link','factor_batch','factor_comparison','factor_assumptions'}:
             raise ValueError('Choose a reviewed factor comparison.')
         if workspace and payload.base_run_id and not assumption:
             raise ValueError('This comparison has no reviewed factor inputs.')

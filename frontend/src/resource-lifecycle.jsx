@@ -5,7 +5,7 @@ import {t as uiText,interfaceDirection,i18n} from './localization.mjs';
 import {Actions,Stack,useMenuHandoff} from './ui-layout.jsx';
 
 // Inputs and forecasts use the same menu, fixed dialog and revision table.
-export function ResourceMenu({api,ui,kind,id,name,archived=false,canEdit,onChanged,onOpenRevision,onCreateRevision,sources=[],allowVersions=true,disabled=false}){
+export function ResourceMenu({api,ui,kind,id,name,archived=false,canEdit,onChanged,onOpenRevision,onCreateRevision,onScenarios,sources=[],allowVersions=true,disabled=false}){
   const {Button,Field,Modal,Table,ErrorBox}=ui;
   const trigger=useRef(null),handoff=useMenuHandoff();
   const [dialog,setDialog]=useState(null),[record,setRecord]=useState(null),[draft,setDraft]=useState('');
@@ -37,6 +37,7 @@ export function ResourceMenu({api,ui,kind,id,name,archived=false,canEdit,onChang
       <DropdownMenu.Portal><DropdownMenu.Content className="ui-menu" align="end" collisionPadding={12} onCloseAutoFocus={handoff.close}>
         {items.map(([action,label,Icon])=><DropdownMenu.Item key={action} className="ui-menu-item" onSelect={()=>handoff.select(trigger.current,()=>open(action))}><Icon aria-hidden="true"/>{uiText(label)}</DropdownMenu.Item>)}
         {canEdit&&onCreateRevision&&<DropdownMenu.Item className="ui-menu-item" onSelect={()=>handoff.select(trigger.current,onCreateRevision)}><ArrowCounterClockwise aria-hidden="true"/>{uiText('Create revision')}</DropdownMenu.Item>}
+        {onScenarios&&<DropdownMenu.Item className="ui-menu-item" onSelect={()=>handoff.select(trigger.current,onScenarios)}><ClockCounterClockwise aria-hidden="true"/>{uiText('Scenario comparisons')}</DropdownMenu.Item>}
       </DropdownMenu.Content></DropdownMenu.Portal>
     </DropdownMenu.Root>
     <Modal open={!!dialog} fixed wide={dialog==='versions'} title={uiText(dialog==='rename'?'Rename':dialog==='archive'?(record?.lifecycle.archived?'Restore':'Archive'):'Versions')} onClose={()=>!busy&&setDialog(null)}>

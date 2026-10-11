@@ -42,7 +42,7 @@ class ForecastCreate(StrictInput):
     dataset_id: str = Field(pattern=r'^[a-f0-9]{32}$')
     sales_input_id: str = Field(pattern=r'^[a-f0-9]{32}$')
     methods: list[str] = Field(min_length=1, max_length=24,
-        description='Forecast method IDs. For saved factor_link/factor_batch inputs use only reviewed_factors; this preserves their reviewed methods and customer/product scope.')
+        description='Forecast method IDs. For reviewed factor scenarios use only reviewed_factors; this preserves their reviewed methods and customer/product scope.')
     request_id: str = Field(min_length=8, max_length=100)
     parent_forecast_id: str | None = Field(default=None,pattern=r'^[a-f0-9]{32}$')
 

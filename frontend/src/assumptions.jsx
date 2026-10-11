@@ -1,6 +1,7 @@
 import {localState} from './workspace-storage.mjs';
 import {t as uiText} from './localization.mjs';
 import React, { useEffect, useRef, useState } from "react";
+import {Stack,Grid,Actions,Disclosure} from './ui-layout.jsx';
 
 const keyOf = (factor, item, period) => JSON.stringify([factor, item, period]);
 const nameOf = (value) => value.replace(/_synthetic$/, "").replaceAll("_", " ");
@@ -11,6 +12,7 @@ export function AssumptionEditor({
   ui,
   onCancel,
   onSave,
+  onWorkingChange,
   fmt,
   date,
 }) {
@@ -37,7 +39,7 @@ export function AssumptionEditor({
     ...draft.form,
     reviewed: false,
   });
-  const request = useRef(draft.request_id || null);
+  const request = useRef(draft.request_id || null),submitting=useRef(false);
   useEffect(() => {
     localState.setItem(
       draftKey,
@@ -103,7 +105,9 @@ export function AssumptionEditor({
   });
   async function submit(event) {
     event.preventDefault();
-    setBusy(true);
+    if(submitting.current)return;
+    submitting.current=true;
+    setBusy(true);onWorkingChange?.(true);
     setError("");
     try {
       const values = edited.map(([key, value]) => {
@@ -139,23 +143,17 @@ export function AssumptionEditor({
     } catch (e) {
       setError(e.message);
     } finally {
-      setBusy(false);
+      submitting.current=false;
+      setBusy(false);onWorkingChange?.(false);
     }
   }
   return (
-    <section className="surface assumption-editor">
-      <div className="section-heading">
-        <div>
-          <h2>{uiText("Change future inputs")}</h2>
-          <p>{uiText("Keep the history and method. Change only the assumptions you want to test.")}</p>
-        </div>
-        <Button onClick={onCancel} disabled={busy}>{uiText("Back to scenarios")}</Button>
-      </div>
+    <Stack>
       <ErrorBox error={error} />
       {!preview && !error && <p>{uiText("Loading baseline inputs…")}</p>}
       {preview && factor && (
         <form onSubmit={submit}>
-          <div className="form-grid">
+          <Stack><Grid>
             <Field title={uiText("Factor")}>
               <Pick
                 label={uiText("Scenario factor")}
@@ -175,8 +173,8 @@ export function AssumptionEditor({
                 onChange={setItem}
               />
             </Field>
-          </div>
-          <div className="form-grid">
+          </Grid>
+          <Grid>
             <Field
               title={uiText("Unit")}
               help={uiText("Use exactly the unit of the original factor. This does not convert values. For exchange rates, specify the currency direction and rial or toman.")}
@@ -197,7 +195,7 @@ export function AssumptionEditor({
                 onChange={(e) => describe("geography", e.target.value)}
               />
             </Field>
-          </div>
+          </Grid>
           <Field
             title={uiText("Source")}
             help={uiText("A source URL, supplier quote, internal plan or explicit planning assumption. A typed source is not independently verified by the app.")}
@@ -226,8 +224,7 @@ export function AssumptionEditor({
                   </td>
                   <td>
                     <input
-                      className="assumption-number"
-                      aria-label={`Assumption for ${period}`}
+                      aria-label={uiText('Assumption for {{period}}',{period:date(period)})}
                       type="number"
                       step="any"
                       value={common ? current[0] : ""}
@@ -258,7 +255,7 @@ export function AssumptionEditor({
               </p>
             </details>
           )}
-          <div className="form-grid">
+          <Grid>
             <Field title={uiText("Scenario name")}>
               <input
                 aria-label={uiText("Factor scenario name")}
@@ -284,7 +281,7 @@ export function AssumptionEditor({
                 }}
               />
             </Field>
-          </div>
+          </Grid>
           <Field title={uiText("Why are these values changing?")}>
             <textarea
               aria-label={uiText("Assumption reason")}
@@ -298,7 +295,7 @@ export function AssumptionEditor({
               }}
             />
           </Field>
-          <label className="check-line">
+          <label className="ui-check">
             <input
               type="checkbox"
               checked={form.reviewed}
@@ -310,26 +307,26 @@ export function AssumptionEditor({
             <details className="help-details">
               <summary>{uiText("Assumptions already used in the baseline")}</summary>
               {preview.warnings.map((warning, i) => (
-                <p key={i}>{warning}</p>
+                <p key={i}>{uiText(warning)}</p>
               ))}
             </details>
           )}
           <p className="muted">{uiText("The chosen method may ignore a factor. A changed input does not guarantee a changed forecast, and the result does not prove cause and effect.")}</p>
-          <div className="dialog-actions">
+          <Actions><Button type="button" disabled={busy} onClick={onCancel}>{uiText('Cancel')}</Button>
             <Button
               type="submit"
               kind="primary"
               disabled={busy || !form.reviewed || !edited.length}
             >
-              {busy ? uiText("Saving and starting…") : uiText("Calculate comparison")}
+              {busy ? uiText("Saving…") : uiText("Continue")}
             </Button>
-          </div>
+          </Actions></Stack>
         </form>
       )}
       {preview && !factor && (
         <p>{uiText("No numeric factors are available to change. Add them to the saved data and create a baseline first.")}</p>
       )}
-    </section>
+    </Stack>
   );
 }
 
@@ -337,9 +334,7 @@ export function AssumptionEvidence({ scenario, ui, fmt, date }) {
   const { Table } = ui;
   if (scenario?.type !== "factor_assumptions") return null;
   return (
-    <details className="surface disclosure">
-      <summary>{uiText("Assumptions used in this scenario")}</summary>
-      <div className="detail-body">
+    <Disclosure title={uiText("Assumptions used in this scenario")}><Stack>
         <p>{scenario.reason}</p>
         <p className="muted">{uiText("Recorded by")}{scenario.owner} · {date(scenario.recorded_at)}{uiText(". Owner is self-declared.")}</p>
         <Table headers={[uiText("Factor"), uiText("Unit"), uiText("Location / market"), uiText("Source")]}>
@@ -366,7 +361,6 @@ export function AssumptionEvidence({ scenario, ui, fmt, date }) {
         {scenario.changes.length > 100 && (
           <p>{uiText("Showing 100 of")}{scenario.changes.length}{uiText("changes. The export includes every change.")}</p>
         )}
-      </div>
-    </details>
+      </Stack></Disclosure>
   );
 }

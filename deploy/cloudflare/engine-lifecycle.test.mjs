@@ -39,6 +39,62 @@ test('cold status does not wake; successful work is durable before it becomes id
   await f.controller.execute({...f.job,attempt:'5'.repeat(32),job_id:'6'.repeat(32)}).catch(()=>{});
   assert.equal(f.events.filter(e=>e[0]==='start').length,1,'warm instance reused without a pool');
 });
+
+test('cold input loading starts before readiness and private timings contain only controlled numbers',async()=>{
+  const f=fixture(),get=f.env.FILES.get,fetch=f.ctx.container.getTcpPort().fetch;
+  let loaded=false;
+  f.env.FILES.get=async key=>{if(key===f.job.object_key)loaded=true;return get(key);};
+  f.ctx.container.getTcpPort=()=>({fetch:async(url,options)=>{if(url.endsWith('/ready'))assert.equal(loaded,true);return fetch(url,options);}});
+  await f.controller.execute(f.job);
+  const timing=(await f.controller.status()).last_timing;
+  assert.equal(timing.cold,true);assert.equal(timing.kind,'forecast');assert.equal(timing.artifacts,2);
+  for(const key of ['startup_ms','input_ms','calculation_ms','persistence_ms','total_ms'])assert.ok(Number.isSafeInteger(timing[key])&&timing[key]>=0);
+  assert.doesNotMatch(JSON.stringify(timing),/company-a|revisions|outputs/);
+  Object.assign(f.job,{attempt:'5'.repeat(32),job_id:'6'.repeat(32)});
+  await f.controller.execute(f.job);assert.equal((await f.controller.status()).last_timing.cold,false);
+});
+
+for(const fail of [false,true])test('artifact batches are bounded and settled before '+(fail?'failed cleanup':'success'),async()=>{
+  const f=fixture(),fetch=f.ctx.container.getTcpPort().fetch;
+  const names=['result.json','forecast.csv','models.csv','drivers.csv','review.json','forecast.xlsx'];
+  let active=0,peak=0;const pending=[];
+  f.ctx.container.getTcpPort=()=>({fetch:async(url,options)=>{
+    if(url.endsWith('/forecast'))return Response.json({job_id:f.job.attempt,company_id:f.job.company_id,run_id:'4'.repeat(12),artifacts:names});
+    if(url.includes('/artifact/')){
+      active++;peak=Math.max(peak,active);
+      await new Promise(resolve=>{pending.push(resolve);if(pending.length===3){const batch=pending.splice(0);queueMicrotask(()=>batch.forEach(done=>done()));}});
+      active--;if(fail&&url.endsWith('/models.csv'))return new Response(null,{status:500});
+    }
+    if(options?.method==='DELETE')assert.equal(active,0);
+    return fetch(url,options);
+  }});
+  const destroy=f.ctx.container.destroy;f.ctx.container.destroy=async()=>{assert.equal(active,0);await destroy();};
+  if(fail){await assert.rejects(f.controller.execute(f.job),/Output file/);assert.equal(f.ctx.container.running,false);assert.equal(f.values.has('last_timing'),false);}
+  else{const result=await f.controller.execute(f.job);assert.deepEqual(Object.keys(result.artifacts),names);assert.equal(f.events.at(-1),'cleanup');}
+  assert.equal(peak,3);assert.equal(active,0);
+});
+test('asynchronous startup failures stop readiness immediately and retain no raw error',async()=>{
+  const f=fixture();f.ctx.container.monitor=()=>Promise.reject(Object.assign(Error('secret internal failure'),{exitCode:1}));
+  const fetch=f.ctx.container.getTcpPort().fetch;
+  f.ctx.container.getTcpPort=()=>({fetch:async(url,options)=>url.endsWith('/ready')?new Promise(()=>{}):fetch(url,options)});
+  await assert.rejects(f.controller.execute(f.job),/Engine startup failed/);
+  assert.equal(f.values.has('active'),false);assert.equal(f.ctx.container.running,false);
+  const failure=(await f.controller.status()).last_failure;
+  assert.equal(failure.stage,'startup');assert.equal(failure.exit_code,1);
+  assert.doesNotMatch(JSON.stringify(failure),/secret|internal/);
+});
+test('cold readiness is observed before VM-dependent idle setup, outside the claim gate',async()=>{
+  const f=fixture(),fetch=f.ctx.container.getTcpPort().fetch;
+  let claiming=false,ready=false;
+  f.ctx.blockConcurrencyWhile=async fn=>{claiming=true;try{return await fn();}finally{claiming=false;}};
+  f.ctx.container.getTcpPort=()=>({fetch:async(url,options)=>{if(url.endsWith('/ready'))ready=true;return fetch(url,options);}});
+  f.ctx.container.setInactivityTimeout=async()=>{assert.equal(claiming,false);assert.equal(ready,true);};
+  await f.controller.execute(f.job);
+});
+test('an expired cold allocation is cancelled even before running becomes true',async()=>{
+  const f=fixture();f.values.set('active',{attempt:'9'.repeat(32),deadline:Date.now()-1});
+  await f.controller.alarm();assert.ok(f.events.includes('destroy'));assert.equal(f.values.has('active'),false);
+});
 test('fixed public source probe never wakes computation or writes company state',async()=>{
   const f=fixture();let calls=0;
   const controller=new CloudEngineController(f.ctx,f.env,{fetcher:async url=>{assert.match(url,/name=api.worldbank.org/);calls++;return Response.json({Answer:[{type:1,data:'8.8.8.8'}]});}});
@@ -88,7 +144,7 @@ test('status inspection cannot extend durable idle shutdown; alarm never wakes a
   await f.controller.status();await f.controller.status();assert.equal(f.values.get('idle_until'),idle);
   await f.controller.alarm();assert.equal(f.ctx.container.running,true);assert.equal(f.values.get('alarm'),idle);
   f.values.set('idle_until',Date.now()-1);await f.controller.alarm();
-  assert.equal(f.ctx.container.running,false);assert.equal(f.values.size,0);
+  assert.equal(f.ctx.container.running,false);assert.deepEqual([...f.values.keys()],['last_timing']);
   await f.controller.alarm();assert.equal(f.events.filter(e=>e[0]==='start').length,1);
 });
 test('warm constructor preserves an existing idle deadline across DO eviction',async()=>{
@@ -97,7 +153,8 @@ test('warm constructor preserves an existing idle deadline across DO eviction',a
   assert.equal(f.values.get('idle_until'),idle);assert.equal(f.values.get('alarm'),idle);
 });
 for(const option of ['badResponse','backupFailure','badSize','startFailure'])test(option+' fails closed, stops compute and never returns a saved result',async()=>{
-  const f=fixture({[option]:true});await assert.rejects(f.controller.execute(f.job));assert.equal(f.ctx.container.running,false);assert.equal(f.values.size,0);
+  const f=fixture({[option]:true});await assert.rejects(f.controller.execute(f.job));assert.equal(f.ctx.container.running,false);
+  assert.deepEqual([...f.values.keys()],option==='startFailure'?[]:['last_failure']);
 });
 test('privacy and secret configuration are checked before startup',async()=>{
   for(const change of [{PRIVATE_ACCESS:'open'},{COMPANY_VAULT_KEY:''}]){

@@ -20,6 +20,22 @@ def review_scenario(source,datasets,factors,load_run,live=None,profiles=None):
             raise ValueError('Factor inputs changed. Review them again.')
     elif proof.get('type')=='factor_batch':
         check_saved_batch(base,source,datasets,factors,live,profiles)
+    elif proof.get('type') in {'factor_assumptions','factor_comparison'}:
+        from .assumptions import scenario_inputs
+        original,settings,_,_,_=scenario_inputs(base,datasets)
+        if proof['type']=='factor_assumptions':
+            if proof.get('baseline_sha256')!=digest(base) or proof.get('derived_inputs_sha256')!=digest({'sources':source['sources'],'settings':source['settings']}):
+                raise ValueError('Factor inputs changed. Review them again.')
+            # Recheck the bytes behind each immutable saved source, not just IDs.
+            datasets.inspect(source['sources'],source['settings'],source['classification'])
+        else:
+            from .factor_review import review_factors
+            if not review_factors(base,datasets)['can_compare']:
+                raise ValueError('Recalculate this baseline first: older forecasts used a different factor-testing rule.')
+            removed=list(settings['drivers'])
+            settings.update(drivers=[],driver_roles={},method_selection=base.get('method_selection') or base['run_settings']['method_selection'])
+            if source['sources']!=original['sources'] or source['settings']!=settings or proof.get('removed_factors')!=removed or source['classification']!=original['classification']:
+                raise ValueError('Factor inputs changed. Review them again.')
     else:
         raise ValueError('Choose a reviewed factor comparison or batch.')
     return proof['base_run_id']
@@ -33,8 +49,6 @@ def outlook(workspace, key):
 
 def submit_draft(workspace, dispatcher, payload, name, request_id, schedule_owner=None, retry_of=None):
     from .main import SavedRunConfig
-    from .factor_links import preview_link
-    from .factor_batch import check_saved_batch
     from .input_review import input_report
     values=SavedRunConfig(**payload).model_dump()
     source=workspace.datasets.get(values['dataset_id'])
@@ -46,15 +60,7 @@ def submit_draft(workspace, dispatcher, payload, name, request_id, schedule_owne
     if proof:
         if values['base_run_id']!=proof.get('base_run_id') or values['method']:
             raise ValueError('Use the comparison’s recorded baseline and method.')
-        base=workspace.load_run(proof['base_run_id'])
-        if proof['type']=='factor_link':
-            report=preview_link(base,workspace.datasets,workspace.factors,proof['reviewed_inputs'],workspace.live_sources,workspace.profiles)
-            if report['missing'] or report['review_token']!=proof['review_token']:
-                raise ValueError('Factor inputs changed. Review them again.')
-        elif proof['type']=='factor_batch':
-            check_saved_batch(base,source,workspace.datasets,workspace.factors,workspace.live_sources,workspace.profiles)
-        elif proof['type']!='factor_comparison':
-            raise ValueError('Choose reviewed factor inputs.')
+        review_scenario(source,workspace.datasets,workspace.factors,workspace.load_run,workspace.live_sources,workspace.profiles)
     elif values['base_run_id'] or input_report(workspace.datasets,source)['errors']:
         raise ValueError('Review sales inputs before calculating.')
     if schedule_owner:values['_schedule_owner']=schedule_owner

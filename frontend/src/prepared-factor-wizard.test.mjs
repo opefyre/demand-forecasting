@@ -18,6 +18,17 @@ test('prepared factors reuse the shared five-stage modal without import or edita
   assert.doesNotMatch(html,/Import sales history|type="checkbox"|style=/);
   assert.match(html,/Customers &amp; orders/);
 });
+test('completed prepared scenario results read the model from the dataset, not provenance',async()=>{
+  for(const language of ['en','fa']){
+    await i18n.changeLanguage(language);
+    const value={...dataset,settings:{...dataset.settings,method_selection:'model:Ridge + drivers'},scenario_provenance:{type:'factor_comparison',base_run_id:'base',removed_factors:['fx']}};
+    const html=renderToStaticMarkup(React.createElement(NewForecast,{ui,embedded:true,canEdit:true,preparedScenario:value,
+      initialDraft:{source:value.id,step:4,methods:['reviewed_factors'],jobs:[{id:'job',method:'reviewed_factors',state:'succeeded',run_id:'run'}]}}));
+    assert.match(html,language==='en'?/Linear model \+ factors/:/مدل خطی و عوامل مؤثر/);
+    assert.doesNotMatch(html,/style=/);
+  }
+  await i18n.changeLanguage('en');
+});
 test('factor assumptions and scope stay readable in both interface languages',async()=>{
   for(const language of ['en','fa']){
     await i18n.changeLanguage(language);
@@ -39,6 +50,41 @@ test('unscoped single-factor inputs show every baseline customer instead of fail
   const single={...dataset,scenario_provenance:{type:'factor_link',alignment:{...alignment,series_ids:undefined}}};
   const html=renderToStaticMarkup(React.createElement(PreparedFactorSummary,{ui,dataset:single,baseline:{metadata:{a:{customer:'Mehr',sku:'001'},b:{customer:'Aftab',sku:'002'}}}}));
   assert.match(html,/Mehr.*001/);assert.match(html,/Aftab.*002/);
+});
+test('legacy future edits and no-factor comparisons preserve method and translate their review',async()=>{
+  for(const language of ['en','fa']){
+    await i18n.changeLanguage(language);
+    for(const type of ['factor_assumptions','factor_comparison']){
+      const value={...dataset,settings:{...dataset.settings,method_selection:'model:Ridge + drivers'},scenario_provenance:{type,
+        changes:[{item_id:'Mehr / 001',period:'2026-11-01',factor:'fx',baseline_value:100,value:120}],removed_factors:['fx']}};
+      const html=renderToStaticMarkup(React.createElement(PreparedFactorSummary,{ui,dataset:value}));
+      assert.match(html,/fx/);assert.doesNotMatch(html,/style=|form-grid|section-heading/);
+      if(type==='factor_assumptions'){assert.match(html,/Mehr.*001/);assert.match(html,/120/);}
+      if(language==='fa')assert.doesNotMatch(html,/Planning months|Future assumptions|Linear model \+ factors|Removed factors/);
+    }
+  }
+  await i18n.changeLanguage('en');
+});
+test('older scenario editors prepare inputs instead of bypassing the shared order wizard',async()=>{
+  const root=await readFile(new URL('main.jsx',import.meta.url),'utf8');
+  const editor=root.slice(root.indexOf('<Modal title={uiText(\'Change future inputs\')}'),root.indexOf('title={\n          dialog === "plan"'));
+  assert.match(editor,/startScenarioForecast\(saved,run\)/);assert.doesNotMatch(editor,/runDataset\(/);
+  assert.match(root,/factor_assumptions','factor_comparison/);
+  for(const file of ['assumptions.jsx','factor-review.jsx','scenario-chart.jsx']){
+    const source=await readFile(new URL(file,import.meta.url),'utf8');
+    assert.doesNotMatch(source,/style=|className="(?:form-grid|assumption-editor|scenario-comparison-controls|scenario-comparison|scenario-chart)"/);
+    assert.match(source,/from '.\/ui-layout.jsx'/);
+  }
+});
+test('company Forecast exposes shared scenario review through its existing options menu',async()=>{
+  const root=await readFile(new URL('main.jsx',import.meta.url),'utf8');
+  const sales=await readFile(new URL('sales-demand.jsx',import.meta.url),'utf8');
+  const menu=await readFile(new URL('resource-lifecycle.jsx',import.meta.url),'utf8');
+  assert.match(root,/onScenarios:\(\)=>setScenariosOpen\(true\)/);
+  assert.match(root,/<Modal title=\{uiText\('Scenario comparisons'\)\} wide fixed/);
+  assert.match(root,/dismissible=\{!scenariosBusy\}/);
+  assert.match(sales,/onScenarios=\{!run.scenario_name&&!run.base_run_id\?onScenarios:null\}/);
+  assert.match(menu,/handoff.select\(trigger.current,onScenarios\)/);
 });
 test('manual and assisted factor editor handoffs review orders before dispatching',async()=>{
   const root=await readFile(new URL('main.jsx',import.meta.url),'utf8');

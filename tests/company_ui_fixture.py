@@ -44,9 +44,23 @@ def run(*,notifications=False,factors=False,complete_factors=False):
     root=Path(__file__).resolve().parents[1]
     for company,multiplier in [('tehran_a',1),('tehran_b',2)]:
         fixture.company=company
-        _,dataset,_=fixture.history(multiplier)
+        _,dataset,body=fixture.history(multiplier)
         snapshot=fixture.orders(dataset)
         fixture.calculate(dataset,snapshot)
+        if complete_factors:
+            # Real legacy scenario inputs, wholly synthetic and company-bound.
+            from copy import deepcopy
+            from io import BytesIO
+            import uuid
+            import pandas as pd
+            frame=pd.read_csv(BytesIO(fixture.ws.datasets.source(dataset['sources']['history'])[1]),dtype={'sku':str})
+            frame['fx']=400000.+pd.to_datetime(frame.date).dt.month*1000.
+            history=fixture.ws.datasets.upload('factor-history.csv',frame.to_csv(index=False).encode(),'history')
+            body=deepcopy(body)
+            body.update(name='Sales with currency',sources={'history':history['id']},request_id=str(uuid.uuid4()))
+            body['settings'].update(drivers=['fx'],future_driver_policy='carry',method_selection='model:Ridge + drivers')
+            factor_dataset=fixture.post('/datasets',body,201)
+            fixture.calculate(factor_dataset,fixture.orders(factor_dataset),['model:Ridge + drivers'])
         if factors:
             # Disposable UI data only; no external request or production seed.
             from app.commodity_prices import parse_prices

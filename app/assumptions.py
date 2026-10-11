@@ -142,5 +142,8 @@ def save_assumptions(base, store, payload):
                       'changes': evidence, 'inherited_future_policy': settings.get('future_driver_policy', 'require'),
                       'inherited_warnings': warnings, 'request_digest': fingerprint,
                       'identity_basis': 'self_declared_not_authenticated', 'refitted': True}
+        from .factor_imports import digest
+        provenance.update(baseline_sha256=digest(base),
+                          derived_inputs_sha256=digest({'sources': sources, 'settings': settings}))
         return store.save(payload['name'].strip(), sources, settings, classification=dataset['classification'], accept_warnings=True,
                           provenance=provenance, identifier=identifier)

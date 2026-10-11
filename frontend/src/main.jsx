@@ -1,6 +1,6 @@
 import {apiLink} from './company-api.mjs';
 import {chartTheme} from './chart-theme.mjs';
-import {Page,PageTabs,Disclosure} from './ui-layout.jsx';
+import {Page,PageTabs,Disclosure,Panel,Actions,Stack as UiStack} from './ui-layout.jsx';
 import {SalesFiles} from './sales-files.jsx';
 import {workspacePage,workspaceRequest,writeWorkspaceLocation} from './navigation.mjs';
 import {MotionPresence,smoothUpdate,useSmoothState} from './ui-motion.jsx';
@@ -492,6 +492,8 @@ function App({ access }) {
   useEffect(()=>{if(updateId)localState.setItem('demandlab.forecastUpdate',updateId);else localState.removeItem('demandlab.forecastUpdate');},[updateId]);
   const [dataView, setDataView] = useSmoothState(initial==='customers'?"customers":"files");
   const [decisionTarget, setDecisionTarget] = useState(null);
+  const [scenariosOpen,setScenariosOpen]=useState(false),[scenariosBusy,setScenariosBusy]=useState(false);
+  useEffect(()=>{if(page!=='demand')setScenariosOpen(false);},[page]);
   const submitting = useRef(false);
   const navigate = (p, target = null) => {
     if(p==='new'){startNewForecast();return;}
@@ -516,11 +518,11 @@ function App({ access }) {
     if(!canEdit)return;
     if(!datasetId){try{
       const pending=JSON.parse(sessionState.getItem(FORECAST_DRAFT_KEY+'.prepared')||'null');
-      const saved=datasets.find(value=>value.id===pending?.datasetId&&!value.lifecycle?.archived&&['factor_link','factor_batch'].includes(value.scenario_provenance?.type));
+      const saved=datasets.find(value=>value.id===pending?.datasetId&&!value.lifecycle?.archived&&['factor_link','factor_batch','factor_assumptions','factor_comparison'].includes(value.scenario_provenance?.type));
       if(saved){startScenarioForecast(saved,{metadata:pending.metadata},pending.parentForecastId);return;}
       sessionState.removeItem(FORECAST_DRAFT_KEY+'.prepared');
     }catch{}}
-    const prepared=datasets.find(value=>value.id===datasetId&&['factor_link','factor_batch'].includes(value.scenario_provenance?.type));
+    const prepared=datasets.find(value=>value.id===datasetId&&['factor_link','factor_batch','factor_assumptions','factor_comparison'].includes(value.scenario_provenance?.type));
     if(prepared){startScenarioForecast(prepared,run,parentForecastId,forecastName);return;}
     try{if(typeof datasetId==='string'&&datasetId)sessionState.setItem(FORECAST_DRAFT_KEY,JSON.stringify({version:2,source:datasetId,step:1,methods:[method],customer,jobs:[],parentForecastId,
       ...(forecastName?{name:(forecastName+' · '+new Date().toISOString().slice(0,10)).slice(0,160)}:{})}));else if(readForecastDraft(sessionState)?.step===4)sessionState.removeItem(FORECAST_DRAFT_KEY);}catch{}
@@ -535,7 +537,7 @@ function App({ access }) {
     navigate('demand');setForecastBusy(false);
     setForecastRequest({id:crypto.randomUUID(),preparedScenario:saved,scenarioBaseline:baseline,parentForecastId,
       draftKey:FORECAST_DRAFT_KEY+'.scenario.'+saved.id+(parentForecastId?'.revision.'+parentForecastId:''),
-      initialDraft:{source:saved.id,step:1,methods:['reviewed_factors'],jobs:[],parentForecastId,name:((forecastName||uiText('Customer/product factors'))+' · '+new Date().toISOString().slice(0,10)).slice(0,160)}});
+      initialDraft:{source:saved.id,step:1,methods:['reviewed_factors'],jobs:[],parentForecastId,name:((forecastName||saved.scenario_provenance?.name||uiText('Customer/product factors'))+' · '+new Date().toISOString().slice(0,10)).slice(0,160)}});
   };
   const refresh = async () => {
     const [d, p, r, w, u] = await Promise.all([
@@ -698,6 +700,7 @@ function App({ access }) {
     importNew,
     startNewForecast,
     startScenarioForecast,
+    onScenarios:()=>setScenariosOpen(true),
     dataView,
     setDataView,
     openInventory: () => {
@@ -817,6 +820,10 @@ function App({ access }) {
           </main>
         </div>
       </div>
+      <Modal title={uiText('Scenario comparisons')} wide fixed open={scenariosOpen&&page==='demand'&&!!run} dismissible={!scenariosBusy} onClose={()=>!scenariosBusy&&setScenariosOpen(false)}>
+        {scenariosOpen&&run&&<AdvancedScenarios {...context} onWorkingChange={setScenariosBusy} onPrepared={saved=>{setScenariosOpen(false);startScenarioForecast(saved,run);}}
+          onOpen={async id=>{if(await openRun(id,'demand'))setScenariosOpen(false);}}/>}
+      </Modal>
       <Modal title={uiText('New forecast')} wide fixed open={canEdit&&!!forecastRequest&&page==='demand'&&!boot} dismissible={!forecastBusy}
         onClose={()=>setForecastRequest(null)} returnFocus={()=>document.querySelector('[data-action="new-forecast"]')}>
         <NewForecast key={forecastIdentity.current} {...context} api={api} ui={inventoryUi} embedded onWorkingChange={setForecastBusy} parentForecastId={forecastDialog.current?.parentForecastId}
@@ -2871,35 +2878,16 @@ function ForecastPage({
             </>
           )}
         </>
-      ) : editingAssumptions ? (
-        <AssumptionEditor
-          key={run.run_id}
-          run={run}
-          api={api}
-          ui={inventoryUi}
-          fmt={fmt}
-          date={periodDate}
-          onCancel={() => setEditingAssumptions(false)}
-          onSave={async (saved) => {
-            await refresh();
-            await runDataset(saved.id, { base_run_id: run.run_id });
-            setEditingAssumptions(false);
-          }}
-        />
       ) : (
-        <>
-          <div className="section-heading scenario-actions">
-            <div>
-              <h2>{uiText("What if conditions change?")}</h2>
-              <p>{uiText("Compare future inputs or a demand adjustment with this forecast.")}</p>
-            </div>
-            <div className="row-actions">
+        <UiStack>
+          <Panel title={uiText("What if conditions change?")}>
+            <Actions>
               <Button
                 kind="primary"
-                disabled={!canEdit || !dataset || !!run.scenario_name}
+                disabled={!canEdit || !dataset || !!run.scenario_name || !run.input_manifest?.settings?.drivers?.length}
                 onClick={() => setEditingAssumptions(true)}
               >{uiText("Change inputs")}</Button>
-              <Button
+              {!companyMode()&&<Button
                 disabled={!canEdit || !dataset || !!run.scenario_name}
                 onClick={() => {
                   setError("");
@@ -2907,9 +2895,9 @@ function ForecastPage({
                   setDialog("scenario");
                 }}
               >
-                <Plus size={17} />{uiText("Adjust demand")}</Button>
-            </div>
-          </div>
+                <Plus size={17} />{uiText("Adjust demand")}</Button>}
+            </Actions>
+          </Panel>
           {!dataset && (
             <div className="inline-message">{uiText("Import and save this forecast’s source files to create scenarios.")}</div>
           )}
@@ -2920,10 +2908,15 @@ function ForecastPage({
           <ScenarioList run={run} runs={runs} unit={unit} openRun={openRun} canEdit={canEdit} />
           {!!run.input_manifest?.settings?.drivers?.length && !run.scenario_name && <FactorReview
             key={`review-${run.run_id}`} run={run} api={api} ui={inventoryUi} canEdit={canEdit} fmt={fmt} date={(s)=>date(s,true)}
-            onSaved={async(saved,request_id)=>{await refresh();const job=await runDataset(saved.id,{base_run_id:run.run_id,request_id});if(!job)throw new Error('Inputs saved, but calculation could not start. Retry to use the same saved comparison.');}}
+            onSaved={saved=>startScenarioForecast(saved,run)}
           />}
-        </>
+        </UiStack>
       )}
+      <Modal title={uiText('Change future inputs')} open={editingAssumptions} onClose={()=>setEditingAssumptions(false)}>
+        <AssumptionEditor key={run.run_id} run={run} api={api} ui={inventoryUi} fmt={fmt} date={periodDate}
+          onCancel={()=>setEditingAssumptions(false)}
+          onSave={saved=>{setEditingAssumptions(false);startScenarioForecast(saved,run);}}/>
+      </Modal>
       <Modal
         title={
           dialog === "plan"
@@ -3014,112 +3007,45 @@ function ForecastPage({
   );
 }
 
-function ScenarioList({ run, runs, unit, openRun, canEdit }) {
-  const [rows, setRows] = useState([]);
-  const [loadError, setLoadError] = useState("");
-  useEffect(() => {
-    let live = true;
-    setRows([]);
-    setLoadError("");
-    const scenarios = runs.filter(
-      (r) => r.base_run_id === run.run_id && r.scenario_name,
-    );
-    Promise.all(scenarios.map((r) => api(`/api/runs/${r.run_id}`)))
-      .then((rs) => live && setRows(rs))
-      .catch((error) => live && setLoadError(error.message));
-    return () => {
-      live = false;
-    };
-  }, [run.run_id, runs]);
-  const baseline = run.series.__all__.forecast.reduce((s, r) => s + r.mean, 0);
-  const hasSupply = false;
-  return (
-    <section className="surface">
-      <ErrorBox error={loadError} />
-      <ScenarioChart
-        api={api} canEdit={canEdit}
-        base={run}
-        scenarios={rows}
-        ui={inventoryUi}
-        fmt={fmt}
-        date={(value) => date(value, run.run_settings?.frequency !== "monthly")}
-      />
-      {!!rows.length && <h3>{uiText("Overall totals · all customers and SKUs")}</h3>}
-      <Table
-        headers={[
-          uiText("Scenario"),
-          `Forecast (${unit})`,
-          uiText("Change"),
-          ...(hasSupply ? ["Material shortages", "Capacity shortfalls"] : []),
-          "",
-        ]}
-      >
-        <tr>
-          <td>
-            <strong>{uiText("Current forecast")}</strong>
-          </td>
-          <td>{fmt(baseline, 0)}</td>
-          <td>—</td>
-          {hasSupply && (
-            <>
-              <td>
-                {run.operations.materials?.filter(
-                  (r) => r.projected_balance < 0,
-                ).length ?? "—"}
-              </td>
-              <td>
-                {run.operations.capacity?.filter(
-                  (r) => (r.gap_quantity ?? r.gap_tonnes) < 0,
-                ).length ?? "—"}
-              </td>
-            </>
-          )}
-          <td />
-        </tr>
-        {rows.map((r) => {
-          const total = r.series.__all__.forecast.reduce(
-            (s, r) => s + r.mean,
-            0,
-          );
-          return (
-            <tr key={r.run_id}>
-              <td>{r.scenario_name}</td>
-              <td>{fmt(total, 0)}</td>
-              <td>{baseline ? pct((total / baseline - 1) * 100) : "—"}</td>
-              {hasSupply && (
-                <>
-                  <td>
-                    {!r.operations?.source
-                      ? "—"
-                      : (r.operations?.materials?.filter(
-                          (row) => row.projected_balance < 0,
-                        ).length ?? "—")}
-                  </td>
-                  <td>
-                    {!r.operations?.source
-                      ? "—"
-                      : (r.operations?.capacity?.filter(
-                          (row) => (row.gap_quantity ?? row.gap_tonnes) < 0,
-                        ).length ?? "—")}
-                  </td>
-                </>
-              )}
-              <td>
-                <Button onClick={() => openRun(r.run_id)}>{uiText("Open scenario")}</Button>
-              </td>
-            </tr>
-          );
-        })}
+function AdvancedScenarios({run,runs,canEdit,onPrepared,onOpen,navigate,setDataView,onWorkingChange}){
+  const [editing,setEditing]=useState(false),[busy,setBusy]=useState(false);
+  const factors=run.input_manifest?.settings?.drivers||[];
+  const periodDate=value=>run.run_settings?.frequency==='monthly'&&planningBasis(run)==='jalali'?planningMonth(value,'jalali'):date(value,run.run_settings?.frequency!=='monthly');
+  return <UiStack>
+    {canEdit&&factors.length>0&&!editing&&<Actions><Button onClick={()=>setEditing(true)}>{uiText('Change future inputs')}</Button></Actions>}
+    {editing?<AssumptionEditor run={run} api={api} ui={inventoryUi} fmt={fmt} date={periodDate}
+      onWorkingChange={value=>{setBusy(value);onWorkingChange?.(value);}} onCancel={()=>!busy&&setEditing(false)} onSave={onPrepared}/>:<>
+      {canEdit&&<FactorBatch run={run} api={api} ui={inventoryUi} canEdit={canEdit} onSaved={onPrepared}
+        onManageProfiles={()=>navigate('customers')} onManageSources={()=>{setDataView('external');navigate('data');}}/>}
+      <ScenarioList run={run} runs={runs} unit={run.unit} openRun={onOpen} canEdit={canEdit}/>
+      {canEdit&&factors.length>0&&<FactorReview run={run} api={api} ui={inventoryUi} canEdit={canEdit} fmt={fmt} date={s=>date(s,true)} onSaved={onPrepared}/>}
+    </>}
+  </UiStack>;
+}
+function ScenarioList({run,runs,unit,openRun,canEdit}){
+  const [rows,setRows]=useState([]),[loadError,setLoadError]=useState('');
+  useEffect(()=>{
+    let live=true;setRows([]);setLoadError('');
+    const scenarios=runs.filter(row=>row.base_run_id===run.run_id&&row.scenario_name);
+    Promise.all(scenarios.map(row=>api('/api/runs/'+row.run_id))).then(values=>live&&setRows(values))
+      .catch(error=>live&&setLoadError(error.message));
+    return()=>{live=false;};
+  },[run.run_id,runs]);
+  const baseline=run.series.__all__.forecast.reduce((sum,row)=>sum+row.mean,0);
+  return <UiStack>
+    <ErrorBox error={loadError}/>
+    <ScenarioChart api={api} canEdit={canEdit} base={run} scenarios={rows} ui={inventoryUi} fmt={fmt}
+      date={value=>date(value,run.run_settings?.frequency!=='monthly')}/>
+    <Panel title={uiText('Overall totals · all customers and SKUs')}>
+      <Table headers={[uiText('Scenario'),uiText('Forecast')+' ('+unitLabel(unit)+')',uiText('Change'),'']}>
+        <tr><td><strong>{uiText('Current forecast')}</strong></td><td>{fmt(baseline,0)}</td><td>—</td><td/></tr>
+        {rows.map(row=>{const total=row.series.__all__.forecast.reduce((sum,value)=>sum+value.mean,0);
+          return <tr key={row.run_id}><td>{row.scenario_name}</td><td>{fmt(total,0)}</td><td>{baseline?pct((total/baseline-1)*100):'—'}</td>
+            <td><Button onClick={()=>openRun(row.run_id)}>{uiText('Open scenario')}</Button></td></tr>;})}
       </Table>
-      {hasSupply && (
-        <p className="table-note">
-          Shortages count material-periods below zero. Capacity shortfalls count
-          overloaded machine-periods, not unique machines.
-        </p>
-      )}
-      {!rows.length && <p className="table-note">{uiText("No scenarios yet.")}</p>}
-    </section>
-  );
+      {!rows.length&&<p className="table-note">{uiText('No scenarios yet.')}</p>}
+    </Panel>
+  </UiStack>;
 }
 function PlansPage({
   plans,

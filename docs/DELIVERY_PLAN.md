@@ -669,6 +669,17 @@ after the core release, only if they improve this single forecasting purpose.
 
 ## Current position and preservation
 
+11 October cold startup/legacy scenarios: future assumption edits and no-factor
+comparisons now use company-safe reviewed inputs and the common order wizard,
+reachable through the existing Forecast menu. Browser acceptance caught and
+fixed a completed-scenario result crash; factor controls are localized. Private
+cloud startup succeeded in 2.497 seconds; automatic six-month calculation saved
+and reopened in 56.228 seconds engine time, with validation/models unchanged.
+Idle sleep/wake and a second full forecast pass with the same total. See
+COLD_START_LEGACY_ACCEPTANCE.md. Next: complete
+the bilingual management/import/approval/chat, keyboard and narrow-screen
+acceptance chunk. No whole-app acceptance or client-accuracy claim.
+
 11 October complete AI factor proposals: confirmations now save reviewed inputs
 and enter the shared customer/order wizard instead of calculating directly.
 Resume, explicit order coverage, exact groups/methods, company gates and legacy

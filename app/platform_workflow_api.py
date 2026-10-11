@@ -109,6 +109,18 @@ def install_platform_workflows(api,workspaces,dispatcher,service):
         w=draft(request,True)
         return safe(lambda:save_factor_comparison(w.load_run(run_id),w.datasets,body))
 
+    @router.get('/runs/{run_id}/assumptions',tags=['Scenarios'])
+    def assumptions(run_id:str,request:Request):
+        from .assumptions import preview_assumptions
+        w=draft(request)
+        return safe(lambda:preview_assumptions(w.load_run(run_id),w.datasets),True)
+
+    @router.post('/runs/{run_id}/assumptions',status_code=201,tags=['Scenarios'])
+    def save_future_assumptions(run_id:str,body:dict,request:Request):
+        from .assumptions import save_assumptions
+        w=draft(request,True)
+        return safe(lambda:save_assumptions(w.load_run(run_id),w.datasets,body))
+
     @router.post('/scenario-jobs',status_code=202,tags=['Scenarios'])
     def scenario_job(body:ScenarioJob,request:Request):
         w=draft(request,True)

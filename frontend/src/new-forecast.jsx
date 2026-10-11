@@ -3,6 +3,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import {useSmoothState} from './ui-motion.jsx';
 import {ArrowLeft,ArrowRight,UploadSimple} from '@phosphor-icons/react';
 import {t as uiText,unitLabel,i18n} from './localization.mjs';
+import {methodName} from './method-comparison.jsx';
 import {FORECAST_CHOICES,forecastInputs,remainingMethods,readForecastDraft,FORECAST_DRAFT_KEY} from './forecast-start.mjs';
 import {ForecastFactors,IncludedForecastFactors} from './forecast-factors.jsx';
 import {ForecastOrders} from './forecast-orders.jsx';
@@ -16,6 +17,16 @@ import {planningMonth} from './planning-calendar.mjs';
 
 export function PreparedFactorSummary({dataset,baseline,ui,methodsOnly=false}){
   const {Table}=ui,proof=dataset.scenario_provenance;
+  if(['factor_assumptions','factor_comparison'].includes(proof.type))return <Stack>
+    <DefinitionList rows={[[uiText('Sales data'),dataset.name],[uiText('Method'),methodName(dataset.settings.method_selection)],
+      [uiText('Planning months'),uiText(dataset.settings.month_basis==='jalali'?'Persian months':'Gregorian months')],
+      [uiText('Forecast horizon'),new Intl.NumberFormat(i18n.language).format(dataset.settings.horizon)]]}/>
+    {!methodsOnly&&(proof.type==='factor_comparison'?<DefinitionList rows={[[uiText('Removed factors'),proof.removed_factors.join(', ')]]}/>:<Disclosure title={uiText('Future assumptions')}>
+      <Table headers={[uiText('Customer / product'),uiText('Month'),uiText('Factor'),uiText('Baseline'),uiText('Your assumption')]}>
+        {proof.changes.map((row,index)=><tr key={index}><td>{row.item_id}</td><td>{planningMonth(row.period,dataset.settings.month_basis||'gregorian')}</td><td>{row.factor}</td><td>{row.baseline_value}</td><td>{row.value}</td></tr>)}
+      </Table>
+    </Disclosure>)}
+  </Stack>;
   const metadata=baseline?.metadata||Object.fromEntries((proof.alignment.groups||[]).flatMap(group=>group.series||[]).map(row=>[row.id,row]));
   const groups=proof.type==='factor_batch'?proof.alignment.groups.map(group=>({id:group.dataset_id,scenario_provenance:{alignment:group.alignment}})):[{...dataset,scenario_provenance:{...proof,alignment:{...proof.alignment,series_ids:proof.alignment.series_ids||Object.keys(metadata)}}}];
   const unchanged=proof.alignment.unchanged_series_ids?.length;
@@ -167,7 +178,7 @@ export function NewForecast({datasets=[],api,ui,renderImport,runDataset,refresh,
       {step===4&&<>
         {!jobs.length&&busy&&<p role="status">{uiText(cloudTransportEnabled()?'Calculating…':'Starting…')}</p>}
         <Stack>{jobs.map(job=><div key={job.id} className="ui-list-row">
-          <div className="ui-list-body"><strong>{uiText(scenario?'Customer/product factors':FORECAST_CHOICES.find(([id])=>id===job.method)?.[1]||job.method)}</strong><small role="status">{summaries[job.run_id]?(summaries[job.run_id].total==null?uiText('Check customer history and orders'):`${new Intl.NumberFormat(i18n.language,{maximumFractionDigits:1}).format(summaries[job.run_id].total)} ${unitLabel(summaries[job.run_id].unit)}`):uiText(({loading:'Loading…',queued:'Queued',running:'Calculating…',publishing:'Saving…',succeeded:'Ready',failed:'Failed',interrupted:'Interrupted',cancelled:'Cancelled'})[job.state]||'Working')}</small>
+          <div className="ui-list-body"><strong>{scenario?methodName(dataset.settings.method_selection||scenario.alignment?.method):uiText(FORECAST_CHOICES.find(([id])=>id===job.method)?.[1]||job.method)}</strong><small role="status">{summaries[job.run_id]?(summaries[job.run_id].total==null?uiText('Check customer history and orders'):`${new Intl.NumberFormat(i18n.language,{maximumFractionDigits:1}).format(summaries[job.run_id].total)} ${unitLabel(summaries[job.run_id].unit)}`):uiText(({loading:'Loading…',queued:'Queued',running:'Calculating…',publishing:'Saving…',succeeded:'Ready',failed:'Failed',interrupted:'Interrupted',cancelled:'Cancelled'})[job.state]||'Working')}</small>
             {job.error&&<details><summary>{uiText('What needs attention?')}</summary><p>{job.error}</p></details>}
           </div>
           {job.state==='succeeded'&&<Button disabled={busy} kind="primary" onClick={()=>viewForecast(job)}>{uiText('View forecast')}<ArrowRight size={16}/></Button>}

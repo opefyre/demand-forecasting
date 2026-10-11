@@ -32,7 +32,7 @@ const title = value => value.replaceAll('_', ' ').replace(/^./, c => c.toUpperCa
 const remembered = run => localState.getItem(`demandlab.orders.${run}`) || '';
 export { remembered };
 
-export function SalesDemand({ api, ui, run, runs = [], openRun, importNew, navigate, canEdit, canAdmin, showHeading = true, decisionTarget,startUpdate,startNewForecast }) {
+export function SalesDemand({ api, ui, run, runs = [], openRun, importNew, navigate, canEdit, canAdmin, showHeading = true, decisionTarget,startUpdate,startNewForecast,onScenarios }) {
   const { Button, Pick, Field, Table, ErrorBox, Modal, Help } = ui;
   const basis=planningBasis(run);
   const [library,setLibrary]=useState(null),[showArchived,setShowArchived]=useState(false);
@@ -146,6 +146,7 @@ export function SalesDemand({ api, ui, run, runs = [], openRun, importNew, navig
         <label className="ui-check"><input type="checkbox" checked={showArchived} onChange={e=>setShowArchived(e.target.checked)}/>{uiText('Show archived')}</label>
         {group&&<ResourceMenu api={api} ui={ui} kind={run.forecast_group_id?'forecasts':'runs'} id={run.forecast_group_id||run.run_id}
           name={group.name} archived={!!group.runs[0].lifecycle?.archived} canEdit={canEdit} onChanged={refreshLibrary}
+          onScenarios={!run.scenario_name&&!run.base_run_id?onScenarios:null}
           onOpenRevision={row=>row.run_id?openRun(row.run_id,'demand'):row.kind==='runs'?openRun(row.id,'demand'):Promise.reject(Error(uiText('This forecast has no completed results.')))}
           onCreateRevision={canEdit&&startNewForecast&&run.forecast_group_id?()=>startNewForecast(run.dataset_id,run.method_selection||'recommended','',run.forecast_group_id,group.name):null}/>}</>}
       {group?.runs.length>1&&<>{!comparing&&<Pick label={uiText('Method')} value={run.run_id} options={group.runs.map(r=>[r.run_id,methodName(r.method_selection)])} onChange={id=>openRun(id,'demand')}/>}<Button onClick={()=>setComparing(v=>!v)}>{uiText(comparing?'Back to results':'Compare methods')}</Button></>}

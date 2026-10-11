@@ -93,6 +93,10 @@ async def _projection(api, workspace, company):
             if name == 'runs' and row.get('sales_input_snapshot_id'):
                 await save('/runs/' + key + '/demand')
             if name == 'runs':
+                details = views.get('/runs/' + key) or {}
+                if not row.get('scenario_name') and (details.get('input_manifest', {}).get('settings') or {}).get('drivers'):
+                    await save('/runs/' + key + '/assumptions')
+                    await save('/runs/' + key + '/factors')
                 await save('/runs/' + key + '/orders/starter')
                 await save('/runs/' + key + '/order-snapshots')
                 evaluations = await save('/runs/' + key + '/actuals')

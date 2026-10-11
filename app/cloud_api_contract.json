@@ -117,6 +117,8 @@
   {"method":"POST","path":"/runs/{id}/factor-links","scopes":["reports:read","drafts:read","inputs:read","factors:read","inputs:write","factors:write","forecasts:run"]},
   {"method":"POST","path":"/runs/{id}/factor-batch","scopes":["reports:read","drafts:read","inputs:read","factors:read","inputs:write","factors:write","forecasts:run"]},
   {"method":"POST","path":"/runs/{id}/factor-comparison","scopes":["reports:read","drafts:read","inputs:read","factors:read","inputs:write","factors:write","forecasts:run"]},
+  {"method":"GET","path":"/runs/{id}/assumptions","scopes":["reports:read","drafts:read","inputs:read","factors:read"]},
+  {"method":"POST","path":"/runs/{id}/assumptions","scopes":["reports:read","drafts:read","inputs:read","factors:read","inputs:write","factors:write","forecasts:run"]},
   {"method":"POST","path":"/runs/{id}/order-reuse/preview","scopes":["reports:read","drafts:read","inputs:read","factors:read","orders:read"]},
   {"method":"POST","path":"/runs/{id}/order-reuse","scopes":["reports:read","drafts:read","inputs:read","factors:read","orders:read","orders:write"]},
   {"method":"POST","path":"/runs/{id}/order-comparison/preview","scopes":["reports:read","drafts:read","inputs:read","factors:read","orders:read"]},

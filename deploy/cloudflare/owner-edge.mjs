@@ -31,6 +31,16 @@ export async function ownerRequest(request,env) {
       if(typeof state.running!=='boolean'||typeof state.busy!=='boolean'||state.idle_timeout_ms!==300000)
         return json({detail:'Engine status is unavailable'},503);
       const value={running:state.running,busy:state.busy,idle_timeout_ms:state.idle_timeout_ms};
+      if(who.role==='admin'&&Number.isSafeInteger(state.busy_remaining_ms)&&state.busy_remaining_ms>=0&&state.busy_remaining_ms<=720000)
+        value.busy_remaining_ms=state.busy_remaining_ms;
+      const operationFailure=state.last_failure;
+      if(who.role==='admin'&&['startup','execution'].includes(operationFailure?.stage)&&Number.isSafeInteger(operationFailure.elapsed_ms)&&operationFailure.elapsed_ms>=0&&operationFailure.elapsed_ms<=3600000)
+        value.last_failure={stage:operationFailure.stage,elapsed_ms:operationFailure.elapsed_ms,
+          ...(Number.isSafeInteger(operationFailure.exit_code)&&operationFailure.exit_code>=-255&&operationFailure.exit_code<=255?{exit_code:operationFailure.exit_code}:{})};
+      const timing=state.last_timing,timingKeys=['startup_ms','input_ms','calculation_ms','persistence_ms','total_ms','artifacts'];
+      if(who.role==='admin'&&typeof timing?.cold==='boolean'&&['api','forecast'].includes(timing.kind)&&
+        timingKeys.every(key=>Number.isSafeInteger(timing[key])&&timing[key]>=0&&timing[key]<=3600000))
+        value.last_timing={kind:timing.kind,cold:timing.cold,...Object.fromEntries(timingKeys.map(key=>[key,timing[key]]))};
       if(url.search==='?check_sources=1'){
         const probe=await env.ENGINE.sourceProbe();
         value.source_probe={ready:probe.ready===true,...(probe.ready===false&&['policy','dns_request','dns','unavailable'].includes(probe.reason)?{reason:probe.reason}:{})};

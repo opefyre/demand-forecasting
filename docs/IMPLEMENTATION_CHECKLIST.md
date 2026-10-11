@@ -1,5 +1,21 @@
 # DemandLab — implementation and acceptance checklist
 
+## 11 October — cold startup and legacy scenarios
+
+- [x] Company-safe future edits/no-factor comparisons enter the shared order
+  wizard; source/settings checks repeated at dispatch and execution.
+- [x] Existing forecast menu, shared fixed dialog and global layouts; completed
+  comparison rendering crash fixed and Persian factor labels corrected.
+- [x] Bounded startup, overlapping input load, three-file save batches, safe
+  owner timing diagnostics; private engine wakes in 2.497 seconds on tested run.
+- [x] Private automatic forecast saved/reopened: 3,982.84 tonnes, 56.228-second
+  engine total. 112 related backend, 331 interface, 64 cloud tests/build pass.
+- [x] Idle sleep and reviewed wake followed by a second automatic forecast:
+  identical 3,982.84-tonne result, 56.107-second engine total.
+- [ ] Full bilingual management/import/keyboard/mobile
+  acceptance and larger-history timing. See COLD_START_LEGACY_ACCEPTANCE.md.
+- [ ] Real client accuracy and AI provider eligibility; whole app not accepted.
+
 ## 11 October — complete AI factor proposals and cloud processing
 
 - [x] Complete single/batch AI proposals enter the shared order-reviewed wizard;

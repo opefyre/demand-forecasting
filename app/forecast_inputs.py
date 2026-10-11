@@ -36,7 +36,7 @@ def input_context(store, identifier, *, reviewed_scenario=False):
         return _input_context(store, identifier, reviewed_scenario=reviewed_scenario)
     dataset = store.get(identifier)
     proof = dataset.get('scenario_provenance')
-    if proof and not (reviewed_scenario and proof.get('type') in {'factor_link', 'factor_batch'}):
+    if proof and not (reviewed_scenario and proof.get('type') in {'factor_link', 'factor_batch', 'factor_assumptions', 'factor_comparison'}):
         # The permission/shape gate is checked even on a cache hit.
         return _input_context(store, identifier, reviewed_scenario=reviewed_scenario)
     key = (identifier, reviewed_scenario if proof else False)
@@ -48,7 +48,7 @@ def input_context(store, identifier, *, reviewed_scenario=False):
 def _input_context(store, identifier, *, reviewed_scenario=False):
     dataset = store.get(identifier)
     proof=dataset.get('scenario_provenance')
-    if (proof and not (reviewed_scenario and proof.get('type') in {'factor_link','factor_batch'})) or set(dataset['sources']) - {'history', 'future'}:
+    if (proof and not (reviewed_scenario and proof.get('type') in {'factor_link','factor_batch','factor_assumptions','factor_comparison'})) or set(dataset['sources']) - {'history', 'future'}:
         raise ValueError('Choose saved sales history, not a comparison or production dataset.')
     settings = deepcopy(dataset['settings'])
     if settings.get('frequency', 'monthly') != 'monthly':
