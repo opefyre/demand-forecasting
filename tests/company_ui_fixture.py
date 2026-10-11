@@ -14,7 +14,7 @@ from tests.test_company_context import ALL,VIEW
 from app.company_jobs import execute_company_job
 
 
-def run(*,notifications=False,factors=False,complete_factors=False,revision_journey=False,interrupted=False):
+def run(*,notifications=False,factors=False,complete_factors=False,revision_journey=False,interrupted=False,actual_results=False):
     import uvicorn
     fixture=PublicSalesTests();fixture.setUp()
     if notifications:
@@ -91,6 +91,22 @@ def run(*,notifications=False,factors=False,complete_factors=False,revision_jour
                          for key,row in list(parse_prices(raw,CAPTURE).items())[:3]}
             with patch('app.live_sources.now',return_value=CAPTURE):
                 fixture.ws.live_sources.save('commodities',definitions,raw,'xlsx','https://example.invalid/fixture')
+        if actual_results:
+            # Synthetic comparisons only; never claim these are real outcomes.
+            from io import StringIO
+            import csv,uuid
+            from app.actuals import period_end
+            for summary in fixture.ws.list_runs():
+                forecast=fixture.ws.load_run(summary['run_id'])
+                stream=StringIO();writer=csv.writer(stream);writer.writerow(['Item','Period','Actual'])
+                points=[(item,row) for item,series in forecast['series'].items() if item!='__all__' for row in series['forecast']]
+                for index,(item,row) in enumerate(points[:-1]):
+                    writer.writerow([item,row['timestamp'],round(row['mean']*(.9 if index%2 else 1.1),3)])
+                source=fixture.ws.datasets.upload('closed-period-check.csv',stream.getvalue().encode(),'actuals')
+                closed=max(period_end(row['timestamp'],'monthly') for _,row in points)
+                fixture.ws.actuals.save({'source_id':source['id'],'mapping':{'item_id':'A','timestamp':'B','actual':'C'},
+                    'unit':forecast['unit'],'closed_through':closed.isoformat(),'classification':'synthetic_sample',
+                    'owner':'Test planner','reviewed':True,'accept_partial':True,'request_id':str(uuid.uuid4())},forecast)
     fixture.company='tehran_a';fixture.permissions=ALL.copy();fixture.role='planner'
     # Business input pulls use a synthetic in-memory remote, never a real account.
     from app.business_connections import BusinessConnections,ConnectionInput
@@ -230,4 +246,4 @@ def run(*,notifications=False,factors=False,complete_factors=False,revision_jour
 if __name__=='__main__':
     import sys
     run(notifications='--notifications' in sys.argv,factors='--factors' in sys.argv,complete_factors='--complete-factors' in sys.argv,
-        revision_journey='--revision-journey' in sys.argv,interrupted='--interrupted' in sys.argv)
+        revision_journey='--revision-journey' in sys.argv,interrupted='--interrupted' in sys.argv,actual_results='--actual-results' in sys.argv)

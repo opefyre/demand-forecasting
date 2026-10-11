@@ -1,10 +1,13 @@
 import {apiLink} from './company-api.mjs';
 import {localState} from './workspace-storage.mjs';
-import {t as uiText} from './localization.mjs';
+import {t as uiText,unitLabel} from './localization.mjs';
+import {Stack,Panel,Grid,Actions,FieldGroup,Disclosure,DefinitionList,Steps} from './ui-layout.jsx';
+import {DownloadLink} from './download-link.jsx';
+import {salesSeriesLabel} from './demand-view.mjs';
 import React, { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, UploadSimple } from "@phosphor-icons/react";
 
-export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEdit=true, embedded=false }) {
+export function ActualResults({ ui, api, run, plans=[], fmt, date, importNew, canEdit=true, embedded=false,onWorkingChange }) {
   const { Button, Pick, Field, Table, ErrorBox, Help } = ui;
   const [saved, setSaved] = useState([]),
     [result, setResult] = useState(null),
@@ -27,52 +30,50 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
     [review, setReview] = useState(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(true),
-    [dimension, setDimension] = useState("item_id");
-  const file = useRef(),
-    top = useRef();
+    [dimension, setDimension] = useState("item_id"),[readRevision,setReadRevision]=useState(0);
+  const file = useRef(),submitting=useRef(false);
+  useEffect(()=>{onWorkingChange?.(busy);return()=>onWorkingChange?.(false);},[busy,onWorkingChange]);
   const draftKey = `demandlab.actuals.${run.run_id}`;
   const restored = useRef(false);
   const load = () =>
     api(`/api/actuals/${run.run_id}`).then((r) => {
-      setSaved(r.evaluations);
       return r.evaluations;
     });
   useEffect(() => {
-    let live = true;
+    let live = true;setBusy(true);setError('');
     load()
       .then(
-        (rows) =>
-          rows[0] &&
+        (rows) => {
+          if(!live)return;setSaved(rows);
+          return rows[0] &&
           api(`/api/actual-results/${rows[0].id}`).then((r) => {
             if (live) setResult(r);
-          }),
+          });},
       )
       .catch((e) => {
-        if (live) setError(e.message);
+        if (live) setError(e);
       })
       .finally(() => {
         if (live) setBusy(false);
       });
     try {
       const draft = JSON.parse(localState.getItem(draftKey) || "null");
-      if (draft) {
+      if (draft&&!restored.current) {
         setSource(draft.source);
         setPreview(draft.preview);
-        setForm(draft.form);
+        setForm({...draft.form,reviewed:false,accept_partial:false});
       }
     } catch {}
     restored.current = true;
     return () => {
       live = false;
     };
-  }, []);
+  }, [run.run_id,readRevision]);
   useEffect(() => {
-    if (restored.current && source)
-      localState.setItem(draftKey, JSON.stringify({ source, preview, form }));
+    if (restored.current && source)try{
+      localState.setItem(draftKey, JSON.stringify({ source, preview, form:{...form,reviewed:false,accept_partial:false} }));
+    }catch{/* A blocked preference store must not prevent review. */}
   }, [source, preview, form]);
-  useEffect(() => {
-    if (editing || result) top.current?.scrollIntoView({ block: "start" });
-  }, [step, error, result?.id]);
   const change = (key, value) => {
     setForm((f) => ({
       ...f,
@@ -85,7 +86,7 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
   };
   async function upload(e) {
     const incoming = e.target.files?.[0];
-    if (!incoming) return;
+    if (!incoming||busy||!canEdit) return;
     setBusy(true);
     setError("");
     try {
@@ -113,6 +114,7 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
     }
   }
   async function next() {
+    if(busy||!canEdit||!source)return;
     setBusy(true);
     setError("");
     try {
@@ -122,7 +124,7 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
           header_row: form.header_row,
         });
         if (!p.columns.length)
-          throw new Error("Choose the row containing the column names.");
+          throw new Error(uiText("Choose the row containing the column names."));
         const choose = (regex) =>
           p.columns.find((c) => regex.test(c.label))?.id || "";
         if (
@@ -148,25 +150,28 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
     }
   }
   async function save() {
+    if(submitting.current||busy||!canEdit||!review||!form.reviewed||!form.owner.trim()||review.issue_count>0||(review.coverage.missing>0&&!form.accept_partial))return;
+    submitting.current=true;
     setBusy(true);
     setError("");
     try {
       const r = await api(`/api/actuals/${run.run_id}`, form);
       setResult(r);
-      await load();
       setEditing(false);
       setSource(null);
       setReview(null);
       localState.removeItem(draftKey);
+      setSaved(await load());
     } catch (e) {
       setError(e.message);
     } finally {
+      submitting.current=false;
       setBusy(false);
     }
   }
-  const percent = (n) => (n == null ? "Not available" : `${fmt(n)}%`);
+  const percent = (n) => (n == null ? uiText("Not available") : `${fmt(n)}%`);
   const planOptions = [
-    ["", "Forecast only"],
+    ["", uiText("Forecast only")],
     ...plans
       .filter(
         (p) =>
@@ -176,7 +181,7 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
       .map((p) => [p.id, p.name]),
   ];
   const options = [
-    ["", "Choose column"],
+    ["", uiText("Choose column")],
     ...(preview?.columns || []).map((c) => [c.id, `${c.id} · ${c.label}`]),
   ];
   const example = (key) =>
@@ -187,24 +192,17 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
       .join(" · ");
   if (editing)
     return (
-      <section className="actual-import" ref={top}>
-        <button
-          className="back-link"
+      <Stack step={step}>
+        <Actions><Button disabled={busy}
           onClick={() => {
             setEditing(false);
             setError("");
           }}
         >
-          <ArrowLeft size={16} />{uiText("Actual results")}</button>
-        <div className="section-heading">
-          <h2>{uiText("Compare with actuals")}</h2>
-          <span className="muted">
-            {step + 1}{' '}{uiText("of 3 ·")}{" "}
-            {["Choose file", "Match and confirm", "Review results"][step]}
-          </span>
-        </div>
+          <ArrowLeft size={16} />{uiText("Actual results")}</Button></Actions>
+        <Steps current={step} label={uiText('Actual-results progress')} items={['Choose file','Match and confirm','Review results']}/>
         <ErrorBox error={error} />
-        <section className="surface inventory-form">
+        <Panel title={uiText('Compare with actuals')}><FieldGroup disabled={busy||!canEdit}>
           {step === 0 ? (
             <>
               <input
@@ -214,21 +212,22 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
                 accept=".csv,.tsv,.xlsx,.xlsm,.json"
                 onChange={upload}
               />
-              <div className="section-heading">
+              <Actions>
                 <div>
-                  <strong>{source?.name || "Actual sales or demand"}</strong>
+                  <strong>{source?.name || uiText("Actual sales or demand")}</strong>
                   <p className="muted">{uiText("One total per forecast item and period.")}</p>
                 </div>
                 <Button disabled={busy} onClick={() => file.current.click()}>
                   <UploadSimple size={18} />
                   {source ? uiText("Replace file") : uiText("Choose actuals file")}
                 </Button>
-              </div>
+              </Actions>
               {source && (
-                <div className="field-grid">
+                <Grid>
                   {source.preview.sheets.length > 0 && (
                     <Field title={uiText("Worksheet")}>
                       <Pick
+                        disabled={busy}
                         label={uiText("Actuals worksheet")}
                         value={form.sheet}
                         options={source.preview.sheets.map((s) => [s, s])}
@@ -248,14 +247,14 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
                       }
                     />
                   </Field>
-                </div>
+                </Grid>
               )}
             </>
           ) : step === 1 ? (
             <>
-              <div className="field-grid">
+              <Grid>
                 <Field title={uiText("Dates in the file")} help={uiText("Match the file’s calendar. The forecast’s planning months stay unchanged.")}>
-                  <Pick label={uiText("Actual-results date calendar")} value={form.calendar||'gregorian'} options={[["gregorian",uiText("Gregorian")],["jalali",uiText("Persian (Jalali)")]]} onChange={v=>change('calendar',v)}/>
+                  <Pick disabled={busy} label={uiText("Actual-results date calendar")} value={form.calendar||'gregorian'} options={[["gregorian",uiText("Gregorian")],["jalali",uiText("Persian (Jalali)")]]} onChange={v=>change('calendar',v)}/>
                 </Field>
                 {[
                   ["item_id", "Forecast item"],
@@ -264,7 +263,7 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
                 ].map(([key, title]) => (
                   <Field
                     key={key}
-                    title={title}
+                    title={uiText(title)}
                     help={
                       key === "item_id"
                         ? uiText("Use the exact item IDs from your forecast export, including customer or location where present.")
@@ -274,7 +273,8 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
                     }
                   >
                     <Pick
-                      label={title}
+                      disabled={busy}
+                      label={uiText(title)}
                       value={form.mapping[key] || ""}
                       options={options}
                       onChange={(v) =>
@@ -282,13 +282,13 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
                       }
                     />
                     <small className="mapping-example">
-                      {example(key) || "No example selected"}
+                      {example(key) || uiText("No example selected")}
                     </small>
                   </Field>
                 ))}
                 <Field
                   title={uiText("Confirmed quantity unit")}
-                  help={`This forecast uses ${run.unit}. Actuals must use the same unit; there is no automatic conversion.`}
+                  help={uiText('Actuals must use {{unit}}. There is no automatic conversion.',{unit:unitLabel(run.unit)})}
                 >
                   <input
                     aria-label={uiText("Actuals quantity unit")}
@@ -313,6 +313,7 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
                 </Field>
                 <Field title={uiText("Compare plan")}>
                   <Pick
+                    disabled={busy}
                     label={uiText("Plan for actual comparison")}
                     value={form.plan_id}
                     options={planOptions}
@@ -327,31 +328,30 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
                     placeholder={uiText("Your name")}
                   />
                 </Field>
-              </div>
-              <details className="help-details">
-                <summary>{uiText("Exact item IDs")}</summary>
+              </Grid>
+              <Disclosure title={uiText('Exact item IDs')}>
                 <p className="muted">{run.items?.slice(0, 10).join(" · ")}</p>
-                <a className="text-link" href={apiLink(`/api/export/${run.run_id}/csv`)}>{uiText("Download forecast with item IDs")}</a>
-              </details>
+                <DownloadLink ui={ui} href={apiLink(`/api/export/${run.run_id}/csv`)} onError={setError}>{uiText("Download forecast with item IDs")}</DownloadLink>
+              </Disclosure>
             </>
           ) : (
             review && (
               <>
                 <h3>
-                  {review.coverage.matched}{' '}{uiText("of")}{' '}{review.coverage.expected}{" "}{uiText("expected results supplied")}</h3>
+                  {fmt(review.coverage.matched)}{' '}{uiText("of")}{' '}{fmt(review.coverage.expected)}{" "}{uiText("expected results supplied")}</h3>
                 {review.warnings.map((w, i) => (
                   <p className="muted" key={i}>
-                    {w}
+                    {uiText(w)}
                   </p>
                 ))}
                 {review.issue_count > 0 && (
                   <>
-                    <h3>{review.issue_count}{' '}{uiText("issues to resolve")}</h3>
+                    <h3>{fmt(review.issue_count)}{' '}{uiText("issues to resolve")}</h3>
                     <Table headers={[uiText("Source cell"), uiText("What needs attention")]}>
                       {review.issues.map((r, i) => (
                         <tr key={i}>
                           <td>{r.cell}</td>
-                          <td>{r.message}</td>
+                          <td>{uiText(r.message)}</td>
                         </tr>
                       ))}
                     </Table>
@@ -369,12 +369,11 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
                 </Table>
                 {review.coverage.matched > 10 && (
                   <p className="footnote">{uiText("Showing the first 10 matched rows. All")}{" "}
-                    {review.coverage.matched}{uiText("will be saved.")}</p>
+                    {fmt(review.coverage.matched)}{' '}{uiText("will be saved.")}</p>
                 )}
                 {review.coverage.missing > 0 && (
                   <>
-                    <details className="help-details">
-                      <summary>{uiText("Missing results")}</summary>
+                    <Disclosure title={uiText('Missing results')}>
                       <Table headers={[uiText("Item"), uiText("Period")]}>
                         {review.coverage.missing_keys.map((r) => (
                           <tr key={`${r.item_id}/${r.period}`}>
@@ -383,8 +382,8 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
                           </tr>
                         ))}
                       </Table>
-                    </details>
-                    <label className="check-row">
+                    </Disclosure>
+                    <label className="ui-check">
                       <input
                         type="checkbox"
                         checked={form.accept_partial}
@@ -397,7 +396,7 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
                       />{uiText("Save a partial comparison; missing results remain unknown.")}</label>
                   </>
                 )}
-                <label className="check-row">
+                <label className="ui-check">
                   <input
                     type="checkbox"
                     checked={form.reviewed}
@@ -408,7 +407,7 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
               </>
             )
           )}
-          <div className="inventory-actions">
+          </FieldGroup><Actions>
             {step > 0 && (
               <Button disabled={busy} onClick={() => setStep(step - 1)}>{uiText("Back")}</Button>
             )}
@@ -426,6 +425,7 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
                 kind="primary"
                 disabled={
                   busy ||
+                  !canEdit || !review ||
                   !form.reviewed ||
                   !form.owner.trim() ||
                   review?.issue_count > 0 ||
@@ -436,13 +436,13 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
                 {busy ? uiText("Saving…") : uiText("Save comparison")}
               </Button>
             )}
-          </div>
-        </section>
-      </section>
+          </Actions>
+        </Panel>
+      </Stack>
     );
   return (
-    <section className="actual-results" ref={top}>
-      <div className={embedded ? 'ui-actions' : 'section-heading'}>
+    <Stack>
+      <Actions>
         {!embedded&&<div>
           <h2>{uiText("Actual results")}</h2>
           <p>{uiText("Compare this forecast with completed sales or demand.")}</p>
@@ -459,17 +459,17 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
           {source ? uiText("Resume actuals import") : uiText("Add actual results")}
           <ArrowRight size={16} />
         </Button>}
-      </div>
-      <ErrorBox error={error} />
+      </Actions>
+      <ErrorBox error={error} onReload={()=>setReadRevision(value=>value+1)}/>
       {saved.length > 0 && (
-        <div className="view-toolbar">
+        <Actions>
           <Pick
             label={uiText("Saved actual comparison")}
             disabled={busy}
             value={result?.id || ""}
             options={saved.map((s) => [
               s.id,
-              `${date(s.closed_through, true)} · ${s.plan?.name || "Forecast only"} · ${date(s.created_at, true)}`,
+              `${date(s.closed_through, true)} · ${s.plan?.name || uiText("Forecast only")} · ${date(s.created_at, true)}`,
             ])}
             onChange={(id) => {
               setBusy(true);
@@ -480,64 +480,45 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
                 .finally(() => setBusy(false));
             }}
           />
-        </div>
+        </Actions>
       )}
       {busy && <p role="status">{uiText("Loading comparison…")}</p>}
       {busy ? null : !result ? (
-        <section className="surface actual-empty">
-          <h3>{uiText("No actual results yet")}</h3>
+        <Panel title={uiText('No actual results yet')}>
           <p className="muted">{uiText("Historical tests help choose a method. Actual results show what happened after a forecast was made.")}</p>
-        </section>
+        </Panel>
       ) : (
         <>
-          <div className="accuracy-summary surface">
-            <div>
-              <span>{uiText("Recorded forecast error")}<Help text={uiText("Total absolute error divided by total actual demand, across supplied records only. Undefined when actual demand totals zero. Timing checks below distinguish prospective evidence from diagnostics.")} />
-              </span>
-              <strong>{percent(result.diagnostic.wape_pct)}</strong>
-            </div>
-            <div>
-              <span>{uiText("Bias")}<Help text={uiText("Forecast total minus actual total, divided by actual total. Positive means the forecast was too high.")} />
-              </span>
-              <strong>{percent(result.diagnostic.bias_pct)}</strong>
-            </div>
-            <div>
-              <span>{uiText("Results supplied")}</span>
-              <strong>
-                {result.coverage.matched} / {result.coverage.expected}
-              </strong>
-            </div>
-          </div>
-          <section className="surface actual-evidence">
-            <h3>
-              {result.classification === "synthetic_sample"
-                ? uiText("Sample comparison")
-                : result.prospective.observations ===
+          <Panel title={uiText('Recorded forecast error')}><DefinitionList rows={[
+            [<>{uiText('Recorded forecast error')}<Help text={uiText('Total absolute error divided by total actual demand, across supplied records only. Undefined when actual demand totals zero. Timing checks below distinguish prospective evidence from diagnostics.')}/></>,percent(result.diagnostic.wape_pct)],
+            [<>{uiText('Bias')}<Help text={uiText('Forecast total minus actual total, divided by actual total. Positive means the forecast was too high.')}/></>,percent(result.diagnostic.bias_pct)],
+            [uiText('Results supplied'),`${fmt(result.coverage.matched)} / ${fmt(result.coverage.expected)}`],
+          ]}/></Panel>
+          <Panel title={result.prospective.observations ===
                     result.diagnostic.observations
                   ? uiText("Forward-looking check")
-                  : uiText("Timing needs attention")}
-            </h3>
+                  : uiText("Timing needs attention")}>
             {result.diagnostic.observations >
               result.prospective.observations && (
               <p className="muted">
-                {result.diagnostic.observations -
-                  result.prospective.observations}{" "}{uiText("results have late or undated forecasts. Their errors are diagnostic only.")}</p>
+                {fmt(result.diagnostic.observations -
+                  result.prospective.observations)}{" "}{uiText("results have late or undated forecasts. Their errors are diagnostic only.")}</p>
             )}
             {result.coverage.missing > 0 && (
               <p className="muted">
-                {result.coverage.missing}{uiText("missing results are excluded, not counted as zero.")}</p>
+                {fmt(result.coverage.missing)}{' '}{uiText("missing results are excluded, not counted as zero.")}</p>
             )}
             <p>
-              {result.prospective.observations}{uiText("results have a forecast issued before their period started.")}{result.prospective.observations > 0 && (
+              {fmt(result.prospective.observations)}{' '}{uiText("results have a forecast issued before their period started.")}{result.prospective.observations > 0 && (
                 <>
-                  {" "}{uiText("Error on those results:")}{percent(result.prospective.wape_pct)}
+                  {" "}{uiText("Error on those results:")}{' '}{percent(result.prospective.wape_pct)}
                   .
                 </>
               )}
             </p>
             {result.plan && (
               <p>{uiText("Plan:")}<strong>{result.plan.name}</strong>.{" "}
-                {result.paired_baseline.observations}{' '}{uiText("eligible paired results.")}{" "}
+                {fmt(result.paired_baseline.observations)}{' '}{uiText("eligible paired results.")}{" "}
                 {result.improvement_points == null ? (
                   uiText("Not enough dated evidence to measure whether adjustments helped.")
                 ) : (
@@ -548,8 +529,8 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
                 )}
               </p>
             )}
-          </section>
-          <div className="view-toolbar">
+          </Panel>
+          <Actions>
             <Pick
               label={uiText("Group actual results by")}
               value={dimension}
@@ -562,12 +543,12 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
               ]}
               onChange={setDimension}
             />
-          </div>
-          <section className="surface">
+          </Actions>
+          <Panel title={uiText('Compared results')}>
             <Table
               headers={[
                 uiText("Group"),
-                `Actual (${result.unit})`,
+                `${uiText('Actual')} (${unitLabel(result.unit)})`,
                 uiText("Forecast"),
                 uiText("Absolute error"),
                 uiText("Error %"),
@@ -587,8 +568,8 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
                       {dimension === "period"
                         ? date(r.key)
                         : dimension === "horizon_step"
-                          ? `Step ${r.key}`
-                          : r.key}
+                          ? `${uiText('Step')} ${fmt(r.key)}`
+                          : dimension === "item_id" ? salesSeriesLabel(run,r.key) : r.key}
                     </td>
                     <td>{fmt(r.actual_total)}</td>
                     <td>{fmt(r.predicted_total)}</td>
@@ -597,28 +578,23 @@ export function ActualResults({ ui, api, run, plans, fmt, date, importNew, canEd
                   </tr>
                 ))}
             </Table>
-          </section>
-          <details className="help-details">
-            <summary>{uiText("Source and review")}</summary>
+          </Panel>
+          <Disclosure title={uiText('Source and review')}>
             {result.warnings.map((w, i) => (
               <p className="muted" key={i}>
-                {w}
+                {uiText(w)}
               </p>
             ))}
-            <a
-              className="text-link"
-              href={apiLink(`/api/actual-results/${result.id}/export`)}
-            >{uiText("Download compared rows")}</a>
+            <DownloadLink ui={ui} href={apiLink(`/api/actual-results/${result.id}/export`)} onError={setError}>{uiText('Download compared rows')}</DownloadLink>
             <p>
-              {result.source.name} · {result.source.sheet || "Table"}{uiText("· closed through")}{date(result.closed_through, true)}{' '}{uiText("· reviewed by")}{" "}
+              {result.source.name} · {result.source.sheet || uiText("Table")}{uiText("· closed through")}{date(result.closed_through, true)}{' '}{uiText("· reviewed by")}{" "}
               {result.config?.owner}.
             </p>
             <p className="muted">{uiText("Saved comparisons do not change when another file or plan is edited. Corrections are saved as a new comparison. Uploaded actuals are not automatically added to training data.")}</p>
-          </details>
-          <Button onClick={importNew}>{uiText("Update forecast inputs")}<ArrowRight size={16} />
-          </Button>
+          </Disclosure>
+          {canEdit&&importNew&&<Actions><Button onClick={importNew}>{uiText("Update forecast inputs")}<ArrowRight size={16} /></Button></Actions>}
         </>
       )}
-    </section>
+    </Stack>
   );
 }

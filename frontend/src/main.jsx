@@ -1,7 +1,8 @@
 import {apiLink} from './company-api.mjs';
 import {currentForecastJobs} from './forecast-progress.mjs';
+import {DownloadLink} from './download-link.jsx';
 import {chartTheme} from './chart-theme.mjs';
-import {Page,PageTabs,Disclosure,Panel,Actions,Stack as UiStack} from './ui-layout.jsx';
+import {Page,PageTabs,Disclosure,Panel,Actions,DefinitionList,Stack as UiStack} from './ui-layout.jsx';
 import {SalesFiles} from './sales-files.jsx';
 import {workspacePage,workspaceRequest,writeWorkspaceLocation} from './navigation.mjs';
 import {MotionPresence,smoothUpdate,useSmoothState} from './ui-motion.jsx';
@@ -793,11 +794,10 @@ function App({ access }) {
               updateId?<MonthlyRefresh id={updateId} {...context} api={api} ui={inventoryUi}
                 onClose={()=>setUpdateId(null)} renderImport={props=><ImportFlow {...props}/>}/>:<SalesDemand {...context} api={api} ui={inventoryUi} />
             ) : page === "data" && !canEdit ? (
-              <section className="surface">
-                <h1>{uiText("Inputs")}</h1>
+              <Page title={uiText('Inputs')}><Panel title={uiText('Read-only access')}>
                 <p>{uiText("A planner can add or update these inputs. You can continue reviewing forecasts and saved plans.")}</p>
-                <Button onClick={() => navigate("today")}>{uiText("Back to Home")}</Button>
-              </section>
+                <Actions><Button onClick={() => navigate("today")}>{uiText("Back to Home")}</Button></Actions>
+              </Panel></Page>
             ) : page === "data" ? (
               <DataPage
                 {...context}
@@ -2409,7 +2409,7 @@ function ForecastPage({
   if (!run)
     return (
       <Page title={uiText('Calculation details')}>
-        <section className="surface">
+        <Panel>
           <Empty
             icon={ChartLineUp}
             title={uiText("Create your first forecast")}
@@ -2418,13 +2418,12 @@ function ForecastPage({
               </Button>
             }
           >{uiText("Start with your historical data. We’ll help you match the columns and choose a forecasting method.")}</Empty>
-        </section>
+        </Panel>
       </Page>
     );
   return (
     <Page title={uiText('Calculation details')} actions={<Button onClick={()=>navigate('demand')}><ArrowLeft/>{uiText('Forecast')}</Button>}>
-      <div className="forecast-toolbar">
-        <div className="run-select">
+      <Actions>
           <Pick
             label={uiText("Forecast version")}
             value={run.run_id}
@@ -2435,14 +2434,11 @@ function ForecastPage({
             }
             onChange={openRun}
           />
-        </div>
-        <div className="row-actions">
-          <a className="btn secondary" href={apiLink(`/api/export/${run.run_id}/xlsx`)}>
-            <DownloadSimple size={18} />{uiText("Export model estimate")}</a>
+          <DownloadLink ui={inventoryUi} onError={setError} href={apiLink(`/api/export/${run.run_id}/xlsx`)}>
+            <DownloadSimple size={18} />{uiText("Export model estimate")}</DownloadLink>
           <Button onClick={()=>navigate('demand')}>{uiText("Review demand & orders")}</Button>
-        </div>
-      </div>
-      <p className="forecast-method-note">{uiText("Method:")}{" "}
+      </Actions>
+      <p>{uiText("Method:")}{" "}
         <strong>
           {run.method_selection === "recommended"
             ? uiText("Chosen automatically per item")
@@ -2456,7 +2452,7 @@ function ForecastPage({
           p.run_id === run.run_id &&
           ["approved", "published"].includes(p.status),
       ) && (
-        <div className="plan-comparison-control">
+        <Actions>
           <Pick
             label={uiText("Compare with approved plan")}
             value={plan?.id || ""}
@@ -2472,12 +2468,11 @@ function ForecastPage({
                 .map((p) => [p.id, p.name]),
             ]}
           />
-        </div>
+        </Actions>
       )}
       {run.scenario_name && (
-        <div className="section-heading">
+        <Panel title={run.scenario_name} actions={<Button onClick={() => openRun(run.base_run_id)}>{uiText("Back to baseline")}</Button>}>
           <div>
-            <strong>{run.scenario_name}</strong>
             <p>
               {run.scenario?.type === "factor_assumptions"
                 ? uiText("Forecast recalculated with reviewed future inputs.")
@@ -2490,8 +2485,7 @@ function ForecastPage({
                 : uiText("A percentage adjustment to the original forecast.")}
             </p>
           </div>
-          <Button onClick={() => openRun(run.base_run_id)}>{uiText("Back to baseline")}</Button>
-        </div>
+        </Panel>
       )}
       <FactorLinkEvidence scenario={run.scenario} ui={inventoryUi}/>
       <BatchEvidence scenario={run.scenario} run={run} ui={inventoryUi}/>
@@ -2503,13 +2497,10 @@ function ForecastPage({
         date={date}
       />
       {run.metrics?.evidence_level === "limited" && run.evidence_policy!=='reviewed_what_if' && run.scenario?.type !== "factor_batch" && (
-        <div className="source-notice forecast-evidence" role="status">
-          <div>
-            <strong>{uiText("More history needed")}</strong>
+        <Panel title={uiText('More history needed')}>
             <p>{uiText("Check the limited test evidence before using this forecast.")}</p>
-          </div>
-          <Button onClick={() => setTab("accuracy")}>{uiText("View accuracy check")}</Button>
-        </div>
+          <Actions><Button onClick={() => setTab("accuracy")}>{uiText("View accuracy check")}</Button></Actions>
+        </Panel>
       )}
       <Tabs
         value={tab}
@@ -2526,7 +2517,7 @@ function ForecastPage({
         <SalesDemand api={api} ui={inventoryUi} run={run} canEdit={canEdit} showHeading={false} startNewForecast={startNewForecast}/>
       ) : tab === "outlook" ? (
         <>
-          <div className="view-toolbar">
+          <Actions>
             <Pick
               label={uiText("Product or total")}
               value={item}
@@ -2536,7 +2527,7 @@ function ForecastPage({
               ]}
               onChange={setItem}
             />
-            {run.evidence_policy!=='reviewed_what_if'&&(run.scenario?.type !== "factor_batch" || forecasts.some(r=>r.p10!=null&&r.p90!=null))&&<label className="check-row">
+            {run.evidence_policy!=='reviewed_what_if'&&(run.scenario?.type !== "factor_batch" || forecasts.some(r=>r.p10!=null&&r.p90!=null))&&<label className="ui-check">
               <input
                 type="checkbox"
                 checked={range}
@@ -2549,8 +2540,8 @@ function ForecastPage({
                 }
               />
             </label>}
-          </div>
-          <section className="surface chart-surface">
+          </Actions>
+          <Panel title={uiText('Outlook')}>
             {run.evidence_policy==='reviewed_what_if'?<p className="table-note">{uiText('What-if forecast. Past accuracy and forecast ranges are not verified.')}</p>:range && forecasts.some((r) => r.p10 == null || r.p90 == null) && (
               <p className="muted">
                 {run.scenario?.type === "factor_batch"
@@ -2558,38 +2549,11 @@ function ForecastPage({
                   : uiText("Some periods have no supported range. More historical observations are needed.")}
               </p>
             )}
-            <div className="forecast-stats">
-              <div>
-                <span>{uiText("Forecast total")}<Help text={uiText("The sum of forecasts across the selected future periods.")} />
-                </span>
-                <strong>
-                  {fmt(total, 0)}
-                  <small>{unitLabel(unit)}</small>
-                </strong>
-              </div>
-              <div>
-                <span>{periodDate(forecasts[0]?.timestamp)}</span>
-                <strong>
-                  {fmt(forecasts[0]?.mean)}
-                  <small>{unitLabel(unit)}</small>
-                </strong>
-              </div>
-              <div>
-                <span>
-                  {run.metrics?.independent_accuracy_verified
-                    ? uiText("Later-period error")
-                    : uiText("Selection error")}
-                  <Help text={uiText("Later-period error uses periods kept out of automatic method selection. If you choose a method after viewing these results, confirm your choice against new actuals. Selection error uses the periods that chose the method. Neither guarantees future accuracy.")} />
-                </span>
-                <strong>
-                  {pct(
-                    item === "__all__"
-                      ? run.metrics?.wape_pct
-                      : run.series_diagnostics?.[item]?.wape_pct,
-                  )}
-                </strong>
-              </div>
-            </div>
+            <DefinitionList rows={[
+              [<>{uiText('Forecast total')}<Help text={uiText('The sum of forecasts across the selected future periods.')}/></>,`${fmt(total,0)} ${unitLabel(unit)}`],
+              [periodDate(forecasts[0]?.timestamp),`${fmt(forecasts[0]?.mean)} ${unitLabel(unit)}`],
+              [<>{uiText(run.metrics?.independent_accuracy_verified?'Later-period error':'Selection error')}<Help text={uiText('Later-period error uses periods kept out of automatic method selection. If you choose a method after viewing these results, confirm your choice against new actuals. Selection error uses the periods that chose the method. Neither guarantees future accuracy.')}/></>,pct(item==='__all__'?run.metrics?.wape_pct:run.series_diagnostics?.[item]?.wape_pct)],
+            ]}/>
             <div className="chart-legend">
               <span>
                 <i className="actual" />{uiText("Actual")}</span>
@@ -2627,13 +2591,13 @@ function ForecastPage({
                     formatter={(value, name) => [
                       Array.isArray(value)
                         ? value.map((x) => fmt(x)).join(" – ")
-                        : `${fmt(value)} ${unit}`,
-                      {
+                        : `${fmt(value)} ${unitLabel(unit)}`,
+                      uiText({
                         forecast: "Forecast",
                         actual: "Actual",
                         range: "Indicative range",
                         approved: "Approved plan",
-                      }[name],
+                      }[name]||name),
                     ]}
                   />
                   {range && (
@@ -2681,14 +2645,12 @@ function ForecastPage({
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
-          </section>
-          <details className="surface disclosure">
-            <summary>{uiText("Period values")}<span>{forecasts.length}{' '}{uiText("periods")}</span>
-            </summary>
+          </Panel>
+          <Disclosure title={uiText('Period values')}>
             <Table
               headers={[
                 uiText("Period"),
-                `Forecast (${unit})`,
+                `${uiText('Forecast')} (${unitLabel(unit)})`,
                 ...(hasOverrides ? [uiText("Approved plan")] : []),
                 uiText("Low"),
                 uiText("High"),
@@ -2704,11 +2666,9 @@ function ForecastPage({
                 </tr>
               ))}
             </Table>
-          </details>
+          </Disclosure>
           {run.drivers?.length > 0 && (
-            <details className="surface disclosure">
-              <summary>{uiText("Factors used in this forecast")}<span>{run.drivers.length}{' '}{uiText("factors")}</span>
-              </summary>
+            <Disclosure title={uiText('Factors used in this forecast')}>
               <Table headers={[uiText("Factor"), uiText("Association"), uiText("Role")]}>
                 {run.drivers.map((d) => (
                   <tr key={d.feature}>
@@ -2721,22 +2681,17 @@ function ForecastPage({
                   </tr>
                 ))}
               </Table>
-            </details>
+            </Disclosure>
           )}
         </>
       ) : tab === "methods" ? (
         <>
-          <div className="section-heading">
-            <div>
-              <h2>{uiText("Compare forecasting methods")}</h2>
-              <p>{uiText(run.evidence_policy==='reviewed_what_if'?'What-if forecast. Past accuracy and forecast ranges are not verified.':"Choose using earlier periods. Check the choice against a later period when enough history is available.")}</p>
-            </div>
-          </div>
+          <p>{uiText(run.evidence_policy==='reviewed_what_if'?'What-if forecast. Past accuracy and forecast ranges are not verified.':"Choose using earlier periods. Check the choice against a later period when enough history is available.")}</p>
           {!dataset && (
             <div className="inline-message">{uiText("This earlier run has no saved inputs.")}{" "}
               <button onClick={importNew}>{uiText("Import its source files")}</button>{uiText("to rerun a method.")}</div>
           )}
-          <section className="surface methods-table">
+          <Panel title={uiText('Compare forecasting methods')}>
             <Table
               headers={[
                 uiText("Method"),
@@ -2794,7 +2749,7 @@ function ForecastPage({
                 </tr>
               ))}
             </Table>
-          </section>
+          </Panel>
         </>
       ) : tab === "accuracy" ? (
         <>
@@ -2816,12 +2771,12 @@ function ForecastPage({
               fmt={fmt}
               date={date}
               importNew={importNew}
+              canEdit={canEdit}
             />
-          ) : run.evidence_policy==='reviewed_what_if'?<section className="surface"><p>{uiText('What-if forecast. Past accuracy and forecast ranges are not verified.')}</p></section> : (
+          ) : run.evidence_policy==='reviewed_what_if'?<Panel title={uiText('Historical tests')}><p>{uiText('What-if forecast. Past accuracy and forecast ranges are not verified.')}</p></Panel> : (
             <>
-              <div className="section-heading">
+              <Panel title={uiText('How well did it predict past demand?')}>
                 <div>
-                  <h2>{uiText("How well did it predict past demand?")}</h2>
                   <p>
                     {fmt(run.metrics?.validation_points, 0)}{' '}{uiText("observations ·")}{" "}
                     {run.metrics?.independent_accuracy_verified
@@ -2835,35 +2790,15 @@ function ForecastPage({
                   }
                 >
                   {label(run.metrics?.evidence_level)}{uiText("evidence")}</Pill>
-              </div>
-              <div className="accuracy-summary surface">
-                <div>
-                  <span>
-                    {run.metrics?.independent_accuracy_verified
-                      ? uiText("Later-period error")
-                      : uiText("Selection error")}
-                    <Help text={uiText("Total absolute error divided by total actual demand (WAPE). Later periods are kept out of automatic method selection. Choosing manually after viewing their results needs a fresh check against new actuals.")} />
-                  </span>
-                  <strong>{pct(run.metrics?.wape_pct)}</strong>
-                </div>
-                <div>
-                  <span>{uiText("Bias")}<Help text={uiText("Near zero is better. Negative means forecasts were too low on average.")} />
-                  </span>
-                  <strong>{pct(run.metrics?.bias_pct)}</strong>
-                </div>
-                <div>
-                  <span>{uiText("Independent check")}<Help text={uiText("Later periods are kept out of automatic method selection. If available, the range check below separately shows how often actual demand fell inside the planning range.")} />
-                  </span>
-                  <strong>
-                    {run.metrics?.independent_accuracy_verified
-                      ? uiText("Available")
-                      : uiText("Not available")}
-                  </strong>
-                </div>
-              </div>
+              <DefinitionList rows={[
+                [<>{uiText(run.metrics?.independent_accuracy_verified?'Later-period error':'Selection error')}<Help text={uiText('Total absolute error divided by total actual demand (WAPE). Later periods are kept out of automatic method selection. Choosing manually after viewing their results needs a fresh check against new actuals.')}/></>,pct(run.metrics?.wape_pct)],
+                [<>{uiText('Bias')}<Help text={uiText('Near zero is better. Negative means forecasts were too low on average.')}/></>,pct(run.metrics?.bias_pct)],
+                [<>{uiText('Independent check')}<Help text={uiText('Later periods are kept out of automatic method selection. If available, the range check below separately shows how often actual demand fell inside the planning range.')}/></>,uiText(run.metrics?.independent_accuracy_verified?'Available':'Not available')],
+              ]}/>
+              </Panel>
               <RangeCheck run={run} ui={inventoryUi} fmt={fmt} />
-              {!!run.input_manifest?.settings?.drivers?.length && <p className="muted">{run.metrics?.factor_test_note || 'This saved run predates the factor cutoff check. Recalculate before judging factor usefulness.'}</p>}
-              <section className="surface">
+              {!!run.input_manifest?.settings?.drivers?.length && <p className="muted">{uiText(run.metrics?.factor_test_note || 'This saved run predates the factor cutoff check. Recalculate before judging factor usefulness.')}</p>}
+              <Panel title={uiText('Historical tests')}>
                 <Table headers={[uiText("Item"), uiText("Test error"), uiText("Bias"), uiText("Best method")]}>
                   {Object.entries(run.series_diagnostics || {}).map(
                     ([id, d]) => (
@@ -2871,12 +2806,12 @@ function ForecastPage({
                         <td>{salesSeriesLabel(run,id)}</td>
                         <td>{pct(d.wape_pct)}</td>
                         <td>{pct(d.bias_pct)}</td>
-                        <td>{d.best_model}</td>
+                        <td>{uiText(d.best_model)}</td>
                       </tr>
                     ),
                   )}
                 </Table>
-              </section>
+              </Panel>
             </>
           )}
         </>

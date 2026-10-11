@@ -42,6 +42,7 @@ export function SalesDemand({ api, ui, run, runs = [], openRun, importNew, navig
   const refreshLibrary=async()=>setLibrary((await api('/api/v1/runs?include_archived=true')).runs);
   const [comparing,setComparing]=useState(false);
   const [actualsOpen,setActualsOpen]=useState(false);
+  const [actualsBusy,setActualsBusy]=useState(false);
   const previousGroup=useRef(null);
   const [snapshots, setSnapshots] = useState([]), [selected, setSelected] = useState('');
   const [outlook, setOutlook] = useState(null), [editing, setEditing] = useState(null), [error, setError] = useState('');
@@ -157,8 +158,8 @@ export function SalesDemand({ api, ui, run, runs = [], openRun, importNew, navig
     {editing&&<OrderUpdate key={run.run_id} api={api} ui={ui} run={run} initial={editing} canEdit={canEdit} onClose={()=>setEditing(null)} onSaved={async value=>{
       localState.setItem(`demandlab.orders.${run.run_id}`,value.id);setEditing(null);await refresh(run.run_id);
     }}/>}
-    <Modal open={actualsOpen} onClose={()=>setActualsOpen(false)} title={uiText('Actual results')} wide fixed>
-      {actualsOpen&&<ActualResults ui={ui} api={api} run={run} plans={[]} canEdit={canEdit} embedded
+    <Modal open={actualsOpen} dismissible={!actualsBusy} onClose={()=>!actualsBusy&&setActualsOpen(false)} title={uiText('Actual results')} wide fixed>
+      {actualsOpen&&<ActualResults key={run.run_id} ui={ui} api={api} run={run} plans={[]} canEdit={canEdit} embedded onWorkingChange={setActualsBusy}
         fmt={number} date={value=>new Intl.DateTimeFormat(i18n.language).format(new Date(value))}/>}</Modal>
     {demandLoading ? <p role="status">{uiText("Loading demand…")}</p> : !outlook&&error ? null : !outlook ? <ModelEstimate key={run.run_id+':'+(decisionTarget?.customer||'')} run={run} ui={ui} canEdit={canEdit} onOrders={()=>startNewForecast?startNewForecast(run.dataset_id,run.method_selection||'recommended',decisionTarget?.customer||''):start(false)} unified={!!startNewForecast} navigate={navigate} initialCustomer={decisionTarget?.customer||''}/> : <>
       <PageControls><div className="compact-toolbar demand-filters">

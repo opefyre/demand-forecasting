@@ -233,3 +233,50 @@ changes. Still outstanding: broader legacy-screen design consolidation, the full
 advanced-assistant English/Farsi/mobile exception matrix, and real-client accuracy
 validation when sufficient history and actual outcomes exist. These are recorded
 limits, not reasons to keep repeating small audits before discussing new modules.
+
+### Legacy consistency and bilingual closeout — 11 October
+
+The remaining calculation-detail and actual-results layouts now use the shared
+Panel, Stack, Grid, Actions, FieldGroup, Disclosure, DefinitionList and Steps
+components. Removed their competing CSS rules rather than adding another set of
+overrides. No authored inline appearance styles were added. Range-review labels,
+units, counts, help and missing-evidence states are translated; actual-result
+mapping/review steps are also translated. Customer/product result labels now use
+the shared readable label instead of exposing encoded IDs.
+
+Actual-results fixes: readers cannot add results; the modal cannot close while
+an operation is running; duplicate save clicks are guarded; restored drafts need
+fresh confirmation; a successful save is not offered again if the subsequent list
+read fails; stale initial reads are ignored. Removed the nonfunctional update
+button when no input-update handler exists. Export failures use the shared inline
+download recovery. Comparison records and historical evidence are unchanged.
+
+Verification: 378 frontend tests, 42 focused backend actual-results, legacy
+scenario, grouped-factor and order-revision tests, plus the production build pass.
+Existing bundle-size and SQLite resource warnings remain, not new failures.
+
+Disposable local browser checks:
+- English and Farsi saved actual-results comparisons: supplied 11 of 12 rows,
+  omitted results excluded rather than zero; diagnostic versus prospective timing
+  explained; grouping, units and dates translated.
+- Farsi actual-results entry and advanced future-assumption forms at 390px:
+  358px fixed dialog, internal scrolling, no document-width overflow.
+- English/Farsi scenario comparison and future-assumption forms: shared controls,
+  explicit unit/location/source/reviewer checks and disabled incomplete submission.
+- Mocked grouped assistant proposal: two selected customer/product series plus
+  two unchanged baseline series; explicit factor review opens the shared wizard.
+  Farsi factors → orders → methods → real local calculation → saved result
+  navigation completes. Incomplete orders remain unknown; export readiness is
+  gated. The mock response and synthetic source names are intentionally not
+  translated as authored interface copy. No paid AI or external source calls.
+
+This closes the requested local legacy-consistency slice. Calculation-detail
+markup is covered by regression checks; every historical/deprecated branch is not
+claimed as browser-tested. Synthetic tests establish workflow behavior, not
+real-client forecast accuracy. Real-client history/outcome validation and eventual
+production acceptance remain separate. No infrastructure changes or edits to
+original client/demo records. Next: discuss and prioritize the new modules; no
+further infrastructure or open-ended polishing is proposed here.
+Final-build browser verification confirms readable customer/product labels and
+all three Farsi actual-results step labels. Temporary screenshot evidence:
+`/private/tmp/demandlab-legacy-consistency-fa.png`.
