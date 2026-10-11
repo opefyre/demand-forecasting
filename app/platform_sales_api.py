@@ -41,7 +41,8 @@ class ForecastCreate(StrictInput):
     name: str = Field(min_length=1, max_length=160)
     dataset_id: str = Field(pattern=r'^[a-f0-9]{32}$')
     sales_input_id: str = Field(pattern=r'^[a-f0-9]{32}$')
-    methods: list[str] = Field(min_length=1, max_length=24)
+    methods: list[str] = Field(min_length=1, max_length=24,
+        description='Forecast method IDs. For saved factor_link/factor_batch inputs use only reviewed_factors; this preserves their reviewed methods and customer/product scope.')
     request_id: str = Field(min_length=8, max_length=100)
     parent_forecast_id: str | None = Field(default=None,pattern=r'^[a-f0-9]{32}$')
 
@@ -298,8 +299,12 @@ def install_platform_sales(api, workspaces, dispatcher=None):
             if ws.jobs.active_group_jobs(parent['id']):
                 raise HTTPException(409,'Wait for the previous forecast to finish before revising it.')
         from .grouped_forecasts import create_group
+        from .company_workflows import review_scenario
+        if value.get('scenario_provenance'):
+            principal(request,'factors:read');principal(request,'drafts:read')
         return safe_group(call(lambda: create_group(ws.datasets, ws.sales, ws.jobs,
-            body.model_dump(), lambda key: dispatcher(ws, key), lifecycle=ws.lifecycle, site=ws.site)))
+            body.model_dump(), lambda key: dispatcher(ws, key), lifecycle=ws.lifecycle, site=ws.site,
+            scenario_review=lambda source:review_scenario(source,ws.datasets,ws.factors,ws.load_run,ws.live_sources,ws.profiles))))
 
     @router.get('/forecast-methods', tags=['Forecasts'])
     def forecast_methods(request: Request, frequency: Literal['monthly','weekly','daily'] = 'monthly',

@@ -17,7 +17,9 @@ def context(datasets, identifier, *, site=None):
     if site is None:
         from .main import SITE_PROFILE
         site = SITE_PROFILE
-    value = input_context(datasets, identifier)
+    # Reviewed factor comparisons still need customer/order review BEFORE fitting.
+    # This context contains dates/identities only; it cannot change the scenario.
+    value = input_context(datasets, identifier, reviewed_scenario=True)
     settings = value['input_manifest']['settings']
     value.update(unit=settings.get('unit', 'units'),
                  run_settings={'frequency': 'monthly', 'calendar_profile': {
@@ -101,6 +103,9 @@ def reviewed(datasets, sales, identifier, snapshot_id, *, site=None):
     proof = next((e for e in saved['evidence'] if e.get('type') == 'forecast_order_inputs'), {})
     if proof.get('dataset_id') != identifier or proof.get('context_sha256') != run_hash(value):
         raise ValueError('Sales data or factors changed. Review customers and orders again.')
+    revisions=sales.list(value['run_id'])
+    if not revisions or revisions[0]['id']!=snapshot_id:
+        raise StaleOrderRevision('A newer order review exists. Use the latest reviewed inputs.')
     validate_inputs(saved['inputs'], value)
     if any(c['unit'] != value['unit'] for c in saved['inputs']['customers']):
         raise ValueError('Customer quantities must use the forecast unit. Convert units explicitly before importing.')

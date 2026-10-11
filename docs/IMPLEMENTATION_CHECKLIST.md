@@ -1,5 +1,18 @@
 # DemandLab — implementation and acceptance checklist
 
+## 11 October — factor inputs and orders in one reviewed flow
+
+- [x] Manual batch/factor draft and assistant preparation/review editors enter
+  the existing forecast wizard before calculation; recorded methods/scope retained.
+- [x] Company/role boundaries, changed factors/baselines, latest order review,
+  original preservation and combined demand exports verified.
+- [x] Shared tokenized components, friendly method labels, fixed dialog/resume,
+  correct result/revision navigation; English desktop and Persian 390px checks.
+- [x] 44 focused backend, 87 additional regression and 325 frontend tests/build pass; see
+  UNIFIED_FACTOR_ORDER_REVIEW.md for evidence and boundaries.
+- [ ] Remaining complete AI-proposal confirmations and legacy advanced factor
+  execution paths; private cloud rollout/latency and full bilingual acceptance.
+
 ## 10 October — shared order/proposal review
 
 - [x] Remaining assistant proposal and order-comparison presentation migrated to

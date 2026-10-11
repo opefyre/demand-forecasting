@@ -464,7 +464,8 @@ function App({ access }) {
   const [page, setPage] = useSmoothState(workspacePage(initial));
   const [forecastRequest,setForecastRequest]=useState(initial==='new'?{id:'legacy-new'}:null);
   const forecastIdentity=useRef(forecastRequest?.id);
-  if(forecastRequest)forecastIdentity.current=forecastRequest.id;
+  const forecastDialog=useRef(forecastRequest);
+  if(forecastRequest){forecastIdentity.current=forecastRequest.id;forecastDialog.current=forecastRequest;}
   const [forecastBusy,setForecastBusy]=useState(false);
   const [run, setRun] = useState(null),
     [datasets, setDatasets] = useState([]),
@@ -513,11 +514,28 @@ function App({ access }) {
   useEffect(()=>installCloudDownloads({onStart:()=>notify('Preparing download…'),onError:setError}),[]);
   const startNewForecast=(datasetId='',method='recommended',customer='',parentForecastId=null,forecastName='')=>{
     if(!canEdit)return;
+    if(!datasetId){try{
+      const pending=JSON.parse(sessionState.getItem(FORECAST_DRAFT_KEY+'.prepared')||'null');
+      const saved=datasets.find(value=>value.id===pending?.datasetId&&!value.lifecycle?.archived&&['factor_link','factor_batch'].includes(value.scenario_provenance?.type));
+      if(saved){startScenarioForecast(saved,{metadata:pending.metadata},pending.parentForecastId);return;}
+      sessionState.removeItem(FORECAST_DRAFT_KEY+'.prepared');
+    }catch{}}
+    const prepared=datasets.find(value=>value.id===datasetId&&['factor_link','factor_batch'].includes(value.scenario_provenance?.type));
+    if(prepared){startScenarioForecast(prepared,run,parentForecastId,forecastName);return;}
     try{if(typeof datasetId==='string'&&datasetId)sessionState.setItem(FORECAST_DRAFT_KEY,JSON.stringify({version:2,source:datasetId,step:1,methods:[method],customer,jobs:[],parentForecastId,
       ...(forecastName?{name:(forecastName+' · '+new Date().toISOString().slice(0,10)).slice(0,160)}:{})}));else if(readForecastDraft(sessionState)?.step===4)sessionState.removeItem(FORECAST_DRAFT_KEY);}catch{}
     navigate('demand');
     setForecastBusy(false);
     setForecastRequest({id:crypto.randomUUID(),parentForecastId});
+  };
+  const startScenarioForecast=(saved,baseline=run,parentForecastId=null,forecastName='')=>{
+    if(!canEdit)return;
+    setDatasets(previous=>[saved,...previous.filter(value=>value.id!==saved.id)]);
+    try{sessionState.setItem(FORECAST_DRAFT_KEY+'.prepared',JSON.stringify({datasetId:saved.id,metadata:baseline?.metadata,parentForecastId}));}catch{}
+    navigate('demand');setForecastBusy(false);
+    setForecastRequest({id:crypto.randomUUID(),preparedScenario:saved,scenarioBaseline:baseline,parentForecastId,
+      draftKey:FORECAST_DRAFT_KEY+'.scenario.'+saved.id+(parentForecastId?'.revision.'+parentForecastId:''),
+      initialDraft:{source:saved.id,step:1,methods:['reviewed_factors'],jobs:[],parentForecastId,name:((forecastName||uiText('Customer/product factors'))+' · '+new Date().toISOString().slice(0,10)).slice(0,160)}});
   };
   const refresh = async () => {
     const [d, p, r, w, u] = await Promise.all([
@@ -679,6 +697,7 @@ function App({ access }) {
     runDataset,
     importNew,
     startNewForecast,
+    startScenarioForecast,
     dataView,
     setDataView,
     openInventory: () => {
@@ -748,14 +767,15 @@ function App({ access }) {
                 revision={jobRevision}
                 onFinished={refresh}
                 onOpen={async (job) => {
+                  const legacyComparison=job.payload.base_run_id&&!job.payload.forecast_group_id;
                   await openRun(
-                    job.payload.base_run_id
+                    legacyComparison
                       ? job.payload.base_run_id
                       : job.run_id,
-                    job.payload.base_run_id ? "forecast" : "demand",
+                    legacyComparison ? "forecast" : "demand",
                     job.payload.result_customer ? {customer:job.payload.result_customer} : null,
                   );
-                  if (job.payload.base_run_id) setForecastTab("scenarios");
+                  if (legacyComparison) setForecastTab("scenarios");
                 }}
               />
             )}
@@ -763,7 +783,7 @@ function App({ access }) {
               <div className="loading-inline">{uiText("Opening workspace…")}</div>
             ) : page === "today" || page === "assistant" ? (
               <AssistantWorkspace {...context} api={api} ui={inventoryUi} home
-                onNewForecast={startNewForecast} renderImport={props=><ImportFlow {...props} onRun={runDataset}/>}/>
+                onNewForecast={startNewForecast} onPreparedForecast={startScenarioForecast} renderImport={props=><ImportFlow {...props} onRun={runDataset}/>}/>
             ) : page === "demand" ? (
               updateId?<MonthlyRefresh id={updateId} {...context} api={api} ui={inventoryUi}
                 onClose={()=>setUpdateId(null)} renderImport={props=><ImportFlow {...props}/>}/>:<SalesDemand {...context} api={api} ui={inventoryUi} />
@@ -799,7 +819,9 @@ function App({ access }) {
       </div>
       <Modal title={uiText('New forecast')} wide fixed open={canEdit&&!!forecastRequest&&page==='demand'&&!boot} dismissible={!forecastBusy}
         onClose={()=>setForecastRequest(null)} returnFocus={()=>document.querySelector('[data-action="new-forecast"]')}>
-        <NewForecast key={forecastIdentity.current} {...context} api={api} ui={inventoryUi} embedded onWorkingChange={setForecastBusy} parentForecastId={forecastRequest?.parentForecastId}
+        <NewForecast key={forecastIdentity.current} {...context} api={api} ui={inventoryUi} embedded onWorkingChange={setForecastBusy} parentForecastId={forecastDialog.current?.parentForecastId}
+          preparedScenario={forecastDialog.current?.preparedScenario} scenarioBaseline={forecastDialog.current?.scenarioBaseline}
+          draftKey={forecastDialog.current?.draftKey||FORECAST_DRAFT_KEY} initialDraft={forecastDialog.current?.initialDraft}
           openRun={async(...args)=>{if(await openRun(...args))setForecastRequest(null);else throw Error(uiText('Could not open the forecast. Try again.'));}}
           renderImport={props=><ImportFlow {...props}/>}/>
       </Modal>
@@ -979,6 +1001,7 @@ function DataPage({
   refresh,
   notify,
   runDataset,
+  startScenarioForecast,
   importing,
   setImporting,
   dataView: view,
@@ -1080,7 +1103,7 @@ function DataPage({
           }}
         />
       ) : view === "external" ? (
-        companyMode()?<CompanyFactors api={api} ui={inventoryUi} onConnections={()=>setView('connections')}/>:<ExternalFactors canAdmin={canAdmin} canEdit={canEdit} run={run} refresh={refresh} runDataset={runDataset}/>
+        companyMode()?<CompanyFactors api={api} ui={inventoryUi} onConnections={()=>setView('connections')}/>:<ExternalFactors canAdmin={canAdmin} canEdit={canEdit} run={run} startScenarioForecast={startScenarioForecast}/>
       ) : view === "inventory" ? (
         <InventoryData
           ui={inventoryUi}
@@ -1097,11 +1120,11 @@ function DataPage({
   );
 }
 
-function ExternalFactors({canAdmin,canEdit,run,refresh,runDataset}) {
+function ExternalFactors({canAdmin,canEdit,run,startScenarioForecast}) {
   return <LiveSources api={api} ui={inventoryUi} canAdmin={canAdmin} supplemental={[
     {id:'weather',name:uiText('Weather by location'),icon:CloudSun,provider:'NASA POWER',category:uiText('Historical weather'),status:uiText('On demand'),content:<WeatherContext api={api} ui={inventoryUi} fmt={fmt}/>},
     {id:'files',name:uiText('Existing factor files'),icon:Files,provider:uiText('Saved observations'),category:uiText('Dated factor inputs'),status:uiText('Saved data'),content:<FactorImports api={api} ui={inventoryUi} canAdmin={canAdmin} canEdit={canEdit} run={run}
-      onDraft={async(saved,request_id)=>{await refresh();const job=await runDataset(saved.id,{base_run_id:run.run_id,request_id});if(!job)throw new Error('Inputs saved, but calculation could not start. Retry to use the same draft.');}}/>},
+      onDraft={saved=>startScenarioForecast(saved,run)}/>},
   ]}/>;
 }
 
@@ -2237,6 +2260,7 @@ function ForecastPage({
   runDataset,
   importNew,
   startNewForecast,
+  startScenarioForecast,
   navigate,
   setDataView,
   tab,
@@ -2888,7 +2912,7 @@ function ForecastPage({
           {!!dataset && !run.scenario_name && <FactorBatch key={`link-${run.run_id}`} run={run} api={api} ui={inventoryUi} canEdit={canEdit}
             onManageProfiles={()=>navigate('customers')}
             onManageSources={()=>{setDataView('external');navigate('data');}}
-            onSaved={async(saved,request_id)=>{await refresh();const job=await runDataset(saved.id,{base_run_id:run.run_id,request_id});if(!job)throw new Error('Inputs saved, but calculation could not start. Retry to use the same saved comparison.');}}/>}
+            onSaved={saved=>startScenarioForecast(saved,run)}/>}
           <ScenarioList run={run} runs={runs} unit={unit} openRun={openRun} canEdit={canEdit} />
           {!!run.input_manifest?.settings?.drivers?.length && !run.scenario_name && <FactorReview
             key={`review-${run.run_id}`} run={run} api={api} ui={inventoryUi} canEdit={canEdit} fmt={fmt} date={(s)=>date(s,true)}

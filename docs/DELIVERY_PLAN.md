@@ -669,6 +669,16 @@ after the core release, only if they improve this single forecasting purpose.
 
 ## Current position and preservation
 
+11 October factor/order consolidation: manual batch and assistant factor review
+editors now enter the shared fixed forecast wizard before any calculation.
+Recorded scope/methods/assumptions and current customers/orders stay together;
+company separation, stale-input rejection, exports and revision/resume navigation
+are verified on disposable data. Shared design components only. See
+UNIFIED_FACTOR_ORDER_REVIEW.md. Local implementation; cloud deployment is not
+included. Next: complete AI proposal confirmation and remaining legacy advanced
+factor paths, then private cloud latency measurement and the full bilingual
+workflow/design acceptance journey. No whole-app acceptance claim.
+
 11 October private read follow-up: repeated cloud chat lists and short-lived
 factor choices can reuse completed responses bound to the same company, actor,
 permissions and input revision. Opening screens share one revision lookup; chat

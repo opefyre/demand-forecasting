@@ -12,9 +12,10 @@ from .forecast_engine import _engine_versions
 from .factor_links import choices, preview_link, save_link
 
 
-def input_context(store, identifier):
+def input_context(store, identifier, *, reviewed_scenario=False):
     dataset = store.get(identifier)
-    if dataset.get('scenario_provenance') or set(dataset['sources']) - {'history', 'future'}:
+    proof=dataset.get('scenario_provenance')
+    if (proof and not (reviewed_scenario and proof.get('type') in {'factor_link','factor_batch'})) or set(dataset['sources']) - {'history', 'future'}:
         raise ValueError('Choose saved sales history, not a comparison or production dataset.')
     settings = deepcopy(dataset['settings'])
     if settings.get('frequency', 'monthly') != 'monthly':
@@ -55,7 +56,8 @@ def input_context(store, identifier):
             'series': series, 'metadata': metadata, 'method_selection': 'model:Ridge + drivers',
             'leaderboard': [{'model': name} for name in
                             ('Ridge + drivers', 'Elastic Net + drivers', 'Histogram gradient boosting')],
-            'input_context_only': True}
+            'input_context_only': True,
+            **({'reviewed_scenario':deepcopy(proof)} if proof else {})}
 
 
 def factor_options(store, factors, identifier, live=None):

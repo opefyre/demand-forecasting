@@ -1395,13 +1395,16 @@ async def calculate_saved(payload: SavedRunConfig, workspace=None):
             if payload.forecast_group_id:workspace.lifecycle.require_active('forecasts',payload.forecast_group_id)
         if bool(payload.forecast_group_id) != bool(payload.forecast_name):
             raise ValueError('A forecast group needs an identifier and a name.')
-        if payload.forecast_group_id and (not payload.sales_input_id or payload.scenario_name or payload.adjustment or dataset.get('scenario_provenance')):
+        if payload.forecast_group_id and (not payload.sales_input_id or payload.scenario_name or payload.adjustment):
             raise ValueError('Group methods only with the same reviewed forecast inputs.')
         validate_forecast_group(payload, RUNS_DIR)
         if payload.sales_input_id:
             from .forecast_orders import reviewed
-            if dataset.get('scenario_provenance') or payload.scenario_name or payload.adjustment:
+            if payload.scenario_name or payload.adjustment:
                 raise ValueError('Use reviewed orders with a new forecast, not a quantity scenario.')
+            if dataset.get('scenario_provenance'):
+                from .company_workflows import review_scenario
+                review_scenario(dataset,DATASET_STORE,FACTOR_STORE,_load_run,LIVE_SOURCES,FACTOR_PROFILES)
             reviewed(DATASET_STORE, SALES_STORE, dataset['id'], payload.sales_input_id, site=workspace.site if workspace else None)
         assumption = dataset.get('scenario_provenance')
         if workspace and assumption and assumption.get('type') not in {'factor_link','factor_batch','factor_comparison'}:
@@ -1422,8 +1425,16 @@ async def calculate_saved(payload: SavedRunConfig, workspace=None):
                 raise ValueError('This batch belongs to another baseline.')
             async def calculate_group(identifier):
                 return await calculate_saved(SavedRunConfig(dataset_id=identifier,base_run_id=assumption['base_run_id']),workspace)
-            return await calculate_batch(_load_run(assumption['base_run_id']),dataset,
+            result=await calculate_batch(_load_run(assumption['base_run_id']),dataset,
                 DATASET_STORE,FACTOR_STORE,LIVE_SOURCES,FACTOR_PROFILES,calculate_group,output_directory(RUNS_DIR))
+            if payload.forecast_group_id:
+                result.update(forecast_group_id=payload.forecast_group_id,forecast_name=payload.forecast_name.strip())
+            if payload.sales_input_id and output_directory(RUNS_DIR)==RUNS_DIR:
+                from .forecast_orders import finalize
+                finalize(DATASET_STORE,SALES_STORE,result,payload.sales_input_id,
+                    output_directory(RUNS_DIR)/result['run_id'],site=workspace.site if workspace else None)
+            (output_directory(RUNS_DIR)/result['run_id']/'result.json').write_text(json.dumps(result,ensure_ascii=False,allow_nan=False,default=str))
+            return result
         if payload.scenario_name is not None:
             if not payload.base_run_id: raise ValueError('Select a forecast before creating a scenario.')
             base=_load_run(payload.base_run_id)
@@ -1503,6 +1514,9 @@ async def calculate_saved(payload: SavedRunConfig, workspace=None):
                         for cell in row:
                             if cell.data_type == 'f':
                                 cell.data_type = 's'
+        if payload.sales_input_id and assumption:
+            from .company_workflows import review_scenario
+            review_scenario(dataset,DATASET_STORE,FACTOR_STORE,_load_run,LIVE_SOURCES,FACTOR_PROFILES)
         if payload.sales_input_id and output_directory(RUNS_DIR) == RUNS_DIR:
             from .forecast_orders import finalize
             finalize(DATASET_STORE, SALES_STORE, result, payload.sales_input_id, RUNS_DIR / result['run_id'], site=workspace.site if workspace else None)
@@ -1649,7 +1663,7 @@ def create_job(payload: JobRequest):
         dataset = DATASET_STORE.get(payload.dataset_id)
         if bool(payload.forecast_group_id) != bool(payload.forecast_name):
             raise ValueError('A forecast group needs an identifier and a name.')
-        if payload.forecast_group_id and (not payload.sales_input_id or payload.scenario_name or payload.adjustment or dataset.get('scenario_provenance')):
+        if payload.forecast_group_id and (not payload.sales_input_id or payload.scenario_name or payload.adjustment):
             raise ValueError('Group methods only with the same reviewed forecast inputs.')
         validate_forecast_group(payload)
         if payload.forecast_group_id:
@@ -1659,8 +1673,11 @@ def create_job(payload: JobRequest):
                     raise ValueError('These methods belong to different inputs. Start a new forecast.')
         if payload.sales_input_id:
             from .forecast_orders import reviewed
-            if dataset.get('scenario_provenance') or payload.scenario_name or payload.adjustment:
+            if payload.scenario_name or payload.adjustment:
                 raise ValueError('Use reviewed orders with a new forecast, not a quantity scenario.')
+            if dataset.get('scenario_provenance'):
+                from .company_workflows import review_scenario
+                review_scenario(dataset,DATASET_STORE,FACTOR_STORE,_load_run,LIVE_SOURCES,FACTOR_PROFILES)
             reviewed(DATASET_STORE, SALES_STORE, dataset['id'], payload.sales_input_id)
         values = payload.model_dump(exclude={'request_id'})
         assumption = dataset.get('scenario_provenance')

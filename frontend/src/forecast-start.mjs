@@ -22,11 +22,11 @@ export function forecastSummary(run){
   return{total:rows.reduce((sum,row)=>sum+row.mean,0),periods:rows.length,unit:run.unit};
 }
 export const FORECAST_DRAFT_KEY='demandlab.newForecast';
-export function readForecastDraft(storage,availableSources,key=FORECAST_DRAFT_KEY){
+export function readForecastDraft(storage,availableSources,key=FORECAST_DRAFT_KEY,allowedMethods=FORECAST_CHOICES.map(([id])=>id)){
   try{const value=JSON.parse(storage?.getItem(key)||'null');
     if(!value||typeof value.source!=='string'||!Number.isInteger(value.step)||value.step<0||value.step>(value.version===2?4:3))return null;
     if(availableSources&&((value.source&&!availableSources.includes(value.source))||(!value.source&&value.step>0)))return null;
-    const allowed=new Set(FORECAST_CHOICES.map(([id])=>id));
+    const allowed=new Set(allowedMethods);
     if(!Array.isArray(value.methods)||value.methods.length>allowed.size||value.methods.some(m=>!allowed.has(m)))return null;
     if(!Array.isArray(value.jobs)||value.jobs.length>allowed.size||value.jobs.some(j=>typeof j.id!=='string'||!allowed.has(j.method)))return null;
     const salesInputId=typeof value.salesInputId==='string'&&/^[a-f\d]{32}$/.test(value.salesInputId)?value.salesInputId:null;

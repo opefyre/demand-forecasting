@@ -125,6 +125,13 @@ def run(*,notifications=False,factors=False,complete_factors=False):
         return FileResponse(root/'app/static/client/index.html')
 
     async def reply(payload,forecast,outlook,**kwargs):
+        if factors and forecast and payload.question=='Review customer factors':
+            from app.ai_factor_batch import AssistantFactorBatch
+            workspace=fixture.ws
+            assistant=AssistantFactorBatch(forecast,workspace.datasets,workspace.factors,workspace.live_sources,workspace.profiles)
+            action=assistant.handoff(sorted(set(forecast['series'])-{'__all__'})[:2])
+            return dict(answer='Review the selected customer factors.',actions=[action],run_id=forecast['run_id'],dataset_id=payload.dataset_id,
+                snapshot_id=payload.snapshot_id,role='query',model='mock',usage={},provider='mock')
         return dict(answer='Saved total demand: '+str(sum(row['total'] for row in outlook['rows'])) if outlook else 'Choose a forecast to review.',
             actions=[],run_id=forecast['run_id'],dataset_id=payload.dataset_id,snapshot_id=payload.snapshot_id,
             role='query',model='mock',usage={},provider='mock')

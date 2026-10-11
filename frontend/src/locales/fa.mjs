@@ -323,4 +323,6 @@ export const fa={
   'Choose inputs, factors and methods in one window.':'ورودی‌ها، عوامل و روش‌ها را در یک پنجره انتخاب کنید.',
   'Compare methods, filter results and export.':'روش‌ها را مقایسه کنید، نتایج را فیلتر کنید و خروجی بگیرید.',
   'No factors yet.':'هنوز عاملی وجود ندارد.',
+  'Reviewed methods':'روش‌های بررسی‌شده',
+  'Future assumptions':'فرض‌های آینده',
 };

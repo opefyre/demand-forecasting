@@ -135,6 +135,83 @@ class CompanyWorkflowTests(unittest.TestCase):
         self.f.company='tehran_a';self.f.permissions=VIEW.copy()
         self.f.post('/runs/'+self.run_id+'/factor-links/preview',{},403)
 
+    def test_reviewed_factor_inputs_use_group_wizard_orders_and_reconcile_exports(self):
+        original=deepcopy(self.base);factor=self.factor()
+        keys=sorted(set(self.base['series'])-{'__all__'})
+        links=[self.link(factor,[key]) for key in keys[:2]]
+        path='/runs/'+self.run_id+'/factor-batch'
+        body=dict(dataset_ids=[row['id'] for row in links])
+        report=self.f.post(path+'/preview',body)
+        batch=self.f.post(path,{**body,'reviewed':True,'review_token':report['review_token'],'request_id':str(uuid.uuid4())},201)
+        for source in (links[0],batch):
+            with self.subTest(kind=source['scenario_provenance']['type']):
+                # Context gives dates and identities, never a fitted forecast.
+                from app.forecast_orders import context
+                value=context(self.f.ws.datasets,source['id'],site=self.f.ws.site)
+                self.assertIn('reviewed_scenario',value)
+                self.assertTrue(all(set(point)=={'timestamp'} for series in value['series'].values() for point in series['forecast']))
+                snapshot=self.f.orders(source)
+                request=dict(name='Reviewed customer factors',dataset_id=source['id'],sales_input_id=snapshot['id'],methods=['reviewed_factors'],request_id=str(uuid.uuid4()))
+                count=len(self.f.ws.jobs.list())
+                self.f.post('/forecasts',{**request,'methods':['recommended']},400)
+                self.assertEqual(len(self.f.ws.jobs.list()),count)
+                group=self.f.post('/forecasts',request,202)
+                self.assertEqual(len(group['jobs']),1)
+                self.assertIsNone(group['jobs'][0]['payload']['method'])
+                self.assertEqual(group['jobs'][0]['payload']['base_run_id'],self.run_id)
+                self.assertEqual(self.f.post('/forecasts',request,202)['id'],group['id'])
+                execute_company_job(self.f.ws,group['jobs'][0]['id'])
+                completed=self.f.get('/jobs/'+group['jobs'][0]['id'])
+                self.assertEqual(completed['state'],'succeeded',completed)
+                run=self.f.ws.load_run(completed['run_id'])
+                self.assertEqual(run['forecast_group_id'],group['id'])
+                self.assertEqual(run['forecast_name'],request['name'])
+                self.assertEqual(run['forecast_order_inputs_id'],snapshot['id'])
+                outlook=self.f.get('/runs/'+run['run_id']+'/demand')
+                self.assertTrue(outlook['can_export'])
+                for row in outlook['rows']:
+                    self.assertAlmostEqual(row['total'],row['booked']+row['remaining']+row['fulfilled'])
+                self.assertTrue(any(row['customer']=='Pars' and row['total']>0 for row in outlook['rows']))
+                for kind in ('csv','xlsx','json'):
+                    response=self.f.client.get('/api/v1/runs/'+run['run_id']+'/export?mode=combined_demand&kind='+kind)
+                    self.assertEqual(response.status_code,200)
+                    self.assertTrue(response.content)
+                with pd.ExcelFile(self.f.ws.runs/run['run_id']/'forecast_package.xlsx') as workbook:
+                    self.assertIn('Combined demand',workbook.sheet_names)
+        self.assertEqual(self.f.ws.load_run(self.run_id),original)
+
+    def test_scenario_wizard_blocks_changed_evidence_stale_orders_foreign_company_and_viewer(self):
+        from app.company_workflows import review_scenario
+        factor=self.factor();source=self.link(factor)
+        snapshot=self.f.orders(source)
+        body=dict(name='Scoped factors',dataset_id=source['id'],sales_input_id=snapshot['id'],methods=['reviewed_factors'],request_id=str(uuid.uuid4()))
+        self.f.orders(source)
+        self.f.post('/forecasts',body,409)
+        body['sales_input_id']=self.f.ws.sales.list('inputs:'+source['id'])[0]['id']
+        for field in ('settings','baseline'):
+            changed=deepcopy(source);base=deepcopy(self.base)
+            if field=='settings':changed['settings']['horizon']=12
+            else:base['metadata'][next(iter(base['metadata']))]['customer']='Changed'
+            with self.assertRaisesRegex(ValueError,'changed'):
+                review_scenario(changed,self.f.ws.datasets,self.f.ws.factors,lambda key:base,self.f.ws.live_sources,self.f.ws.profiles)
+        self.f.company='tehran_b';self.f.post('/forecasts',body,404)
+        self.f.company='tehran_a';self.f.permissions=VIEW.copy();self.f.role='viewer'
+        self.f.post('/forecasts',body,403)
+        self.f.permissions=ALL.copy();self.f.permissions.remove('factors:read');self.f.role='planner'
+        self.f.post('/forecasts',body,403)
+
+    def test_queued_factor_forecast_rechecks_the_latest_orders_before_fitting(self):
+        factor=self.factor();source=self.link(factor)
+        snapshot=self.f.orders(source)
+        group=self.f.post('/forecasts',dict(name='Queued factors',dataset_id=source['id'],sales_input_id=snapshot['id'],methods=['reviewed_factors'],request_id=str(uuid.uuid4())),202)
+        self.f.orders(source)
+        with patch('app.forecast_engine._fit_full_models_and_predict',side_effect=AssertionError('Stale orders must block fitting')):
+            execute_company_job(self.f.ws,group['jobs'][0]['id'])
+        job=self.f.get('/jobs/'+group['jobs'][0]['id'])
+        self.assertEqual(job['state'],'failed',job)
+        self.assertIn('newer order review',job['error'])
+        self.assertEqual(self.f.ws.load_run(self.run_id),self.base)
+
     def test_monthly_jobs_can_retry_without_bypassing_input_review(self):
         self.start();self.step('history',dataset_id=self.dataset['id'],reviewed=True)
         self.step('calculate',months=3,method='model:Last observed',reviewed=True)

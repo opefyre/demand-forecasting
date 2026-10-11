@@ -5,6 +5,25 @@ from .monthly_refresh import MonthlyRefresh
 from .recurring_forecasts import RecurringForecasts
 from .sales_demand import demand_outlook
 
+def review_scenario(source,datasets,factors,load_run,live=None,profiles=None):
+    """Reuse authoritative comparison review before dispatch; never infer scope."""
+    from .factor_links import preview_link
+    from .factor_batch import check_saved_batch
+    from .factor_imports import digest
+    proof=source.get('scenario_provenance') or {}
+    base=load_run(proof.get('base_run_id',''))
+    if proof.get('type')=='factor_link':
+        if proof.get('baseline_sha256')!=digest(base) or proof.get('derived_inputs_sha256')!=digest({'sources':source['sources'],'settings':source['settings']}):
+            raise ValueError('Factor inputs changed. Review them again.')
+        report=preview_link(base,datasets,factors,proof['reviewed_inputs'],live,profiles)
+        if report['missing'] or report['review_token']!=proof['review_token']:
+            raise ValueError('Factor inputs changed. Review them again.')
+    elif proof.get('type')=='factor_batch':
+        check_saved_batch(base,source,datasets,factors,live,profiles)
+    else:
+        raise ValueError('Choose a reviewed factor comparison or batch.')
+    return proof['base_run_id']
+
 
 def outlook(workspace, key):
     saved=workspace.sales.get(key)

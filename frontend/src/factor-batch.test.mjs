@@ -14,7 +14,7 @@ const alignment={series_ids:['a'],method:'model:Ridge + drivers',factors:[{facto
 const groups=[{id:'g',scenario_provenance:{alignment}}];
 test('batch group review identifies exact customer/product, source and method',()=>{
   const html=renderToStaticMarkup(React.createElement(GroupTable,{groups,run,ui,onEdit(){},onRemove(){}}));
-  assert.match(html,/Customer A.*?0001/);assert.match(html,/Iran exchange rate/);assert.match(html,/Ridge \+ drivers/);
+  assert.match(html,/Customer A.*?0001/);assert.match(html,/Iran exchange rate/);assert.match(html,/Linear model \+ factors/);
   assert.match(html,/aria-label="Edit factors for a"/);assert.match(html,/Keep baseline instead/);assert.doesNotMatch(html,/Customer B|Customer A.*?0002/);
 });
 test('readonly batch evidence has no edit actions or combined accuracy promise',()=>{

@@ -22,7 +22,7 @@ def check_methods(methods, settings):
         raise ValueError('Choose distinct supported forecasting methods.')
 
 
-def create_group(datasets, sales, jobs, body, dispatch, *, lifecycle=None, site=None):
+def create_group(datasets, sales, jobs, body, dispatch, *, lifecycle=None, site=None, scenario_review=None):
     value = datasets.get(body['dataset_id'])
     if lifecycle:
         lifecycle.require_active('datasets', value['id'])
@@ -35,16 +35,22 @@ def create_group(datasets, sales, jobs, body, dispatch, *, lifecycle=None, site=
             lifecycle.require_active('forecasts', parent_id)
         if jobs.active_group_jobs(parent_id):
             raise ValueError('Wait for the previous forecast to finish before revising it.')
-    if value.get('scenario_provenance') or set(value['sources']) - {'history', 'future'}:
+    scenario=value.get('scenario_provenance')
+    if (scenario and scenario_review is None) or set(value['sources']) - {'history', 'future'}:
         raise ValueError('Choose reviewed sales inputs.')
+    if scenario:
+        if body['methods']!=['reviewed_factors']:
+            raise ValueError('Keep the methods and scope recorded in the reviewed factors.')
+        base_run_id=scenario_review(value)
     reviewed(datasets, sales, value['id'], body['sales_input_id'], site=site)
     revisions = sales.list(context(datasets, value['id'], site=site)['run_id'])
     if not revisions or revisions[0]['id'] != body['sales_input_id']:
         raise StaleOrderRevision('A newer order review exists. Use the latest reviewed inputs.')
-    check_methods(body['methods'], value['settings'])
+    if not scenario:check_methods(body['methods'], value['settings'])
     identifier = uuid.uuid5(uuid.NAMESPACE_URL, 'demandlab-group:' + body['request_id']).hex
     payloads = [{'dataset_id': value['id'], 'sales_input_id': body['sales_input_id'],
-        'method': method, 'forecast_group_id': identifier, 'forecast_name': body['name']}
+        'method': None if scenario else method, 'forecast_group_id': identifier, 'forecast_name': body['name'],
+        **({'base_run_id':base_run_id} if scenario else {})}
         for method in body['methods']]
     if parent_id:
         for payload in payloads:

@@ -17,7 +17,7 @@ import { chartTheme, comparisonLine } from "./chart-theme.mjs";
 import { Stack, Actions } from "./ui-layout.jsx";
 export const methodName = (id) =>
   uiText(
-    FORECAST_CHOICES.find(([key]) => key === id)?.[1] || id || "Automatic",
+    id==='factor_batch'?'Customer/product factors':FORECAST_CHOICES.find(([key]) => key === id)?.[1] || id || "Automatic",
   );
 export function MethodComparison({
   group,

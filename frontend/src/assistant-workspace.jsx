@@ -53,6 +53,7 @@ export function AssistantWorkspace({
   setDataView,
   home = false,
   onNewForecast,
+  onPreparedForecast,
 }) {
   const { Button, ErrorBox, Modal, Field } = ui;
   const [renaming, setRenaming] = useState(null),
@@ -720,17 +721,7 @@ export function AssistantWorkspace({
             navigate?.("data");
           }}
           onManageProfiles={() => navigate?.("customers")}
-          onSaved={async (saved, request_id) => {
-            await refresh?.();
-            const job = await runDataset(saved.id, {
-              base_run_id: run.run_id,
-              request_id,
-            });
-            if (!job)
-              throw Error(
-                "Inputs saved, but calculation could not start. Reopen the reviewed batch.",
-              );
-          }}
+          onSaved={saved=>onPreparedForecast(saved,run)}
         />
       )}
       {preparing?.workflow === "factor_preparation" && run && (
@@ -742,22 +733,13 @@ export function AssistantWorkspace({
           canEdit={canEdit}
           autoOpen
           initialProfileSeriesId={preparing.profile_series_id}
+          saveLabel="Continue"
           onDismiss={() => setPreparing(null)}
           onManageSources={() => {
             setDataView?.("external");
             navigate?.("data");
           }}
-          onSaved={async (saved, request_id) => {
-            await refresh?.();
-            const job = await runDataset(saved.id, {
-              base_run_id: run.run_id,
-              request_id,
-            });
-            if (!job)
-              throw Error(
-                "Inputs saved, but calculation could not start. Retry the reviewed comparison.",
-              );
-          }}
+          onSaved={saved=>onPreparedForecast(saved,run)}
         />
       )}
       <div
