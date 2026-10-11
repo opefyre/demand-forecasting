@@ -37,6 +37,16 @@ test('order statuses are translated without changing submitted status codes',asy
   assert.equal(t('Confirmed'),'قطعی');assert.equal(t('Unconfirmed'),'تأییدنشده');assert.equal(t('Cancelled'),'لغوشده');
   await changeInterfaceLanguage('en');
 });
+test('history revision translates controls and units without translating imported columns',async()=>{
+  const main=await readFile(new URL('main.jsx',import.meta.url),'utf8');
+  assert.match(main,/label=\{`\$\{uiText\(title\)\}/);
+  assert.match(main,/\["monthly",uiText\("Monthly"\)\]/);
+  assert.match(main,/· \{unitLabel\(settings\.unit\)\}/);
+  await changeInterfaceLanguage('fa');
+  for(const label of ['Monthly','Weekly','Daily','Dataset saved. You can forecast from it any time.'])assert.notEqual(t(label),label);
+  assert.equal(t('sku'),'sku');assert.equal(t('001'),'001');
+  await changeInterfaceLanguage('en');
+});
 test('Persian help covers the sales journey with unique authored questions',()=>{
   assert.ok(persianHelpTopics.length>=20);
   assert.equal(new Set(persianHelpTopics.map(([q])=>q)).size,persianHelpTopics.length);

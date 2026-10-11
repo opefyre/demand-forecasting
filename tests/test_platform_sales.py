@@ -67,7 +67,7 @@ class PublicSalesTests(unittest.TestCase):
         self.assertEqual(result.status_code, status, result.text)
         return result.json()
 
-    def history(self, multiplier=1, calendar='gregorian'):
+    def history(self, multiplier=1, calendar='gregorian', classification='synthetic_sample'):
         dates = pd.date_range(end=pd.Timestamp(self.today.replace(day=1))-pd.offsets.MonthBegin(), periods=36, freq='MS')
         if calendar == 'jalali':
             from app.sales_conventions import month_range, shift_month, period_start
@@ -89,7 +89,7 @@ class PublicSalesTests(unittest.TestCase):
                 series_mode='customer_product',unit='tonnes',frequency='monthly',horizon=3,profile='fast',
                 drivers=[],method_selection='model:Last observed',calendar_country='IR',weekend_days=[4],
                 sales_measure='customer_demand',month_basis=calendar,history_calendar=calendar,history_grain='monthly_totals'),
-            classification='synthetic_sample',accept_warnings=True,request_id=str(uuid.uuid4()))
+            classification=classification,accept_warnings=True,request_id=str(uuid.uuid4()))
         self.post('/datasets/preview',body)
         return source, self.post('/datasets',body,201), body
 

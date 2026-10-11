@@ -14,7 +14,7 @@ from tests.test_company_context import ALL,VIEW
 from app.company_jobs import execute_company_job
 
 
-def run(*,notifications=False,factors=False,complete_factors=False):
+def run(*,notifications=False,factors=False,complete_factors=False,revision_journey=False):
     import uvicorn
     fixture=PublicSalesTests();fixture.setUp()
     if notifications:
@@ -44,9 +44,21 @@ def run(*,notifications=False,factors=False,complete_factors=False):
     root=Path(__file__).resolve().parents[1]
     for company,multiplier in [('tehran_a',1),('tehran_b',2)]:
         fixture.company=company
-        _,dataset,body=fixture.history(multiplier)
+        _,dataset,body=fixture.history(multiplier,classification='user_provided' if revision_journey else 'synthetic_sample')
         snapshot=fixture.orders(dataset)
         fixture.calculate(dataset,snapshot)
+        if revision_journey:
+            # Fictional uploaded-history workflow; never seed real/client stores.
+            from io import BytesIO
+            import pandas as pd
+            import uuid
+            frame=pd.read_csv(BytesIO(fixture.ws.datasets.source(dataset['sources']['history'])[1]),dtype={'sku':str})
+            frame.loc[frame.loc[frame.customer.eq('Aftab')].index[-1],'quantity']=26*multiplier
+            source=fixture.ws.datasets.upload('corrected-tehran-history.csv',frame.to_csv(index=False).encode(),'history')
+            revised={**body,'name':'Tehran sales · corrected September','sources':{'history':source['id']},
+                'parent_dataset_id':dataset['id'],'request_id':str(uuid.uuid4())}
+            fixture.post('/datasets/preview',revised)
+            fixture.post('/datasets',revised,201)
         if complete_factors:
             # Real legacy scenario inputs, wholly synthetic and company-bound.
             from copy import deepcopy
@@ -199,4 +211,5 @@ def run(*,notifications=False,factors=False,complete_factors=False):
 
 if __name__=='__main__':
     import sys
-    run(notifications='--notifications' in sys.argv,factors='--factors' in sys.argv,complete_factors='--complete-factors' in sys.argv)
+    run(notifications='--notifications' in sys.argv,factors='--factors' in sys.argv,complete_factors='--complete-factors' in sys.argv,
+        revision_journey='--revision-journey' in sys.argv)

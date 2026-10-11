@@ -5,6 +5,16 @@
 Follow [PUBLIC_PLATFORM_DELIVERY.md](PUBLIC_PLATFORM_DELIVERY.md) for the current
 build order. Older entries below are delivery history, not today's next-task plan.
 
+11 October current workflow checkpoint: the complete local history correction →
+grouped two-method revision → reviewed current orders → independent approval →
+matching planning exports passes for both planning calendars. Early incompatible
+input rejection, Persian import labels/units and busy/keyboard guards are fixed
+without new styling or changing the mathematics. See REVISION_JOURNEY_ACCEPTANCE.md.
+Next substantial acceptance chunk: run this same complete path in the private
+cloud with controlled fictional records and cold/warm timing/recovery evidence,
+then close the broader bilingual/mobile entry-to-result matrix. Do not substitute
+more isolated screen audits for that outcome or claim whole-app/client accuracy.
+
 Access foundation is published. Company-separated sales inputs, orders, factors,
 grouped model jobs, results/exports and independent approvals are now implemented
 as a backend milestone. See [COMPANY_FORECAST_DELIVERY.md](COMPANY_FORECAST_DELIVERY.md).

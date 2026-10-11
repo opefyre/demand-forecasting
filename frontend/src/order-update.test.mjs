@@ -60,3 +60,8 @@ test('manual and assistant order updates reuse one fixed dialog while keeping th
  const editor=await readFile(new URL('forecast-orders.jsx',import.meta.url),'utf8');
  assert.match(editor,/review_token:review.review_token/);assert.match(editor,/submitting.current\|\|!canEdit/);assert.match(editor,/editingOrder\|\|!checked/);assert.match(editor,/Complete monthly commitments/);assert.doesNotMatch(editor,/style=/);
 });
+test('saved-order reuse cannot replace inputs during validation or for a read-only actor',async()=>{
+ const editor=await readFile(new URL('forecast-orders.jsx',import.meta.url),'utf8');
+ assert.match(editor,/async function useSaved\(id\)\{if\(!id\|\|busy\|\|!canEdit\|\|Object.values\(reading\).some\(Boolean\)\)return/);
+ assert.match(editor,/<Pick label=\{uiText\('Reuse saved orders'\)\} disabled=\{blocked\}/);
+});

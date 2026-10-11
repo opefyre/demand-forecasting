@@ -26,6 +26,23 @@ test('saved group resumes result jobs with their method and exact order review',
  assert.deepEqual(monthly.groupedUpdateDraft({id:'legacy',methods:['trend']}).methods,[],
   'An older method family needs an explicit current choice, not a hidden or silently replaced model');
 });
+test('update choices reject changed meanings and classifications before the order/model steps',()=>{
+ const base={id:'base',classification:'user_provided',sources:{history:'source'},settings:{unit:'tonnes',sales_measure:'customer_demand',history_grain:'monthly_totals'}};
+ const revised={...base,id:'revised',parent_dataset_id:'base'};
+ const invalid=[{...revised,id:'sample',classification:'synthetic_sample'},
+  ...['unit','month_basis','sales_measure','history_grain','history_calendar','returns_policy','frequency'].map(key=>({...revised,id:key,settings:{...base.settings,[key]:'different'}})),
+  {...revised,id:'scenario',scenario_provenance:{type:'factor'}},{...revised,id:'operations',sources:{operations:'file'}}];
+ assert.deepEqual(monthly.updateInputVersions([base,revised,...invalid],'base').map(row=>row.id),['base','revised']);
+ assert.equal(monthly.comparableUpdateInput(revised,base),true);
+ assert.equal(monthly.comparableUpdateInput(revised,null),false);
+  assert.equal(monthly.comparableUpdateInput({...revised,settings:{...revised.settings,frequency:null}},base),false);
+});
+test('newly uploaded revision checks its contract immediately after save, not at calculation',async()=>{
+ const text=await readFile(new URL('monthly-refresh.jsx',import.meta.url),'utf8');
+ assert.match(text,/renderImport=\{options=>props.renderImport/);
+ assert.match(text,/if\(!comparableUpdateInput\(dataset/);
+ assert.match(text,/It is saved in Data; start a new forecast instead/);
+});
 test('methods share framework controls; factor inputs expose only factor-capable models',()=>{
  const choices=methods.inputMethodChoices({settings:{drivers:['fx']}});
  assert.deepEqual(choices.map(([id])=>id),['model:Ridge + drivers','model:Elastic Net + drivers','model:Histogram gradient boosting']);

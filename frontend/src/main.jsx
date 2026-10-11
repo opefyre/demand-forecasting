@@ -1520,7 +1520,7 @@ function ImportFlow({ initial, onCancel, onSaved, onRun, draftStorageKey, choose
             ? options(role)
             : [["", uiText("Not needed")], ...options(role).slice(1)]
         }
-        label={`${title}${role === "future" ? uiText(" in future factors") : ""}`}
+        label={`${uiText(title)}${role === "future" ? uiText(" in future factors") : ""}`}
         onChange={(v) => change(key, v)}
       />
       {settings[key] && (
@@ -1779,7 +1779,7 @@ function ImportFlow({ initial, onCancel, onSaved, onRun, draftStorageKey, choose
                   <Pick
                     label={uiText("Time interval")}
                     value={settings.frequency}
-                    options={["monthly", "weekly", "daily"]}
+                    options={[["monthly",uiText("Monthly")],["weekly",uiText("Weekly")],["daily",uiText("Daily")]]}
                     onChange={(v) => change("frequency", v)}
                   />
                 </Field>
@@ -2029,7 +2029,7 @@ function ImportFlow({ initial, onCancel, onSaved, onRun, draftStorageKey, choose
                   <dt>{uiText("Forecast")}</dt>
                   <dd>
                     {settings.frequency==='monthly'&&settings.month_basis==='jalali'?planningMonth(review?.forecast_start,'jalali'):date(review?.forecast_start)} –{" "}
-                    {settings.frequency==='monthly'&&settings.month_basis==='jalali'?planningMonth(review?.forecast_end,'jalali'):date(review?.forecast_end)} · {settings.unit}
+                    {settings.frequency==='monthly'&&settings.month_basis==='jalali'?planningMonth(review?.forecast_end,'jalali'):date(review?.forecast_end)} · {unitLabel(settings.unit)}
                   </dd>
                 </div>
                 {!chooseMethodsLater&&<div>

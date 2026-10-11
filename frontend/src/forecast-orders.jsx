@@ -38,7 +38,7 @@ export function ForecastOrders({api,ui,dataset,snapshotId,onReady,canEdit=true,o
   },[dataset?.id,targetRun?.run_id]);
   const fileBusy=useCallback((role,value)=>setReading(r=>({...r,[role]:value})),[]);
   function change(field,value){setInputs(i=>({...i,[field]:value,reviewed:false}));setChecked(false);setReuse('');setReview(null);onReady(null);setError(null);}
-  async function useSaved(id){if(!id)return;setBusy(true);setError(null);
+  async function useSaved(id){if(!id||busy||!canEdit||Object.values(reading).some(Boolean))return;setBusy(true);setError(null);
     try{const saved=await api('/api/sales/inputs/'+id);setInputs({...saved.inputs,run_id:loaded.context.run_id,reviewed:false});setImports({});setReuse(id);setChecked(false);onReady(null);}catch(e){setError(e);}finally{setBusy(false);}}
   async function addCustomer(){if(!customerName.trim())return;setBusy(true);setError(null);
     try{const p=inputs.customers.find(c=>c.sku===product);if(!p)throw Error(uiText('Choose a product'));
@@ -76,7 +76,7 @@ export function ForecastOrders({api,ui,dataset,snapshotId,onReady,canEdit=true,o
     </Disclosure>}
     <OrderReview inputs={inputs} ui={ui} canEdit={!blocked} onEditingChange={setEditingOrder} onChange={rows=>{change('orders',rows);setOrderMode('replace');setImports(v=>{const next={...v};delete next.orders;return next;});}}/>
     <Disclosure title={uiText('Import or reuse orders')}>
-      {!!loaded.saved_orders.length&&<Field title={uiText('Reuse saved orders')}><Pick label={uiText('Reuse saved orders')} value={reuse} onChange={useSaved} options={[["",uiText('Choose saved orders')],...loaded.saved_orders.map(s=>[s.id,s.name+(s.method?' · '+methodName(s.method):'')+' · '+s.as_of])]}/></Field>}
+      {!!loaded.saved_orders.length&&<Field title={uiText('Reuse saved orders')}><Pick label={uiText('Reuse saved orders')} disabled={blocked} value={reuse} onChange={useSaved} options={[["",uiText('Choose saved orders')],...loaded.saved_orders.map(s=>[s.id,s.name+(s.method?' · '+methodName(s.method):'')+' · '+s.as_of])]}/></Field>}
       {targetRun&&initial?.base_snapshot_id&&inputs.order_feed==='complete_snapshot'&&<Field title={uiText('Order file contains')}><Pick label={uiText('Order file contains')} disabled={blocked} value={orderMode} onChange={value=>{setOrderMode(value);setChecked(false);setReview(null);}} options={[["replace",uiText('Full order book')],["changes",uiText('Only changed order lines')]]}/></Field>}
       <SalesSource embedded api={api} ui={ui} role="orders" schema={schema.orders} config={imports.orders} run={loaded.context} templateBase={targetRun?undefined:path+'/template'} fallbackCount={inputs.orders.length} orderMode={orderMode} onBusyChange={fileBusy} setConfig={config=>{setImports(v=>{const next={...v};if(config)next.orders=config;else delete next.orders;return next;});setChecked(false);setReview(null);onReady(null);}}/>
     </Disclosure>

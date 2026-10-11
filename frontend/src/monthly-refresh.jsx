@@ -16,9 +16,18 @@ import {Page,Panel,Stack,Grid,Actions,DefinitionList,Disclosure,Collection,Searc
 import {NewForecast} from './new-forecast.jsx';
 import {FORECAST_CHOICES} from './forecast-start.mjs';
 
+export function comparableUpdateInput(source,base) {
+  if(!source||!base||source.scenario_provenance||source.sources?.operations||source.classification!==base.classification)return false;
+  const defaults={unit:null,frequency:'monthly',month_basis:'gregorian',sales_measure:'unspecified',
+    history_grain:'transactions',history_calendar:'gregorian',returns_policy:'reject'};
+  const setting=(row,key,fallback)=>Object.hasOwn(row.settings||{},key)?row.settings[key]:fallback;
+  return Object.entries(defaults).every(([key,value])=>setting(source,key,value)===setting(base,key,value));
+}
 export function updateInputVersions(datasets,baseId) {
   const byId=new Map(datasets.map(d=>[d.id,d]));
+  const base=byId.get(baseId);
   return datasets.filter(d=>{
+    if(!comparableUpdateInput(d,base))return false;
     const seen=new Set();let current=d;
     while(current&&!seen.has(current.id)){
       if(current.id===baseId)return true;
@@ -45,6 +54,11 @@ export function GroupedUpdate({session,datasets,api,ui,onClose,onSubmitted,...pr
   }
   return <Page title={uiText('Update forecast')} actions={<ui.Button kind="ghost" disabled={working} onClick={onClose}><ArrowLeft/>{uiText('Back to forecast')}</ui.Button>}>
     <NewForecast key={session.id} {...props} datasets={updateInputVersions(datasets,session.base_dataset_id)} api={api} ui={ui}
+      renderImport={options=>props.renderImport({...options,onSaved:async dataset=>{
+        if(!comparableUpdateInput(dataset,datasets.find(row=>row.id===session.base_dataset_id)))
+          throw Error(uiText('This history uses a different data type, calendar, quantity meaning or unit. It is saved in Data; start a new forecast instead.'));
+        return options.onSaved(dataset);
+      }})}
       embedded allowAnother={false} lockCalendar onWorkingChange={setWorking} parentForecastId={session.parent_forecast_id}
       initialDraft={groupedUpdateDraft(session)} draftKey={'demandlab.monthlyForecast.'+session.id} submitGroup={submit}
       prepareImport={async dataset=>{

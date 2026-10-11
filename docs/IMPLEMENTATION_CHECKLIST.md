@@ -1,5 +1,19 @@
 # DemandLab — implementation and acceptance checklist
 
+## 11 October — corrected history through approved exports
+
+- [x] Combined company API/engine journey for both planning calendars: immutable
+  correction, grouped two-method revision, current orders, independent approval,
+  matching Excel/CSV/JSON, filtered customer/product rows and company/role isolation.
+- [x] Early incompatible-history guard, saved-order busy/read-only guard, Persian
+  import labels/units and keyboard-safe approval list refresh using shared components.
+- [x] Actual local browser correction/reload, revised forecast, independent
+  approval/download, Persian report and 390px internal-scroll checks; 340 interface,
+  31 focused backend, 64 cloud-controller tests and build pass.
+- [ ] Repeat the complete journey privately in cloud with cold/warm timings and
+  recovery checks, then complete the wider bilingual/mobile acceptance matrix.
+  See REVISION_JOURNEY_ACCEPTANCE.md. Whole app and client accuracy are not certified.
+
 ## 11 October — bilingual management and connected-input acceptance
 
 - [x] Shared saved-data recovery for notifications/connections; failed reads do
@@ -10,8 +24,9 @@
   restore, two-company isolation and recovery without resend checked in browser.
 - [x] Actual 390px Persian notification dialog and keyboard focus/close checked;
   335 interface, 46 focused backend, 64 cloud tests and build pass.
-- [ ] Full bilingual correction/revision/approval/export and wider mobile journey;
-  see BILINGUAL_MANAGEMENT_ACCEPTANCE.md. Whole app is not accepted.
+- [x] Local correction/revision/approval/export journey completed; see
+  REVISION_JOURNEY_ACCEPTANCE.md for exact scope. Broader cloud/mobile acceptance
+  remains open; see BILINGUAL_MANAGEMENT_ACCEPTANCE.md. Whole app is not accepted.
 
 ## 11 October — cold startup and legacy scenarios
 

@@ -8,7 +8,7 @@ export function DemandReviews({api,ui,canEdit,runs,legacy}){
   const {Button,Table,ErrorBox}=ui;
   const [items,setItems]=useState([]);
   const [selected,setSelected]=useState(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
-  async function load(){setLoading(true);setError('');try{setItems((await api('/api/sales/releases')).releases);}catch(e){setError(e.message);}finally{setLoading(false);}}
+  async function load({background=false}={}){if(!background)setLoading(true);setError('');try{setItems((await api('/api/sales/releases')).releases);}catch(e){setError(e.message);}finally{setLoading(false);}}
   useEffect(()=>{load();},[]);
   const rows=visibleReleases(items,true);
   return <Page title={uiText('Approvals')}>
@@ -19,6 +19,6 @@ export function DemandReviews({api,ui,canEdit,runs,legacy}){
       </Table>}
     </Collection>
     {legacy&&<Disclosure title={uiText("Earlier model-only reviews")}><p>{uiText("These do not include customer orders and are not approved demand exports.")}</p>{legacy}</Disclosure>}
-    <DemandHandoff open={!!selected} releaseId={selected?.id} runId={selected?.run_id} snapshotId={selected?.snapshot_id} api={api} ui={ui} canEdit={canEdit} onClose={()=>{setSelected(null);load();}}/>
+    <DemandHandoff open={!!selected} releaseId={selected?.id} runId={selected?.run_id} snapshotId={selected?.snapshot_id} api={api} ui={ui} canEdit={canEdit} onClose={()=>{setSelected(null);load({background:true});}}/>
   </Page>;
 }

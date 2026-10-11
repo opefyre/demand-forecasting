@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
 import {releaseLabel,releaseDownload,releaseReady,visibleReleases,releaseRequest} from './demand-release-state.mjs';
 test('planning preview and submit share a request ID; changing inputs starts a new attempt',()=>{
   const attempt={current:null};
@@ -34,4 +35,9 @@ test('changing receiver or order policy requires reviewing quantities again',()=
   assert.equal(releaseReady('Other ERP',report,'remaining_forecast'),false);
   assert.equal(releaseReady('ERP',report,'combined_demand'),false);
   assert.equal(releaseReady('ERP',null,'remaining_forecast'),false);
+});
+test('closing approval refreshes the list without unmounting the keyboard return target',async()=>{
+  const source=await readFile(new URL('demand-reviews.jsx',import.meta.url),'utf8');
+  assert.match(source,/if\(!background\)setLoading\(true\)/);
+  assert.match(source,/setSelected\(null\);load\(\{background:true\}\)/);
 });
